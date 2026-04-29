@@ -23,12 +23,16 @@ const Navbar = () => {
     }}>
       <Link to="/">דף הבית</Link>
       
-      {/* Trainers and Admins only */}
+      <Link to="/exercises">תרגילים</Link>
+      
       {(user.role === 'admin' || user.role === 'trainer') && (
         <Link to="/users">ניהול משתמשים</Link>
       )}
 
-      {/* Admins only */}
+      <Link to="/workout-templates">אימונים</Link>
+
+      <Link to="/chats">צ'אטים</Link>
+
       {user.role === 'admin' && (
         <Link to="/groups">ניהול קבוצות</Link>
       )}

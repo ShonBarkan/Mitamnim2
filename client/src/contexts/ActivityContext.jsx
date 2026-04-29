@@ -10,6 +10,7 @@ export const ActivityProvider = ({ children }) => {
 
   /**
    * Fetches performance logs for a specific exercise.
+   * Data now includes workout_session_id and workout_session_name from the backend.
    */
   const fetchLogs = useCallback(async (exerciseId, isTrainerView = false) => {
     setLoading(true);
@@ -17,6 +18,7 @@ export const ActivityProvider = ({ children }) => {
       const response = isTrainerView 
         ? await activityService.getGroupLogs(exerciseId)
         : await activityService.getPersonalLogs(exerciseId);
+      
       setLogs(response.data);
     } catch (err) {
       console.error("ActivityContext: Failed to fetch logs", err);
@@ -25,6 +27,9 @@ export const ActivityProvider = ({ children }) => {
     }
   }, []);
 
+  /**
+   * Adds a manual log entry.
+   */
   const addLog = async (logData) => {
     try {
       const response = await activityService.create(logData);
@@ -36,6 +41,9 @@ export const ActivityProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Updates an existing log entry.
+   */
   const editLog = async (logId, updateData) => {
     try {
       const response = await activityService.update(logId, updateData);
@@ -47,6 +55,9 @@ export const ActivityProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Deletes a log entry.
+   */
   const removeLog = async (logId) => {
     try {
       await activityService.delete(logId);

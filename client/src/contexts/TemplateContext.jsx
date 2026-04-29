@@ -8,7 +8,7 @@ export const TemplateProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
 
   /**
-   * Fetches all templates accessible to the user.
+   * Fetches all workout templates accessible to the current user.
    */
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
@@ -23,7 +23,7 @@ export const TemplateProvider = ({ children }) => {
   }, []);
 
   /**
-   * Creates a new workout template and updates the local state.
+   * Creates a new workout template and updates the local state immediately.
    */
   const addTemplate = async (templateData) => {
     try {
@@ -37,8 +37,8 @@ export const TemplateProvider = ({ children }) => {
   };
 
   /**
-   * Updates an existing template and syncs the local state.
-   * Useful for partial updates (e.g., just changing scheduled_hour).
+   * Updates an existing template and synchronizes the local state.
+   * Performs a partial update mapping to ensure UI consistency.
    */
   const editTemplate = async (templateId, updateData) => {
     try {
@@ -54,7 +54,7 @@ export const TemplateProvider = ({ children }) => {
   };
 
   /**
-   * Deletes a template and updates the local state.
+   * Deletes a template and removes it from the local state.
    */
   const removeTemplate = async (templateId) => {
     try {
@@ -72,7 +72,7 @@ export const TemplateProvider = ({ children }) => {
       loading, 
       fetchTemplates, 
       addTemplate, 
-      editTemplate, // Added to the context provider
+      editTemplate, 
       removeTemplate 
     }}>
       {children}

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useState, useCallback } from 'react';
 import { exerciseService } from '../services/exerciseService';
 
 export const ExerciseContext = createContext();
@@ -8,7 +8,7 @@ export const ExerciseProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
 
   /**
-   * Fetches all exercises including 'has_children' and 'has_params' flags.
+   * Fetches all exercises including hierarchy flags.
    */
   const fetchExercises = useCallback(async () => {
     setLoading(true);
@@ -23,12 +23,34 @@ export const ExerciseProvider = ({ children }) => {
   }, []);
 
   /**
-   * Utility: Recursively flattens the tree for hierarchical selectors (Dropdowns).
-   * Filters for categories (exercises that have children).
+   * Utility: Builds a breadcrumb path for a specific exercise.
+   * Useful for showing "Chest > Bench Press" in search results.
+   */
+  const getExercisePath = useCallback((exercise, allNodes) => {
+    if (!exercise || !allNodes) return "";
+    let path = [];
+    let current = exercise;
+
+    // Traverse up the tree using parent_id
+    while (current && current.parent_id) {
+      const parent = allNodes.find(n => n.id == current.parent_id);
+      if (parent) {
+        path.unshift(parent.name);
+        current = parent;
+      } else {
+        break;
+      }
+    }
+    return path.join(" > ");
+  }, []);
+
+  /**
+   * Utility: Recursively flattens categories for hierarchical dropdowns.
+   * Uses loose equality (==) to handle string/number ID mismatches.
    */
   const getCategoryTree = useCallback((list, parentId = null, depth = 0) => {
     let items = [];
-    const categories = list.filter(ex => ex.parent_id === parentId && ex.has_children);
+    const categories = list.filter(ex => ex.parent_id == parentId && ex.has_children);
 
     categories.forEach(cat => {
       items.push({
@@ -44,22 +66,31 @@ export const ExerciseProvider = ({ children }) => {
   }, []);
 
   /**
-   * Utility: Recursively finds all leaf nodes (exercises with no children) 
-   * under a specific parent ID. Used for populating template banks.
+   * Utility: Recursively finds all exercises (leaves) under a specific branch.
+   * Enriches each exercise with its full category path.
    */
   const getAllLeafDescendants = useCallback((list, pid) => {
+    if (!list || list.length === 0) return [];
+    
     let result = [];
-    const children = list.filter(ex => ex.parent_id === pid);
+    // Use loose equality (==) for robust ID matching
+    const children = list.filter(ex => ex.parent_id == pid);
     
     children.forEach(child => {
       if (!child.has_children) {
-        result.push(child);
+        // Enrich the leaf node with its path before adding
+        const enrichedChild = {
+          ...child,
+          path: getExercisePath(child, list)
+        };
+        result.push(enrichedChild);
       } else {
+        // Keep searching deeper
         result = [...result, ...getAllLeafDescendants(list, child.id)];
       }
     });
     return result;
-  }, []);
+  }, [getExercisePath]);
 
   const addExercise = async (data) => {
     try {
@@ -93,7 +124,6 @@ export const ExerciseProvider = ({ children }) => {
     }
   };
 
-  // Expose the context values
   const value = {
     exercises,
     loading,

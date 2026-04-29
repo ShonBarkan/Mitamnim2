@@ -2,41 +2,31 @@ import api from './api';
 
 /**
  * Service for managing workout templates.
- * Matches the updated FastAPI backend with renamed fields:
- * - expected_duration_time
- * - scheduled_hour
+ * Aligned with the FastAPI backend structure.
  */
 export const templateService = {
   /**
    * Fetches all templates accessible to the current user.
-   * Filtering logic is handled server-side.
+   * The backend handles role-based filtering (Trainer vs Trainee).
    */
-  getAll: async () => {
-    return await api.get('/workout-templates');
-  },
+  getAll: () => api.get('/workout-templates'),
 
   /**
    * Creates a new workout template.
    * @param {Object} templateData - Should include name, exercises_config, etc.
    */
-  create: async (templateData) => {
-    return await api.post('/workout-templates', templateData);
-  },
+  create: (templateData) => api.post('/workout-templates', templateData),
 
   /**
    * Updates an existing template using PATCH for partial updates.
-   * @param {number} templateId - The ID of the template to update.
+   * @param {number|string} templateId - The ID of the template to update.
    * @param {Object} updateData - The fields to be updated.
    */
-  update: async (templateId, updateData) => {
-    return await api.patch(`/workout-templates/${templateId}`, updateData);
-  },
+  update: (templateId, updateData) => api.patch(`/workout-templates/${templateId}`, updateData),
 
   /**
    * Deletes a specific template by ID.
-   * @param {number} templateId 
+   * @param {number|string} templateId 
    */
-  delete: async (templateId) => {
-    return await api.delete(`/workout-templates/${templateId}`);
-  }
+  delete: (templateId) => api.delete(`/workout-templates/${templateId}`)
 };

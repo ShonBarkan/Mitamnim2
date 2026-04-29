@@ -9,18 +9,38 @@ export const MessageProvider = ({ children }) => {
   const { socket } = useContext(SocketContext);
   const { user } = useContext(AuthContext);
   
-  // State: object where keys are targetIds (UUIDs) and values are arrays of message objects
   const [messagesByTarget, setMessagesByTarget] = useState({});
-  // State for sticky banners (general group banner and personal banner)
+  const [contacts, setContacts] = useState([]); // List of chat contacts
   const [mainMessages, setMainMessages] = useState({ general: null, personal: null });
-  // Tracking loading status for each specific targetId
-  const [loadingStates, setLoadingStates] = useState({});
+  const [loadingStates, setLoadingStates] = useState({ history: {}, contacts: false });
 
-  // Fetch message history for a specific target (Group UUID or User UUID)
+  /**
+   * Fetches the list of contacts (trainers/trainees from the same group)
+   */
+  const fetchContacts = useCallback(async () => {
+    if (!user) return;
+    setLoadingStates(prev => ({ ...prev, contacts: true }));
+    try {
+      const response = await messageService.getContacts();
+      setContacts(response.data);
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, contacts: false }));
+    }
+  }, [user]);
+
+  /**
+   * Fetches message history for a specific target (User ID or Group ID)
+   */
   const fetchHistory = useCallback(async (targetId) => {
     if (!targetId) return;
     
-    setLoadingStates(prev => ({ ...prev, [targetId]: true }));
+    setLoadingStates(prev => ({ 
+      ...prev, 
+      history: { ...prev.history, [targetId]: true } 
+    }));
+
     try {
       const response = await messageService.getHistory(targetId);
       setMessagesByTarget(prev => ({
@@ -30,11 +50,16 @@ export const MessageProvider = ({ children }) => {
     } catch (error) {
       console.error(`Error fetching history for ${targetId}:`, error);
     } finally {
-      setLoadingStates(prev => ({ ...prev, [targetId]: false }));
+      setLoadingStates(prev => ({ 
+        ...prev, 
+        history: { ...prev.history, [targetId]: false } 
+      }));
     }
   }, []);
 
-  // Fetch initial sticky messages for banners
+  /**
+   * Fetches sticky/main messages for the announcement board
+   */
   const fetchMainMessages = useCallback(async () => {
     try {
       const response = await messageService.getMainMessages();
@@ -48,7 +73,6 @@ export const MessageProvider = ({ children }) => {
     }
   }, []);
 
-  // CRUD Actions: Send, Update, and Delete wrappers for messageService
   const sendMessage = async (type, content, targetId, isMain) => {
     return await messageService.createMessage(content, type, targetId, isMain);
   };
@@ -61,7 +85,9 @@ export const MessageProvider = ({ children }) => {
     return await messageService.deleteMessage(messageId);
   };
 
-  // Centralized WebSocket event handler
+  /**
+   * WebSocket listener for real-time message synchronization
+   */
   useEffect(() => {
     if (!socket || !user) return;
 
@@ -69,21 +95,27 @@ export const MessageProvider = ({ children }) => {
       const payload = JSON.parse(event.data);
       const { action, data } = payload;
 
-      // Determine the targetKey to find the correct "folder" in messagesByTarget
-      // For general: key is the group_id
-      // For personal: key is the ID of the other participant
-      const targetKey = data.message_type === 'general' 
-        ? data.group_id 
-        : (data.sender_id === user.id ? data.recipient_id : data.sender_id);
-
-      if (!targetKey) return;
-
       setMessagesByTarget(prev => {
+        let targetKey = null;
+
+        if (data.message_type) {
+          // Calculate conversation key: group_id for general, other party's ID for personal
+          targetKey = data.message_type === 'general' 
+            ? data.group_id 
+            : (data.sender_id === user.id ? data.recipient_id : data.sender_id);
+        } else {
+          // If metadata is missing (e.g., DELETE action), find which conversation contains the message
+          targetKey = Object.keys(prev).find(key => 
+            prev[key].some(m => m.id === data.id)
+          );
+        }
+
+        if (!targetKey) return prev;
+
         const currentList = prev[targetKey] || [];
 
         switch (action) {
           case "MESSAGE_CREATED":
-            // Avoid adding a message already in the list (prevents API/WS race conditions)
             if (currentList.some(m => m.id === data.id)) return prev;
             return {
               ...prev,
@@ -91,14 +123,12 @@ export const MessageProvider = ({ children }) => {
             };
 
           case "MESSAGE_UPDATED":
-            // Update the specific message within the relevant list
             return {
               ...prev,
               [targetKey]: currentList.map(m => m.id === data.id ? { ...m, ...data } : m)
             };
 
           case "MESSAGE_DELETED":
-            // Remove the deleted message from the relevant list
             return {
               ...prev,
               [targetKey]: currentList.filter(m => m.id !== data.id)
@@ -109,23 +139,34 @@ export const MessageProvider = ({ children }) => {
         }
       });
 
-      // Synchronize sticky banners if the modified message affects current main messages
-      const isCurrentlyMain = mainMessages.general?.id === data.id || mainMessages.personal?.id === data.id;
-      if (data.is_main || isCurrentlyMain || action === "MESSAGE_DELETED") {
+      // Synchronize announcement board if the message is sticky or deleted
+      if (action === "MESSAGE_DELETED" || data.is_main) {
         fetchMainMessages();
       }
     };
 
     socket.addEventListener('message', handleMessage);
     return () => socket.removeEventListener('message', handleMessage);
-  }, [socket, user, fetchMainMessages, mainMessages]);
+  }, [socket, user, fetchMainMessages]);
+
+  /**
+   * Initial data fetch on component mount or user change
+   */
+  useEffect(() => {
+    if (user) {
+      fetchContacts();
+      fetchMainMessages();
+    }
+  }, [user, fetchContacts, fetchMainMessages]);
 
   return (
     <MessageContext.Provider value={{ 
       messagesByTarget, 
+      contacts,
       mainMessages, 
       setMainMessages,
       fetchHistory, 
+      fetchContacts,
       fetchMainMessages,
       sendMessage,
       updateMessage,
