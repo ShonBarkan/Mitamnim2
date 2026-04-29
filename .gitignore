@@ -38,3 +38,33 @@ ENV/
 ### OS Files ###
 .DS_Store
 Thumbs.db
+
+### Node.js (Frontend - React) ###
+node_modules/
+jspm_packages/
+.connected
+.eslintcache
+.stylelintcache
+build/
+dist/
+out/
+.next/
+.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+### Docker ###
+.docker/
+docker-compose.override.yml
+
+### Logs and databases ###
+*.log
+logs/
+*.sqlite
+postgres-data/
+pgdata/
+
+### Production / Builds ###
+/server/dist/
+/client/build/
