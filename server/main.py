@@ -82,39 +82,51 @@ app.add_middleware(
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
     """
-    Handles real-time WebSocket connections.
-    Authenticated via JWT token passed as a query parameter.
+    Handles real-time WebSocket lifecycle: Authentication -> Accept -> Registration -> Listen.
     """
+    # Create a manual DB session for this long-lived connection
     db = SessionLocal()
+    user = None
+
     try:
-        # Authenticate user using the shared socket manager logic
+        # 1. Authenticate user using the token BEFORE accepting the connection
         user = socket_manager.authenticate_websocket(token, db)
 
         if not user:
-            # Reject connection if authentication fails
+            # Reject if authentication fails. Accept first to send the close code.
             await websocket.accept()
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
 
-        # Register the successful connection in the global manager
+        # 2. Accept the connection (Exactly once)
+        await websocket.accept()
+
+        # 3. Register the connection in the global manager
         await socket_manager.connect(user.id, websocket, user.group_id, user.role)
-        print(f"WebSocket: User {user.username} connected.")
+        print(f"WebSocket: User {user.username} connected and registered.")
 
         try:
             while True:
-                # Keep the connection alive; listener is handled by the socket manager
+                # 4. Keep alive: Wait for incoming data or heartbeats
+                # This prevents the function from returning and closing the socket
                 await websocket.receive_text()
         except WebSocketDisconnect:
-            # Clean up on client disconnection
-            socket_manager.disconnect(user.id)
+            # Clean up when client disconnects
+            socket_manager.disconnect(user.id, websocket)
             print(f"WebSocket: User {user.username} disconnected.")
+        except Exception as e:
+            # Catch unexpected socket errors
+            socket_manager.disconnect(user.id, websocket)
+            print(f"WebSocket Error for {user.username}: {e}")
 
+    except Exception as outer_e:
+        print(f"WebSocket Setup Error: {outer_e}")
     finally:
+        # 5. Always close the DB session to prevent memory leaks
         db.close()
 
-
 # --- Register Routes ---
-# Ensure all domain-specific routers are included
+# All domain-specific routers are registered here
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(groups_router)
@@ -134,6 +146,6 @@ async def root():
 
 
 if __name__ == "__main__":
-    # Dynamically resolve the module name to allow auto-reload functionality
+    # Dynamically resolve the script name for uvicorn reloader
     script_name = os.path.basename(__file__).replace(".py", "")
     uvicorn.run(f"{script_name}:app", host="0.0.0.0", port=8000, reload=True)

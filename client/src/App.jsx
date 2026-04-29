@@ -16,6 +16,8 @@ import WorkoutTemplatePage from './pages/WorkoutTemplatePage';
 import CreateWorkoutTemplatePage from './pages/CreateWorkoutTemplatePage';
 import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
 import ChatsPage from './pages/ChatsPage';
+import SettingsPage from './pages/SettingsPage';
+import CoachMessageManager from './pages/CoachMessageManager';
 
 function App() {
   return (
@@ -81,6 +83,20 @@ function App() {
                 <ChatsPage />
               </ProtectedRoute>
             } />
+
+            <Route path="/settings" element={
+                <ProtectedRoute allowedRoles={['admin', 'trainer']}>
+                  <SettingsPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route path="/coach-messages" element={
+                <ProtectedRoute allowedRoles={['admin', 'trainer']}>
+                  <CoachMessageManager />
+                </ProtectedRoute>
+              } 
+            />
           </Routes>
         </div>
       </Router>

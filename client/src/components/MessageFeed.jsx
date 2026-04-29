@@ -1,18 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMessages } from '../hooks/useMessages';
 import { useToast } from '../hooks/useToast';
+import { useSocket } from '../hooks/useSocket';
 
 /**
  * MessageFeed Component
- * Displays a list of messages with Hebrew UI, day separators, and CRUD operations.
+ * Handles real-time messaging using WebSockets and provides CRUD operations.
  */
 const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
   const [newMsg, setNewMsg] = useState('');
   const [deleteModal, setDeleteModal] = useState({ open: false, msgId: null });
   const messagesEndRef = useRef(null);
-  const { showToast } = useToast();
   
-  const { messages, sendMessage, deleteMessage, updateMessage, loading } = useMessages(targetId);
+  const { showToast } = useToast();
+  const { socket } = useSocket();
+  
+  // Assuming useMessages returns setMessages to update state in real-time
+  const { messages, setMessages, sendMessage, deleteMessage, updateMessage, loading } = useMessages(targetId);
+
+  /**
+   * Real-time listener for WebSocket events
+   */
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleSocketMessage = (event) => {
+      const payload = JSON.parse(event.data);
+      const { action, data } = payload;
+
+      // Filter: Only handle messages related to the current chat
+      const isRelevant = 
+        (type === 'general' && data.group_id === targetId) || 
+        (type === 'personal' && (data.sender_id === targetId || data.recipient_id === targetId));
+
+      if (!isRelevant) return;
+
+      switch (action) {
+        case 'MESSAGE_CREATED':
+          // Add new message if it doesn't already exist in state
+          setMessages((prev) => {
+            if (prev.find(m => m.id === data.id)) return prev;
+            return [...prev, data];
+          });
+          break;
+
+        case 'MESSAGE_UPDATED':
+          setMessages((prev) => 
+            prev.map(m => m.id === data.id ? { ...m, content: data.content } : m)
+          );
+          break;
+
+        case 'MESSAGE_DELETED':
+          setMessages((prev) => prev.filter(m => m.id !== data.id));
+          break;
+
+        default:
+          break;
+      }
+    };
+
+    socket.addEventListener('message', handleSocketMessage);
+    return () => socket.removeEventListener('message', handleSocketMessage);
+  }, [socket, targetId, type, setMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -55,9 +104,6 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
     }
   };
 
-  /**
-   * Helper to format time strings
-   */
   const formatTime = (dateString) => {
     return new Date(dateString).toLocaleTimeString('he-IL', {
       hour: '2-digit',
@@ -65,9 +111,6 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
     });
   };
 
-  /**
-   * Helper to format date labels for day separators
-   */
   const formatDateLabel = (dateString) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -86,12 +129,10 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
 
   return (
     <section style={styles.container}>
-      {/* Header */}
       <div style={styles.header}>
         <h3 style={styles.headerTitle}>{title}</h3>
       </div>
       
-      {/* Messages List Area */}
       <div style={styles.messagesArea}>
         {loading ? (
           <p style={styles.statusText}>טוען...</p>
@@ -99,7 +140,6 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
           <p style={styles.statusText}>אין הודעות בשיחה זו</p>
         ) : (
           messages.map((msg, index) => {
-            // Logic to determine if a date separator is needed
             const msgDate = new Date(msg.created_at).toDateString();
             const prevMsgDate = index > 0 ? new Date(messages[index - 1].created_at).toDateString() : null;
             const isNewDay = msgDate !== prevMsgDate;
@@ -159,7 +199,6 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Section */}
       <div style={styles.inputArea}>
         <input 
           type="text" 
@@ -178,7 +217,6 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
         </button>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {deleteModal.open && (
         <div style={styles.overlay}>
           <div style={styles.modal}>

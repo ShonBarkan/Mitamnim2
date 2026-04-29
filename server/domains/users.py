@@ -11,7 +11,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 # Internal imports
 from db.database import Base, get_db
-# Ensure middlewares/auth.py uses local imports for User to avoid circular issues
 from middlewares.auth import AuthService, get_current_user
 
 
@@ -20,7 +19,6 @@ from middlewares.auth import AuthService, get_current_user
 class User(Base):
     """
     SQLAlchemy model representing a User in the system.
-    Handles profile information, authentication credentials, and group association.
     """
     __tablename__ = "users"
 
@@ -57,6 +55,7 @@ class UserBase(BaseModel):
     @field_validator("email", "username", "first_name", "second_name", "phone", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
+        """Converts empty strings to None to prevent validation errors."""
         return None if v == "" else v
 
 
@@ -80,6 +79,7 @@ class UserUpdate(BaseModel):
     @field_validator("email", "username", "first_name", "second_name", "phone", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
+        """Converts empty strings to None to prevent validation errors."""
         return None if v == "" else v
 
 
@@ -132,16 +132,13 @@ class UserService:
 
 # --- Router Setup ---
 
-# General router for /users/ paths
 router = APIRouter(prefix="/users", tags=["Users"])
-
-# Auth router for top-level /login
 auth_router = APIRouter(tags=["Authentication"])
 
 
 @auth_router.post("/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """ Authenticates user and returns JWT. Accessible at /login. """
+    """Authenticates user and returns JWT access token."""
     auth_service = AuthService(db)
     token_data = await auth_service.authenticate_user(form_data)
     if not token_data:
@@ -158,11 +155,7 @@ async def get_group_users(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """
-    Fetches all users in a group. Fixes the 405 error in the Frontend.
-    Accessible at /users/group?target_group_id=...
-    """
-    # Permission check: Admin or member of the same group
+    """Fetches all users belonging to a specific group."""
     if current_user.role != "admin" and current_user.group_id != target_group_id:
         raise HTTPException(status_code=403, detail="Access denied to group members")
 
@@ -172,7 +165,7 @@ async def get_group_users(
 
 @router.get("/me", response_model=UserOut)
 async def get_my_profile(current_user: User = Depends(get_current_user)):
-    """ Returns current user profile. Accessible at /users/me. """
+    """Returns the profile of the currently logged-in user."""
     return current_user
 
 
@@ -182,7 +175,7 @@ async def create_new_user(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """ Creates a new user with role validation. """
+    """Creates a new user with context-aware role and group validation."""
     user_service = UserService(db)
     auth_service = AuthService(db)
 
@@ -211,7 +204,7 @@ async def update_existing_user(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """ Updates user profile details. """
+    """Updates user profile details with permission checks for sensitive fields."""
     user_service = UserService(db)
     auth_service = AuthService(db)
 
@@ -223,14 +216,19 @@ async def update_existing_user(
     is_self = current_user.id == user_id
     is_trainer_of_group = (current_user.role == "trainer" and db_user.group_id == current_user.group_id)
 
+    # Basic authorization check
     if not (is_admin or is_self or is_trainer_of_group):
         raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = user_update.model_dump(exclude_unset=True)
 
+    # Prevent non-admins from CHANGING roles or groups
     if not is_admin:
-        if "role" in update_data or "group_id" in update_data:
-            raise HTTPException(status_code=403, detail="Only admins can change roles/groups")
+        if "role" in update_data and update_data["role"] != db_user.role:
+            raise HTTPException(status_code=403, detail="Only admins can change roles")
+
+        if "group_id" in update_data and update_data["group_id"] != db_user.group_id:
+            raise HTTPException(status_code=403, detail="Only admins can move users between groups")
 
     if "password" in update_data:
         update_data["password"] = auth_service.get_password_hash(update_data["password"])
@@ -244,13 +242,14 @@ async def remove_user(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """ Permanently removes a user. """
+    """Permanently removes a user from the system."""
     user_service = UserService(db)
     db_user = user_service.get_user_by_id(user_id)
 
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Admins or Trainers within the same group can delete users
     if current_user.role == "admin" or (current_user.role == "trainer" and db_user.group_id == current_user.group_id):
         user_service.delete_user(db_user)
         return {"message": "User deleted successfully"}

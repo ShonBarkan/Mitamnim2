@@ -68,18 +68,6 @@ const LandingPage = () => {
       <PersonalInfo user={user} />
       <MainBanners mainMessages={mainMessages} />
 
-      {isTrainer && (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: '1fr 1fr', 
-          gap: '30px', 
-          marginTop: '30px' 
-        }}>
-          <ParameterManager />
-          <ExerciseTreeManager />
-        </div>
-      )}
-
       <hr style={{ margin: '40px 0', border: '0', borderTop: '1px solid #eee' }} />
 
       {/* --- ANNOUNCEMENT BOARD ONLY --- */}
