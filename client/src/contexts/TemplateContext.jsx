@@ -1,14 +1,20 @@
 import React, { createContext, useState, useCallback } from 'react';
-import { templateService } from '../services/templateService';
+import templateService from '../services/templateService';
 
 export const TemplateContext = createContext();
 
+/**
+ * Provider for managing workout templates.
+ * Coordinates with templateService to persist exercise configurations 
+ * including manual and calculated parameter values.
+ */
 export const TemplateProvider = ({ children }) => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /**
-   * Fetches all workout templates accessible to the current user.
+   * Fetches all workout templates for the current group.
+   * Handles role-based access logic via the backend.
    */
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
@@ -23,7 +29,8 @@ export const TemplateProvider = ({ children }) => {
   }, []);
 
   /**
-   * Creates a new workout template and updates the local state immediately.
+   * Creates a new workout template.
+   * Expects templateData with simplified exercises_config (parameter_id and value only).
    */
   const addTemplate = async (templateData) => {
     try {
@@ -37,8 +44,8 @@ export const TemplateProvider = ({ children }) => {
   };
 
   /**
-   * Updates an existing template and synchronizes the local state.
-   * Performs a partial update mapping to ensure UI consistency.
+   * Updates an existing template.
+   * Merges server response with local state to ensure UI consistency.
    */
   const editTemplate = async (templateId, updateData) => {
     try {
@@ -54,7 +61,7 @@ export const TemplateProvider = ({ children }) => {
   };
 
   /**
-   * Deletes a template and removes it from the local state.
+   * Deletes a template and synchronizes the local UI state.
    */
   const removeTemplate = async (templateId) => {
     try {
@@ -79,3 +86,5 @@ export const TemplateProvider = ({ children }) => {
     </TemplateContext.Provider>
   );
 };
+
+export default TemplateProvider;

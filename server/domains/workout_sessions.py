@@ -1,9 +1,9 @@
 import uuid
-from datetime import datetime, timedelta, timezone  # Added timezone
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import List, Optional, Dict
 
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, Session
 from pydantic import BaseModel, ConfigDict
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,7 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from db.database import Base, get_db
 from middlewares.auth import get_current_user
 from domains.users import User
-from domains.activities import ActivityLog, PerformanceEntry
+from domains.activities import ActivityLog
+from domains.parameters import Parameter  # Assuming Parameter model exists in parameters.py
 
 
 # --- Database Model ---
@@ -20,6 +21,8 @@ from domains.activities import ActivityLog, PerformanceEntry
 class WorkoutSession(Base):
     """
     SQLAlchemy model representing a completed workout session.
+    Logs contain performance_data structured as List of Lists:
+    Each inner list represents a 'Set' containing {parameter_id, value}.
     """
     __tablename__ = "workout_sessions"
 
@@ -27,7 +30,6 @@ class WorkoutSession(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     template_id = Column(Integer, ForeignKey("workout_templates.id", ondelete="SET NULL"), nullable=True)
 
-    # Changed default to a callable that ensures UTC awareness if needed by DB
     start_time = Column(DateTime(timezone=True), server_default=func.now())
     end_time = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -43,9 +45,16 @@ class WorkoutSession(Base):
 
 # --- Pydantic Schemas ---
 
+class ParamValueSchema(BaseModel):
+    """Simplified parameter storage: only ID and Value."""
+    parameter_id: int
+    value: str
+
+
 class PerformedExerciseSchema(BaseModel):
     exercise_id: int
-    performance_data: List[PerformanceEntry]
+    # Each list inside performance_data represents a 'Set'
+    performance_data: List[List[ParamValueSchema]]
 
 
 class WorkoutSessionFinish(BaseModel):
@@ -76,23 +85,44 @@ class WorkoutSessionService:
     def __init__(self, db: Session):
         self.db = db
 
-    def finish_workout(self, user_id: uuid.UUID, data: WorkoutSessionFinish) -> WorkoutSession:
+    def _calculate_virtual_value(self, calc_type: str, sources: List[float], multiplier: float) -> str:
+        """Core math engine for dependent parameters."""
+        try:
+            if calc_type == 'sum':
+                res = sum(sources)
+            elif calc_type == 'subtract':
+                res = sources[0] - (sources[1] if len(sources) > 1 else 0)
+            elif calc_type == 'multiply':
+                res = 1
+                for v in sources: res *= v
+            elif calc_type == 'divide':
+                res = sources[0] / sources[1] if len(sources) > 1 and sources[1] != 0 else 0
+            elif calc_type == 'percentage':
+                res = (sources[0] / sources[1] * 100) if len(sources) > 1 and sources[1] != 0 else 0
+            elif calc_type == 'conversion':
+                res = sources[0] * (multiplier or 1)
+            else:
+                res = 0
+
+            return f"{res:.2f}".rstrip('0').rstrip('.')
+        except Exception:
+            return "0"
+
+    def finish_workout(self, user: User, data: WorkoutSessionFinish) -> WorkoutSession:
         if not data.performed_exercises:
-            raise ValueError("Cannot finish a workout with no exercises.")
+            raise ValueError("לא ניתן לסיים אימון ללא תרגילים")
 
-        # FIX: Ensure end_time is timezone-aware (UTC) to match incoming Pydantic datetime
-        # This prevents the "can't subtract offset-naive and offset-aware datetimes" error.
+        # Fetch all parameters to identify virtual ones and their logic
+        all_params = {p.id: p for p in self.db.query(Parameter).filter(Parameter.group_id == user.group_id).all()}
+
         end_time = datetime.now(timezone.utc)
-
         duration_str = data.actual_duration
         if not duration_str:
-            # Now subtraction works because both are offset-aware
             delta = end_time - data.start_time
-            duration_str = f"{delta.seconds // 60} min"
+            duration_str = f"{delta.seconds // 60} דקות"
 
-        # Create the session record
         db_session = WorkoutSession(
-            user_id=user_id,
+            user_id=user.id,
             template_id=data.template_id,
             start_time=data.start_time,
             end_time=end_time,
@@ -102,15 +132,44 @@ class WorkoutSessionService:
         self.db.add(db_session)
         self.db.flush()
 
-        # Create activity logs
-        for i, exercise in enumerate(data.performed_exercises):
+        for exercise in data.performed_exercises:
+            processed_logs = []
+
+            for set_data in exercise.performance_data:
+                # Convert input to a dictionary for easy source lookup
+                current_set_values = {p.parameter_id: p.value for p in set_data}
+
+                # We need to ensure all parameters (including virtual ones) are stored
+                # We iterate over the exercise's required parameters (logic here simplified)
+                final_set = []
+
+                # First, add the provided raw values
+                for p in set_data:
+                    final_set.append(p.model_dump())
+
+                # Second, check for missing virtual parameters that depend on these raw values
+                for p_id, p_meta in all_params.items():
+                    if p_meta.is_virtual and p_id not in current_set_values:
+                        source_ids = p_meta.source_parameter_ids or []
+
+                        # If all sources are present in the current set, calculate the virtual param
+                        if all(sid in current_set_values for sid in source_ids):
+                            source_values = [float(current_set_values[sid]) for sid in source_ids]
+                            calculated_val = self._calculate_virtual_value(
+                                p_meta.calculation_type,
+                                source_values,
+                                p_meta.multiplier
+                            )
+                            final_set.append({"parameter_id": p_id, "value": calculated_val})
+
+                processed_logs.append(final_set)
 
             log_entry = ActivityLog(
                 exercise_id=exercise.exercise_id,
-                user_id=user_id,
+                user_id=user.id,
                 workout_session_id=db_session.id,
                 timestamp=data.start_time,
-                performance_data=[p.model_dump() for p in exercise.performance_data]
+                performance_data=processed_logs  # JSONB List of Lists of Dicts
             )
             self.db.add(log_entry)
 
@@ -124,7 +183,7 @@ class WorkoutSessionService:
         ).order_by(WorkoutSession.start_time.desc()).all()
 
         for s in sessions:
-            s.template_name = s.template.name if s.template else "Custom Workout"
+            s.template_name = s.template.name if s.template else "אימון מותאם אישית"
             s.exercise_count = len(s.logs)
 
         return sessions
@@ -143,13 +202,12 @@ async def finish_workout_session(
 ):
     service = WorkoutSessionService(db)
     try:
-        return service.finish_workout(current_user.id, data)
+        return service.finish_workout(current_user, data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        # Catching other errors (like the previous TypeError) to provide context
-        print(f"Internal Server Error: {e}")
-        raise HTTPException(status_code=500, detail="An internal error occurred while saving the workout.")
+        print(f"Server Error: {e}")
+        raise HTTPException(status_code=500, detail="שגיאה פנימית בשמירת האימון")
 
 
 @router.get("/history", response_model=List[WorkoutSessionOut])

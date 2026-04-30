@@ -3,22 +3,18 @@ import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import TemplateExerciseItem from './TemplateExerciseItem';
 
-/**
- * Handles the sortable list of selected exercises in the workout template.
- * Manages the DND context and passes configuration handlers to each item.
- */
 const TemplateExerciseConfig = ({ 
   exercisesConfig, 
   sensors, 
   handleDragEnd, 
   updateSets, 
-  updateParamValue, 
+  onUpdateExerciseParams, // Ensure this name matches
   removeExercise, 
   styles 
 }) => {
   return (
     <>
-      <h4 style={styles.bankHeader}>Workout Exercise Order (Drag to reorder):</h4>
+      <h4 style={styles.bankHeader}>סדר תרגילים באימון (גרור לשינוי סדר):</h4>
       
       <DndContext 
         sensors={sensors} 
@@ -36,14 +32,15 @@ const TemplateExerciseConfig = ({
                 item={item} 
                 index={index}
                 onUpdateSets={updateSets}
-                onUpdateParamValue={updateParamValue}
+                // Pass the function with the NEW name
+                onUpdateExerciseParams={onUpdateExerciseParams} 
                 onRemove={removeExercise}
               />
             ))}
             
             {exercisesConfig.length === 0 && (
               <div style={styles.emptyConfig}>
-                Add exercises from the bank above to build your workout
+                יש להוסיף תרגילים מהבנק למעלה כדי לבנות את האימון
               </div>
             )}
           </div>

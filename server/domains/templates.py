@@ -5,7 +5,7 @@ from typing import List, Optional
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, Session
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from fastapi import APIRouter, Depends, HTTPException, status
 
 # Infrastructure and security imports
@@ -21,7 +21,8 @@ from domains.groups import Group
 class WorkoutTemplate(Base):
     """
     SQLAlchemy model representing a reusable workout plan.
-    Stores exercise configurations and scheduling data as JSONB.
+    exercises_config stores exercise_id, num_of_sets, and a list of
+    parameter IDs with their manual or calculated values.
     """
     __tablename__ = "workout_templates"
 
@@ -31,20 +32,19 @@ class WorkoutTemplate(Base):
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
 
-    # JSONB field storing List[ExerciseInTemplate] structure
+    # JSONB structure: List[ExerciseInTemplate]
     exercises_config = Column(JSONB, nullable=False)
 
-    # JSONB field storing a list of user IDs (strings) authorized for this template
+    # JSONB structure: List[str] (User UUIDs)
     for_users = Column(JSONB, server_default='[]')
 
-    # JSONB field storing integers representing days of the week (0-6)
+    # JSONB structure: List[int] (0-6)
     scheduled_days = Column(JSONB, server_default='[]')
 
     expected_duration_time = Column(String, nullable=True)
     scheduled_hour = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationships
     group = relationship("Group")
     parent_exercise = relationship("ExerciseTree")
 
@@ -52,15 +52,19 @@ class WorkoutTemplate(Base):
 # --- Pydantic Schemas ---
 
 class ParamInExercise(BaseModel):
-    """Schema for a specific parameter setting within a template exercise."""
+    """
+    Schema for a specific parameter within an exercise.
+    As requested, stores only the ID and the value (manual or calculated).
+    """
     parameter_id: int
-    parameter_name: str
-    parameter_unit: str
     value: str
 
 
 class ExerciseInTemplate(BaseModel):
-    """Schema for an exercise configuration within a workout template."""
+    """
+    Configuration for an exercise within a template.
+    Includes the exercise identity, sets, and its specific parameter values.
+    """
     exercise_id: int
     exercise_name: str
     num_of_sets: int
@@ -68,7 +72,6 @@ class ExerciseInTemplate(BaseModel):
 
 
 class WorkoutTemplateBase(BaseModel):
-    """Shared base schema for workout templates."""
     name: str
     description: Optional[str] = None
     parent_exercise_id: Optional[int] = None
@@ -80,12 +83,10 @@ class WorkoutTemplateBase(BaseModel):
 
 
 class WorkoutTemplateCreate(WorkoutTemplateBase):
-    """Schema for template creation."""
     pass
 
 
 class WorkoutTemplateUpdate(BaseModel):
-    """Schema for partial template updates."""
     name: Optional[str] = None
     description: Optional[str] = None
     parent_exercise_id: Optional[int] = None
@@ -97,30 +98,29 @@ class WorkoutTemplateUpdate(BaseModel):
 
 
 class WorkoutTemplateOut(WorkoutTemplateBase):
-    """Schema for template output."""
     id: int
     group_id: uuid.UUID
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 
-# --- WorkoutTemplateService (Business Logic Class) ---
+# --- WorkoutTemplateService ---
 
 class WorkoutTemplateService:
     """
-    Service layer for managing workout templates.
-    Handles data serialization for JSONB fields and permission-based filtering.
+    Manages the logic for workout templates.
+    Ensures UUIDs and Pydantic models are correctly serialized for JSONB storage.
     """
 
     def __init__(self, db: Session):
-        """Initializes the service with a database session."""
         self.db = db
 
     def create_template(self, user: User, data: WorkoutTemplateCreate) -> WorkoutTemplate:
-        """Initializes and saves a new workout template for the user's group."""
-        # Convert UUIDs and Pydantic models to serializable formats for JSONB
+        """Saves a new template, ensuring JSONB fields are properly formatted."""
         users_list = [str(u) for u in data.for_users]
-        config_list = [item.model_dump() for item in data.exercises_config]
+
+        # Serialize the exercises_config using model_dump to convert Pydantic to Dict
+        config_list = [exercise.model_dump() for exercise in data.exercises_config]
 
         db_template = WorkoutTemplate(
             group_id=user.group_id,
@@ -140,11 +140,7 @@ class WorkoutTemplateService:
         return db_template
 
     def get_group_templates(self, user: User) -> List[WorkoutTemplate]:
-        """
-        Retrieves templates accessible to the user.
-        - Trainers/Admins: See all templates in the group.
-        - Trainees: See templates assigned specifically to them or global group templates.
-        """
+        """Fetches templates with role-based filtering for trainees."""
         query = self.db.query(WorkoutTemplate).filter(
             WorkoutTemplate.group_id == user.group_id
         )
@@ -154,11 +150,10 @@ class WorkoutTemplateService:
         if user.role in ['trainer', 'admin']:
             return all_templates
 
-        # Filter for trainees based on 'for_users' JSONB content
         accessible = []
         user_id_str = str(user.id)
         for tmpl in all_templates:
-            # Accessible if no specific users assigned or if user is in the list
+            # Accessible if global (no for_users) or if trainee is specifically assigned
             if not tmpl.for_users or len(tmpl.for_users) == 0 or user_id_str in tmpl.for_users:
                 accessible.append(tmpl)
 
@@ -166,7 +161,7 @@ class WorkoutTemplateService:
 
     def update_template(self, template_id: int, user: User, update_data: WorkoutTemplateUpdate) -> Optional[
         WorkoutTemplate]:
-        """Performs partial updates on a template after ownership and role validation."""
+        """Updates a template after validating group membership."""
         db_template = self.db.query(WorkoutTemplate).filter(
             WorkoutTemplate.id == template_id,
             WorkoutTemplate.group_id == user.group_id
@@ -177,7 +172,6 @@ class WorkoutTemplateService:
 
         data_dict = update_data.model_dump(exclude_unset=True)
 
-        # Handle nested serialization for JSONB updates
         if "exercises_config" in data_dict:
             data_dict["exercises_config"] = [item.model_dump() for item in update_data.exercises_config]
         if "for_users" in data_dict:
@@ -191,7 +185,7 @@ class WorkoutTemplateService:
         return db_template
 
     def delete_template(self, template_id: int, user: User) -> bool:
-        """Removes a template record from the database."""
+        """Deletes a template if it belongs to the user's group."""
         db_template = self.db.query(WorkoutTemplate).filter(
             WorkoutTemplate.id == template_id,
             WorkoutTemplate.group_id == user.group_id
@@ -204,9 +198,11 @@ class WorkoutTemplateService:
         self.db.commit()
         return True
 
+
 # --- Router Setup ---
 
 router = APIRouter(prefix="/workout-templates", tags=["Workout Templates"])
+
 
 @router.post("", response_model=WorkoutTemplateOut, status_code=status.HTTP_201_CREATED)
 async def create_template(
@@ -214,7 +210,6 @@ async def create_template(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Creates a new workout template (Trainer/Admin only)."""
     if current_user.role not in ['trainer', 'admin']:
         raise HTTPException(status_code=403, detail="Unauthorized role")
 
@@ -227,7 +222,6 @@ async def list_templates(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Retrieves all templates available to the current user."""
     service = WorkoutTemplateService(db)
     return service.get_group_templates(current_user)
 
@@ -239,7 +233,6 @@ async def update_template(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Updates an existing template (Trainer/Admin only)."""
     if current_user.role not in ['trainer', 'admin']:
         raise HTTPException(status_code=403, detail="Unauthorized role")
 
@@ -247,7 +240,7 @@ async def update_template(
     updated = service.update_template(template_id, current_user, data)
 
     if not updated:
-        raise HTTPException(status_code=404, detail="Template not found or access denied")
+        raise HTTPException(status_code=404, detail="Template not found")
     return updated
 
 
@@ -257,12 +250,11 @@ async def remove_template(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Deletes a workout template (Trainer/Admin only)."""
     if current_user.role not in ['trainer', 'admin']:
         raise HTTPException(status_code=403, detail="Unauthorized role")
 
     service = WorkoutTemplateService(db)
     if not service.delete_template(template_id, current_user):
-        raise HTTPException(status_code=404, detail="Template not found or access denied")
+        raise HTTPException(status_code=404, detail="Template not found")
 
     return {"detail": "Template deleted successfully"}

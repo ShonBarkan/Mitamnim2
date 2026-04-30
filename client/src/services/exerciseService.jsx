@@ -1,8 +1,7 @@
 import api from './api';
 
 /**
- * Service for managing exercise tree nodes and active parameters.
- * Synchronized with FastAPI routes to prevent 404/307 errors.
+ * Service for managing exercise tree nodes and parameter definitions.
  */
 export const exerciseService = {
   /**
@@ -31,6 +30,7 @@ export const exerciseService = {
 
   /**
    * Fetches active parameters linked to a specific exercise.
+   * Returns metadata for both raw and virtual parameters.
    * Path: GET /exercises/{id}/active-params
    */
   getActiveParams: (id) => api.get(`/exercises/${id}/active-params`)

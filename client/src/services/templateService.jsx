@@ -1,32 +1,37 @@
 import api from './api';
 
 /**
- * Service for managing workout templates.
- * Aligned with the FastAPI backend structure.
+ * Service for managing workout templates and their configurations.
+ * Aligned with the FastAPI backend structure and dynamic parameter logic.
  */
 export const templateService = {
   /**
    * Fetches all templates accessible to the current user.
    * The backend handles role-based filtering (Trainer vs Trainee).
+   * Path: GET /workout-templates
    */
   getAll: () => api.get('/workout-templates'),
 
   /**
    * Creates a new workout template.
-   * @param {Object} templateData - Should include name, exercises_config, etc.
+   * Note: exercises_config must follow the simplified structure:
+   * stores only parameter_id and the assigned value (manual or calculated).
+   * Path: POST /workout-templates
    */
   create: (templateData) => api.post('/workout-templates', templateData),
 
   /**
    * Updates an existing template using PATCH for partial updates.
-   * @param {number|string} templateId - The ID of the template to update.
-   * @param {Object} updateData - The fields to be updated.
+   * Handles updates to exercise configurations, scheduling, and user assignments.
+   * Path: PATCH /workout-templates/{templateId}
    */
   update: (templateId, updateData) => api.patch(`/workout-templates/${templateId}`, updateData),
 
   /**
    * Deletes a specific template by ID.
-   * @param {number|string} templateId 
+   * Path: DELETE /workout-templates/{templateId}
    */
   delete: (templateId) => api.delete(`/workout-templates/${templateId}`)
 };
+
+export default templateService;

@@ -3,10 +3,16 @@ import { exerciseService } from '../services/exerciseService';
 
 export const ExerciseContext = createContext();
 
+/**
+ * Provider for managing the exercise tree and its dynamic parameters.
+ */
 export const ExerciseProvider = ({ children }) => {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  /**
+   * Fetches the entire exercise tree for the group.
+   */
   const fetchExercises = useCallback(async () => {
     setLoading(true);
     try {
@@ -19,15 +25,30 @@ export const ExerciseProvider = ({ children }) => {
     }
   }, []);
 
+  /**
+   * Fetches active parameters for a specific exercise.
+   * Crucial for retrieving calculation metadata for virtual parameters.
+   */
+  const fetchActiveParams = useCallback(async (exerciseId) => {
+    try {
+      const response = await exerciseService.getActiveParams(exerciseId);
+      return response.data;
+    } catch (err) {
+      console.error(`ExerciseContext: Failed to fetch params for exercise ${exerciseId}:`, err);
+      return [];
+    }
+  }, []);
 
+  /**
+   * Reconstructs the category path (breadcrumbs) for a given node.
+   */
   const getExercisePath = useCallback((exercise, allNodes) => {
     if (!exercise || !allNodes) return "";
     let path = [];
     let current = exercise;
 
-    // Traverse up the tree using parent_id
     while (current && current.parent_id) {
-      const parent = allNodes.find(n => n.id == current.parent_id);
+      const parent = allNodes.find(n => Number(n.id) === Number(current.parent_id));
       if (parent) {
         path.unshift(parent.name);
         current = parent;
@@ -38,10 +59,12 @@ export const ExerciseProvider = ({ children }) => {
     return path.join(" > ");
   }, []);
 
-
+  /**
+   * Generates a recursive tree structure for category selection components.
+   */
   const getCategoryTree = useCallback((list, parentId = null, depth = 0) => {
     let items = [];
-    const categories = list.filter(ex => ex.parent_id == parentId && ex.has_children);
+    const categories = list.filter(ex => Number(ex.parent_id) === Number(parentId) && ex.has_children);
 
     categories.forEach(cat => {
       items.push({
@@ -56,24 +79,24 @@ export const ExerciseProvider = ({ children }) => {
     return items;
   }, []);
 
-
+  /**
+   * Retrieves all leaf nodes (actual exercises) under a specific category.
+   * Enriches leaf nodes with their full category path.
+   */
   const getAllLeafDescendants = useCallback((list, pid) => {
     if (!list || list.length === 0) return [];
     
     let result = [];
-    // Use loose equality (==) for robust ID matching
-    const children = list.filter(ex => ex.parent_id == pid);
+    const children = list.filter(ex => Number(ex.parent_id) === Number(pid));
     
     children.forEach(child => {
       if (!child.has_children) {
-        // Enrich the leaf node with its path before adding
         const enrichedChild = {
           ...child,
           path: getExercisePath(child, list)
         };
         result.push(enrichedChild);
       } else {
-        // Keep searching deeper
         result = [...result, ...getAllLeafDescendants(list, child.id)];
       }
     });
@@ -116,6 +139,7 @@ export const ExerciseProvider = ({ children }) => {
     exercises,
     loading,
     fetchExercises,
+    fetchActiveParams,
     getCategoryTree,
     getAllLeafDescendants,
     addExercise,
@@ -129,3 +153,5 @@ export const ExerciseProvider = ({ children }) => {
     </ExerciseContext.Provider>
   );
 };
+
+export default ExerciseProvider;

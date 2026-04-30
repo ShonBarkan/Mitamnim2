@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { ExerciseContext } from '../contexts/ExerciseContext';
 import { TemplateContext } from '../contexts/TemplateContext';
+import { ParameterContext } from '../contexts/ParameterContext';
 import { useToast } from '../hooks/useToast';
 import api from '../services/api';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useSensor, useSensors, MouseSensor, TouchSensor } from '@dnd-kit/core';
 
-// Sub-components - Updated paths and naming consistency
+// Sub-components
 import TemplateGeneralInfo from '../components/Templates/CreateWorkoutTemplatePage/TemplateGeneralInfo';
 import TemplateExerciseBank from '../components/Templates/CreateWorkoutTemplatePage/TemplateExerciseBank';
 import TemplateExerciseConfig from '../components/Templates/CreateWorkoutTemplatePage/TemplateExerciseConfig';
@@ -17,14 +18,15 @@ import TemplateScheduling from '../components/Templates/CreateWorkoutTemplatePag
 const CreateWorkoutTemplatePage = ({ initialData = null, onSave, onCancel }) => {
   const { exercises, fetchExercises, getCategoryTree, getAllLeafDescendants } = useContext(ExerciseContext);
   const { addTemplate, editTemplate } = useContext(TemplateContext);
+  const { parameters, fetchParameters } = useContext(ParameterContext);
   const { showToast } = useToast();
 
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     parent_exercise_id: '',
-    expected_duration_time: '45', // Renamed from expected_time
-    scheduled_hour: '',           // Renamed from cron_expression
+    expected_duration_time: '45',
+    scheduled_hour: '',
     exercises_config: [],
     for_users: [],
     scheduled_days: []
@@ -38,10 +40,11 @@ const CreateWorkoutTemplatePage = ({ initialData = null, onSave, onCancel }) => 
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
-  // Sync exercises from context on mount
+  // Initial data loading
   useEffect(() => {
     if (exercises.length === 0) fetchExercises();
-  }, [fetchExercises, exercises.length]);
+    if (parameters.length === 0) fetchParameters();
+  }, [fetchExercises, fetchParameters, exercises.length, parameters.length]);
 
   const categoryOptions = useMemo(() => getCategoryTree(exercises), [exercises, getCategoryTree]);
 
@@ -59,9 +62,12 @@ const CreateWorkoutTemplatePage = ({ initialData = null, onSave, onCancel }) => 
     setAvailableExercises(leaves);
   }, [formData.parent_exercise_id, exercises, getAllLeafDescendants]);
 
-  // --- Handlers ---
-
+  /**
+   * Adds an exercise to the configuration.
+   * Fetches the active parameters for the selected exercise from the server.
+   */
   const addExerciseToConfig = async (exercise) => {
+    setLoadingAvailable(true);
     try {
       const res = await api.get(`/exercises/${exercise.id}/active-params`);
       
@@ -73,7 +79,7 @@ const CreateWorkoutTemplatePage = ({ initialData = null, onSave, onCancel }) => 
           parameter_id: p.parameter_id,
           parameter_name: p.parameter_name,
           parameter_unit: p.parameter_unit,
-          value: p.default_value || '' 
+          value: p.default_value || '0'
         }))
       };
 
@@ -82,10 +88,15 @@ const CreateWorkoutTemplatePage = ({ initialData = null, onSave, onCancel }) => 
         exercises_config: [...prev.exercises_config, newExerciseEntry]
       }));
     } catch (err) {
-      showToast("Failed to fetch exercise parameters", "error");
+      showToast("שגיאה בטעינת פרמטרי התרגיל", "error");
+    } finally {
+      setLoadingAvailable(false);
     }
   };
 
+  /**
+   * Updates the number of sets for a specific exercise.
+   */
   const updateSets = (index, val) => {
     setFormData(prev => {
       const newConfig = [...prev.exercises_config];
@@ -94,22 +105,24 @@ const CreateWorkoutTemplatePage = ({ initialData = null, onSave, onCancel }) => 
     });
   };
 
-  const updateParamValue = (exerciseIdx, paramIdx, value) => {
+  /**
+   * Bulk updates the parameters for a specific exercise.
+   * This is called by TemplateExerciseItem after it performs calculations.
+   */
+  const onUpdateExerciseParams = (exerciseIdx, updatedParams) => {
     setFormData(prev => {
       const newConfig = [...prev.exercises_config];
-      const updatedExercise = { ...newConfig[exerciseIdx] };
-      
-      updatedExercise.params = [...updatedExercise.params];
-      updatedExercise.params[paramIdx] = { 
-        ...updatedExercise.params[paramIdx], 
-        value: value 
+      newConfig[exerciseIdx] = { 
+        ...newConfig[exerciseIdx], 
+        params: updatedParams 
       };
-      
-      newConfig[exerciseIdx] = updatedExercise;
       return { ...prev, exercises_config: newConfig };
     });
   };
 
+  /**
+   * Removes an exercise from the workout configuration.
+   */
   const removeExercise = (index) => {
     setFormData(prev => ({
       ...prev,
@@ -117,37 +130,60 @@ const CreateWorkoutTemplatePage = ({ initialData = null, onSave, onCancel }) => 
     }));
   };
 
+  /**
+   * Handles reordering of exercises via drag and drop.
+   */
   const handleDragEnd = (event) => {
     const { active, over } = event;
-    if (active.id !== over.id) {
+    if (active && over && active.id !== over.id) {
       setFormData(prev => {
         const oldIndex = prev.exercises_config.findIndex((_, i) => `item-${i}-${prev.exercises_config[i].exercise_id}` === active.id);
         const newIndex = prev.exercises_config.findIndex((_, i) => `item-${i}-${prev.exercises_config[i].exercise_id}` === over.id);
-        return {
-          ...prev,
-          exercises_config: arrayMove(prev.exercises_config, oldIndex, newIndex)
-        };
+        
+        if (oldIndex !== -1 && newIndex !== -1) {
+          return {
+            ...prev,
+            exercises_config: arrayMove(prev.exercises_config, oldIndex, newIndex)
+          };
+        }
+        return prev;
       });
     }
   };
 
+  /**
+   * Submits the form data to the server.
+   * Strips extra metadata from params to send only id and value as required by the backend.
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.exercises_config.length === 0) {
-      showToast("Please add at least one exercise", "error");
+      showToast("יש להוסיף לפחות תרגיל אחד", "error");
       return;
     }
+
+    const payload = {
+      ...formData,
+      exercises_config: formData.exercises_config.map(ex => ({
+        ...ex,
+        params: ex.params.map(p => ({
+          parameter_id: p.parameter_id,
+          value: p.value
+        }))
+      }))
+    };
+
     try {
       if (initialData?.id) {
-        await editTemplate(initialData.id, formData);
-        showToast("Template updated successfully!", "success");
+        await editTemplate(initialData.id, payload);
+        showToast("השבלונה עודכנה בהצלחה!", "success");
       } else {
-        await addTemplate(formData);
-        showToast("Saved!", "success");
+        await addTemplate(payload);
+        showToast("השבלונה נשמרה בהצלחה!", "success");
       }
       if (onSave) onSave();
     } catch (err) {
-      showToast("Error saving template", "error");
+      showToast("שגיאה בשמירת השבלונה", "error");
     }
   };
 
@@ -176,7 +212,7 @@ const CreateWorkoutTemplatePage = ({ initialData = null, onSave, onCancel }) => 
             exercisesConfig={formData.exercises_config} 
             sensors={sensors}
             updateSets={updateSets}
-            updateParamValue={updateParamValue}
+            onUpdateExerciseParams={onUpdateExerciseParams}
             removeExercise={removeExercise}
             handleDragEnd={handleDragEnd}
             styles={styles}
