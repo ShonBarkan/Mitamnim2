@@ -3,194 +3,203 @@ import { ParameterContext } from '../../contexts/ParameterContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useStats } from '../../contexts/StatsContext';
 import StatsSettingsGroup from './StatsSettingsGroup';
+import ParameterForm from './ParameterForm';
 
+/**
+ * Manages the definitions of measurement parameters.
+ * Supports CRUD operations for both Raw and Virtual (calculated) parameters.
+ */
 const ParameterManager = () => {
-  const { user } = useAuth();
-  const { parameters, fetchParameters, addParameter, removeParameter, editParameter, loading } = useContext(ParameterContext);
-  const { refreshAllConfigs } = useStats(); 
-  
-  const [isAdding, setIsAdding] = useState(false);
-  const [formData, setFormData] = useState({ name: '', unit: '', aggregation_strategy: 'sum' });
-  const [editingId, setEditingId] = useState(null);
-  const [editData, setEditData] = useState({ name: '', unit: '', aggregation_strategy: 'sum' });
+    const { user } = useAuth();
+    const { 
+        parameters, 
+        fetchParameters, 
+        removeParameter, 
+        editParameter, 
+        loading 
+    } = useContext(ParameterContext);
+    const { refreshAllConfigs } = useStats(); 
+    
+    const [isAdding, setIsAdding] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [editData, setEditData] = useState({});
 
-  const isTrainer = user?.role === 'trainer' || user?.role === 'admin';
+    const isTrainer = user?.role === 'trainer' || user?.role === 'admin';
 
-  // Available strategies for the dropdown
-  const strategies = [
-    { id: 'sum', label: 'סכימה (Sum)' },
-    { id: 'max', label: 'שיא / PR (Max)' },
-    { id: 'min', label: 'מינימום / זמן (Min)' },
-    { id: 'avg', label: 'ממוצע (Avg)' },
-    { id: 'latest', label: 'ערך אחרון (Latest)' },
-  ];
+    const strategies = [
+        { id: 'sum', label: 'סכימה (Sum)' },
+        { id: 'max', label: 'שיא / PR (Max)' },
+        { id: 'min', label: 'מינימום / זמן (Min)' },
+        { id: 'avg', label: 'ממוצע (Avg)' },
+        { id: 'latest', label: 'ערך אחרון (Latest)' },
+    ];
 
-  useEffect(() => {
-    fetchParameters();
-    refreshAllConfigs(); 
-  }, [fetchParameters, refreshAllConfigs]);
+    useEffect(() => {
+        fetchParameters();
+        refreshAllConfigs(); 
+    }, [fetchParameters, refreshAllConfigs]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!user?.group_id) {
-      alert("Error: User group ID not found");
-      return;
-    }
+    /**
+     * Prepares the edit state with all parameter metadata
+     */
+    const handleStartEdit = (param) => {
+        setEditingId(param.id);
+        setEditData({ 
+            name: param.name, 
+            unit: param.unit, 
+            aggregation_strategy: param.aggregation_strategy || 'sum',
+            multiplier: param.multiplier || 1.0,
+            source_parameter_ids: param.source_parameter_ids || []
+        });
+    };
 
-    try {
-      await addParameter({ 
-        ...formData, 
-        group_id: user.group_id 
-      });
-      setFormData({ name: '', unit: '', aggregation_strategy: 'sum' });
-      setIsAdding(false);
-    } catch (err) {
-      alert("Error adding parameter");
-    }
-  };
+    const handleSaveEdit = async (id) => {
+        try {
+            await editParameter(id, { 
+                ...editData, 
+                group_id: user.group_id 
+            });
+            setEditingId(null);
+        } catch (err) {
+            console.error("Update failed:", err);
+        }
+    };
 
-  const handleStartEdit = (param) => {
-    setEditingId(param.id);
-    setEditData({ 
-        name: param.name, 
-        unit: param.unit, 
-        aggregation_strategy: param.aggregation_strategy || 'sum' 
-    });
-  };
+    /**
+     * Renders the source parameters or calculation logic as a mathematical string
+     */
+    const renderLogic = (param) => {
+        if (!param.is_virtual) return <span style={{ color: '#888' }}>—</span>;
+        
+        const sourceNames = param.source_parameter_ids
+            ?.map(id => parameters.find(p => p.id === id)?.name || `ID:${id}`);
 
-  const handleSaveEdit = async (id) => {
-    try {
-      await editParameter(id, { 
-        ...editData, 
-        group_id: user.group_id 
-      });
-      setEditingId(null);
-    } catch (err) {
-      alert("Error updating parameter");
-    }
-  };
+        if (!sourceNames || sourceNames.length === 0) return <code style={{ color: 'red' }}>Error: No sources</code>;
 
-  return (
-    <div style={{ padding: '20px', direction: 'rtl', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #ddd' }}>
-      <h2 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>פרמטרים למדידה</h2>
+        switch (param.calculation_type) {
+            case 'conversion':
+                return <code style={{ color: '#28a745' }}>{sourceNames[0]} * {param.multiplier}</code>;
+            case 'sum':
+                return <code style={{ color: '#17a2b8' }}>{sourceNames.join(' + ')}</code>;
+            case 'subtract':
+                return <code style={{ color: '#dc3545' }}>{sourceNames.join(' - ')}</code>;
+            case 'multiply':
+                return <code style={{ color: '#ffc107' }}>{sourceNames.join(' * ')}</code>;
+            case 'divide':
+                return <code style={{ color: '#6f42c1' }}>{sourceNames.join(' / ')}</code>;
+            case 'percentage':
+                return <code style={{ color: '#fd7e14' }}>({sourceNames.join(' / ')}) * 100</code>;
+            default:
+                return <code style={{ color: '#888' }}>{sourceNames.join(' , ')}</code>;
+        }
+    };
 
-      {isTrainer && !isAdding && (
-        <button 
-          onClick={() => setIsAdding(true)} 
-          style={{ marginBottom: '20px', padding: '10px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
-        >
-          + הוסף פרמטר חדש
-        </button>
-      )}
+    return (
+        <div style={{ padding: '20px', direction: 'rtl', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #ddd' }}>
+            <h2 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>פרמטרים למדידה</h2>
 
-      {isAdding && (
-        <form onSubmit={handleSubmit} style={{ marginBottom: '20px', padding: '15px', border: '1px solid #28a745', borderRadius: '8px', backgroundColor: '#f9fff9' }}>
-          <h4 style={{ marginTop: 0 }}>הוספת פרמטר חדש</h4>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <input 
-              placeholder="שם הפרמטר (למשל: משקל)" 
-              value={formData.name}
-              onChange={e => setFormData({...formData, name: e.target.value})}
-              required 
-              style={{ padding: '8px', flex: 1 }}
-            />
-            <input 
-              placeholder="יחידת מידה (למשל: ק״ג)" 
-              value={formData.unit}
-              onChange={e => setFormData({...formData, unit: e.target.value})}
-              required 
-              style={{ padding: '8px', width: '120px' }}
-            />
-            <select 
-              value={formData.aggregation_strategy}
-              onChange={e => setFormData({...formData, aggregation_strategy: e.target.value})}
-              style={{ padding: '8px', borderRadius: '4px' }}
-            >
-              {strategies.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-            <button type="submit" style={{ padding: '8px 15px', cursor: 'pointer', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px' }}>שמור</button>
-            <button type="button" onClick={() => setIsAdding(false)} style={{ padding: '8px 15px', cursor: 'pointer', background: '#eee', border: 'none', borderRadius: '4px' }}>ביטול</button>
-          </div>
-        </form>
-      )}
-
-      {loading ? <p>טוען נתונים...</p> : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #eee', color: '#666' }}>
-              <th style={{ padding: '12px' }}>שם הפרמטר</th>
-              <th style={{ padding: '12px' }}>יחידת מידה</th>
-              <th style={{ padding: '12px' }}>אסטרטגיית אגרגציה</th>
-              {isTrainer && <th style={{ padding: '12px' }}>פעולות</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {parameters.map(param => (
-              <tr key={param.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                {editingId === param.id ? (
-                  <>
-                    <td style={{ padding: '10px' }}>
-                      <input 
-                        value={editData.name} 
-                        onChange={e => setEditData({...editData, name: e.target.value})}
-                        style={{ padding: '5px', width: '90%' }}
-                      />
-                    </td>
-                    <td style={{ padding: '10px' }}>
-                      <input 
-                        value={editData.unit} 
-                        onChange={e => setEditData({...editData, unit: e.target.value})}
-                        style={{ padding: '5px', width: '90%' }}
-                      />
-                    </td>
-                    <td style={{ padding: '10px' }}>
-                      <select 
-                        value={editData.aggregation_strategy}
-                        onChange={e => setEditData({...editData, aggregation_strategy: e.target.value})}
-                        style={{ padding: '5px', width: '100%' }}
-                      >
-                        {strategies.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                      </select>
-                    </td>
-                    <td style={{ padding: '10px' }}>
-                      <button onClick={() => handleSaveEdit(param.id)} style={{ color: 'green', marginLeft: '10px', cursor: 'pointer', border: 'none', background: 'none' }}>💾 שמור</button>
-                      <button onClick={() => setEditingId(null)} style={{ color: '#666', cursor: 'pointer', border: 'none', background: 'none' }}>ביטול</button>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td style={{ padding: '12px' }}>{param.name}</td>
-                    <td style={{ padding: '12px' }}>{param.unit}</td>
-                    <td style={{ padding: '12px', fontSize: '0.9em', color: '#555' }}>
-                        {strategies.find(s => s.id === param.aggregation_strategy)?.label || param.aggregation_strategy}
-                    </td>
-                    {isTrainer && (
-                      <td style={{ padding: '12px' }}>
+            {isTrainer && (
+                <div style={{ marginBottom: '20px' }}>
+                    {!isAdding ? (
                         <button 
-                          onClick={() => handleStartEdit(param)} 
-                          style={{ color: '#007bff', border: 'none', background: 'none', cursor: 'pointer', marginLeft: '15px' }}
+                            onClick={() => setIsAdding(true)} 
+                            style={{ padding: '10px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
                         >
-                          ערוך ✎
+                            + הוסף פרמטר חדש
                         </button>
-                        <button 
-                          onClick={() => { if(window.confirm('למחוק את הפרמטר?')) removeParameter(param.id) }} 
-                          style={{ color: '#dc3545', border: 'none', background: 'none', cursor: 'pointer' }}
-                        >
-                          מחק 🗑
-                        </button>
-                      </td>
+                    ) : (
+                        <div style={{ position: 'relative', border: '1px solid #28a745', borderRadius: '12px', padding: '10px' }}>
+                            <button 
+                                onClick={() => setIsAdding(false)}
+                                style={{ position: 'absolute', left: '10px', top: '10px', cursor: 'pointer', border: 'none', background: 'none', fontSize: '18px', zIndex: 1 }}
+                            >
+                                ✕
+                            </button>
+                            <ParameterForm onSuccess={() => setIsAdding(false)} />
+                        </div>
                     )}
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+                </div>
+            )}
 
-      {isTrainer && <StatsSettingsGroup />}
-    </div>
-  );
+            {loading ? <p>טוען נתונים...</p> : (
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '2px solid #eee', color: '#666' }}>
+                                <th style={{ padding: '12px' }}>סוג</th>
+                                <th style={{ padding: '12px' }}>שם הפרמטר</th>
+                                <th style={{ padding: '12px' }}>יחידה</th>
+                                <th style={{ padding: '12px' }}>לוגיקת חישוב</th>
+                                <th style={{ padding: '12px' }}>אגרגציה</th>
+                                {isTrainer && <th style={{ padding: '12px' }}>פעולות</th>}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {parameters.map(param => (
+                                <tr key={param.id} style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: editingId === param.id ? '#fff9e6' : 'transparent' }}>
+                                    <td style={{ padding: '12px' }}>
+                                        <span style={{ 
+                                            fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold',
+                                            backgroundColor: param.is_virtual ? '#e7f1ff' : '#eee',
+                                            color: param.is_virtual ? '#007bff' : '#666'
+                                        }}>
+                                            {param.is_virtual ? 'VIRTUAL' : 'RAW'}
+                                        </span>
+                                    </td>
+
+                                    {editingId === param.id ? (
+                                        <>
+                                            <td style={{ padding: '10px' }}>
+                                                <input value={editData.name} onChange={e => setEditData({...editData, name: e.target.value})} style={{ padding: '5px', width: '90%' }} />
+                                            </td>
+                                            <td style={{ padding: '10px' }}>
+                                                <input value={editData.unit} onChange={e => setEditData({...editData, unit: e.target.value})} style={{ padding: '5px', width: '60px' }} />
+                                            </td>
+                                            <td style={{ padding: '10px' }}>
+                                                {param.is_virtual && param.calculation_type === 'conversion' && (
+                                                    <input 
+                                                        type="number" step="0.0001" value={editData.multiplier} 
+                                                        onChange={e => setEditData({...editData, multiplier: parseFloat(e.target.value)})}
+                                                        style={{ padding: '5px', width: '80px' }}
+                                                    />
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '10px' }}>
+                                                <select value={editData.aggregation_strategy} onChange={e => setEditData({...editData, aggregation_strategy: e.target.value})} style={{ padding: '5px' }}>
+                                                    {strategies.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                                                </select>
+                                            </td>
+                                            <td style={{ padding: '10px' }}>
+                                                <button onClick={() => handleSaveEdit(param.id)} style={{ color: 'green', marginLeft: '10px', cursor: 'pointer', border: 'none', background: 'none' }}>💾 שמור</button>
+                                                <button onClick={() => setEditingId(null)} style={{ color: '#666', cursor: 'pointer', border: 'none', background: 'none' }}>ביטול</button>
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td style={{ padding: '12px', fontWeight: 'bold' }}>{param.name}</td>
+                                            <td style={{ padding: '12px' }}>{param.unit}</td>
+                                            <td style={{ padding: '12px', fontSize: '13px' }}>{renderLogic(param)}</td>
+                                            <td style={{ padding: '12px', fontSize: '0.9em', color: '#555' }}>
+                                                {strategies.find(s => s.id === param.aggregation_strategy)?.label || param.aggregation_strategy}
+                                            </td>
+                                            {isTrainer && (
+                                                <td style={{ padding: '12px' }}>
+                                                    <button onClick={() => handleStartEdit(param)} style={{ color: '#007bff', border: 'none', background: 'none', cursor: 'pointer', marginLeft: '15px' }}>ערוך ✎</button>
+                                                    <button onClick={() => { if(window.confirm('למחוק את הפרמטר?')) removeParameter(param.id) }} style={{ color: '#dc3545', border: 'none', background: 'none', cursor: 'pointer' }}>מחק 🗑</button>
+                                                </td>
+                                            )}
+                                        </>
+                                    )}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {isTrainer && <StatsSettingsGroup />}
+        </div>
+    );
 };
 
 export default ParameterManager;

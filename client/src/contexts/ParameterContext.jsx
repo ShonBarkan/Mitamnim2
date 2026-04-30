@@ -3,11 +3,18 @@ import { parameterService } from '../services/parameterService';
 
 export const ParameterContext = createContext();
 
+/**
+ * Provider for managing global measurement parameters.
+ * Supports standard (raw) and virtual parameters (sum, subtract, multiply, divide, percentage, conversion).
+ */
 export const ParameterProvider = ({ children }) => {
   const [parameters, setParameters] = useState([]);
   const [loading, setLoading] = useState(false);
 
-
+  /**
+   * Fetches all available parameters for the current group.
+   * Metadata includes aggregation strategies and advanced calculation rules for virtual params.
+   */
   const fetchParameters = useCallback(async () => {
     setLoading(true);
     try {
@@ -20,7 +27,10 @@ export const ParameterProvider = ({ children }) => {
     }
   }, []);
 
-
+  /**
+   * Persists a new parameter definition.
+   * Handles configuration for virtual parameters including calculation_type and source_parameter_ids.
+   */
   const addParameter = async (data) => {
     try {
       const response = await parameterService.create(data);
@@ -32,7 +42,10 @@ export const ParameterProvider = ({ children }) => {
     }
   };
 
-
+  /**
+   * Updates an existing parameter.
+   * Supports partial updates for name, unit, aggregation strategy, or calculation logic.
+   */
   const editParameter = async (id, data) => {
     try {
       const response = await parameterService.update(id, data);
@@ -44,6 +57,9 @@ export const ParameterProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Removes a parameter definition.
+   */
   const removeParameter = async (id) => {
     try {
       await parameterService.delete(id);
@@ -54,9 +70,12 @@ export const ParameterProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Helper function to retrieve a parameter's name by its unique ID.
+   */
   const getParameterNameById = useCallback((id) => {
     const param = parameters.find(p => p.id === parseInt(id));
-    return param ? param.name : "לא נמצא פרמטר";
+    return param ? param.name : "Parameter Not Found";
   }, [parameters]);
 
   const value = {
@@ -68,6 +87,7 @@ export const ParameterProvider = ({ children }) => {
     removeParameter,
     getParameterNameById,
   };
+
   return (
     <ParameterContext.Provider value={value}>
       {children}
@@ -77,6 +97,7 @@ export const ParameterProvider = ({ children }) => {
 
 /**
  * Custom hook for easy access to the ParameterContext.
+ * Ensures the component is wrapped within a ParameterProvider.
  */
 export const useParameter = () => {
     const context = useContext(ParameterContext);
@@ -85,3 +106,5 @@ export const useParameter = () => {
     }
     return context;
 };
+
+export default ParameterProvider;
