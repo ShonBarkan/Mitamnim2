@@ -27,6 +27,12 @@ from domains.activities import router as activities_router
 from domains.templates import router as templates_router
 from domains.workout_sessions import router as workout_sessions_router
 
+# --- New Statistics Domain Routers (Consistent Flat Structure) ---
+from domains.parameter_conversions import router as conversions_router
+from domains.parameter_formulas import router as formulas_router
+from domains.stats import router as stats_router
+from domains.stats_dashboard_config import router as dashboard_router
+
 # --- Database Initialization ---
 # Create tables if they do not exist in the database
 Base.metadata.create_all(bind=engine)
@@ -43,8 +49,11 @@ async def lifespan(app: FastAPI):
     # Schedule message cleanup daily at 03:00 AM
     scheduler.add_job(scheduled_cleanup, 'cron', hour=3, minute=0)
 
+    # Note: Statistics are now calculated in real-time via Pandas,
+    # so the 10-second background job has been removed.
+
     scheduler.start()
-    print("Mitamnim 2 Scheduler started...")
+    print("Mitamnim 2 Scheduler started (Maintenance Only)...")
 
     yield
 
@@ -108,7 +117,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
         try:
             while True:
                 # 4. Keep alive: Wait for incoming data or heartbeats
-                # This prevents the function from returning and closing the socket
                 await websocket.receive_text()
         except WebSocketDisconnect:
             # Clean up when client disconnects
@@ -126,7 +134,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
         db.close()
 
 # --- Register Routes ---
-# All domain-specific routers are registered here
+# Existing domain routers
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(groups_router)
@@ -137,6 +145,12 @@ app.include_router(active_params_router)
 app.include_router(activities_router)
 app.include_router(templates_router)
 app.include_router(workout_sessions_router)
+
+# New Statistics domain routers (Registered with the new real-time architecture)
+app.include_router(conversions_router)
+app.include_router(formulas_router)
+app.include_router(stats_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/")

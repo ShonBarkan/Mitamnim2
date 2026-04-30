@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback } from 'react';
+import React, { createContext, useState, useCallback, useContext } from 'react';
 import { parameterService } from '../services/parameterService';
 
 export const ParameterContext = createContext();
@@ -9,7 +9,7 @@ export const ParameterProvider = ({ children }) => {
 
   /**
    * Fetches all measurement parameters belonging to the user's group.
-   * Uses the updated parameterService.getAll() with trailing slash support.
+   * Includes the aggregation_strategy for each parameter.
    */
   const fetchParameters = useCallback(async () => {
     setLoading(true);
@@ -25,7 +25,7 @@ export const ParameterProvider = ({ children }) => {
 
   /**
    * Creates a new parameter definition.
-   * Updates local state immediately upon success.
+   * @param {Object} data - Includes name, unit, and aggregation_strategy.
    */
   const addParameter = async (data) => {
     try {
@@ -39,8 +39,9 @@ export const ParameterProvider = ({ children }) => {
   };
 
   /**
-   * Updates an existing parameter (e.g., name or unit changes).
-   * Refreshes the local parameters list with the returned updated object.
+   * Updates an existing parameter.
+   * @param {number} id - The parameter ID.
+   * @param {Object} data - Partial data (name, unit, or aggregation_strategy).
    */
   const editParameter = async (id, data) => {
     try {
@@ -54,7 +55,7 @@ export const ParameterProvider = ({ children }) => {
   };
 
   /**
-   * Removes a parameter from the group database and local state.
+   * Removes a parameter definition.
    */
   const removeParameter = async (id) => {
     try {
@@ -80,4 +81,15 @@ export const ParameterProvider = ({ children }) => {
       {children}
     </ParameterContext.Provider>
   );
+};
+
+/**
+ * Custom hook for easy access to the ParameterContext.
+ */
+export const useParameter = () => {
+    const context = useContext(ParameterContext);
+    if (!context) {
+        throw new Error("useParameter must be used within a ParameterProvider");
+    }
+    return context;
 };

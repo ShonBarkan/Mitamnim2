@@ -3,7 +3,7 @@ import { ToastProvider } from '../contexts/ToastContext';
 import { AuthProvider } from '../contexts/AuthContext';
 import { UserProvider } from '../contexts/UserContext';
 import { GroupProvider } from '../contexts/GroupContext';
-import { SocketProvider } from '../contexts/SocketContext'; // Restored
+import { SocketProvider } from '../contexts/SocketContext';
 import { MessageProvider } from '../contexts/MessageContext';
 import { ParameterProvider } from '../contexts/ParameterContext';
 import { ExerciseProvider } from '../contexts/ExerciseContext';
@@ -12,11 +12,16 @@ import { ActivityProvider } from '../contexts/ActivityContext';
 import { TemplateProvider } from '../contexts/TemplateContext';
 import { WorkoutProvider } from '../contexts/WorkoutContext';
 import { WorkoutSessionProvider } from '../contexts/WorkoutSessionContext';
+import { StatsProvider } from '../contexts/StatsContext';
 
 /**
  * AppProviders Component
- * Restored SocketProvider specifically for the messaging system.
- * Hierarchy ensures MessageProvider can access the SocketContext.
+ * 
+ * Centralizes all Context Providers for the Gingilla project.
+ * Maintains a strict hierarchy:
+ * 1. Infrastructure (Toast, Auth, User, Group)
+ * 2. Real-time Communication (Socket -> Message)
+ * 3. Domain Logic (Parameters, Exercises, Stats, etc.)
  */
 const AppProviders = ({ children }) => {
   return (
@@ -24,22 +29,23 @@ const AppProviders = ({ children }) => {
       <AuthProvider>
         <UserProvider>
           <GroupProvider>
-            {/* SocketProvider must wrap MessageProvider */}
             <SocketProvider>
               <MessageProvider>
                 <ParameterProvider>
                   <ExerciseProvider>
-                    <ActiveParamProvider>
-                      <ActivityProvider>
-                        <TemplateProvider>
-                          <WorkoutProvider>
-                            <WorkoutSessionProvider>
-                              {children}
-                            </WorkoutSessionProvider>
-                          </WorkoutProvider>
-                        </TemplateProvider>
-                      </ActivityProvider>
-                    </ActiveParamProvider>
+                    <StatsProvider>
+                      <ActiveParamProvider>
+                        <ActivityProvider>
+                          <TemplateProvider>
+                            <WorkoutProvider>
+                              <WorkoutSessionProvider>
+                                {children}
+                              </WorkoutSessionProvider>
+                            </WorkoutProvider>
+                          </TemplateProvider>
+                        </ActivityProvider>
+                      </ActiveParamProvider>
+                    </StatsProvider>
                   </ExerciseProvider>
                 </ParameterProvider>
               </MessageProvider>

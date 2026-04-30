@@ -7,9 +7,8 @@ import { MessageContext } from '../contexts/MessageContext';
 import PersonalInfo from '../components/LandingPage/PersonalInfo';
 import MainBanners from '../components/LandingPage/MainBanners';
 import MessageFeed from '../components/MessageFeed';
-import ParameterManager from '../components/Parameters/ParameterManager';
-import ExerciseTreeManager from '../components/Exercises/ExerciseTreeManager';
 import ActivityCreator from '../components/Activity/ActivityCreator';
+import GroupLeaderboard from '../components/Stats/GroupLeaderboard'; // הייבוא החדש
 
 const LandingPage = () => {
   const { user } = useAuth();
@@ -68,9 +67,14 @@ const LandingPage = () => {
       <PersonalInfo user={user} />
       <MainBanners mainMessages={mainMessages} />
 
+      {/* --- GROUP LEADERBOARD SECTION --- */}
+      <div style={{ marginTop: '40px' }}>
+        <GroupLeaderboard />
+      </div>
+
       <hr style={{ margin: '40px 0', border: '0', borderTop: '1px solid #eee' }} />
 
-      {/* --- ANNOUNCEMENT BOARD ONLY --- */}
+      {/* --- ANNOUNCEMENT BOARD --- */}
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
         <MessageFeed 
           title="📢 לוח מודעות קבוצתי" 

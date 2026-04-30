@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Session, relationship
+from sqlalchemy.orm import Session
 from pydantic import BaseModel, ConfigDict
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -12,12 +12,13 @@ from db.database import Base, get_db
 from middlewares.auth import get_current_user
 from domains.users import User
 
+
 # --- Database Model ---
 
 class Parameter(Base):
     """
     SQLAlchemy model representing a measurement parameter (e.g., Weight, Reps, Time).
-    Parameters are scoped to a specific group to allow customization.
+    Aggregation strategy determines how statistics are calculated (sum, max, min, avg, latest).
     """
     __tablename__ = "parameters"
 
@@ -26,12 +27,18 @@ class Parameter(Base):
     unit = Column(String, nullable=False)
     group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
 
+    # New column for aggregation logic
+    # Options: 'sum', 'max', 'min', 'avg', 'latest'
+    aggregation_strategy = Column(String, default="sum", nullable=False)
+
+
 # --- Pydantic Schemas ---
 
 class ParameterBase(BaseModel):
     """Base schema for parameter data."""
     name: str
     unit: str
+    aggregation_strategy: str = "sum"
 
 
 class ParameterCreate(ParameterBase):
@@ -43,6 +50,7 @@ class ParameterUpdate(BaseModel):
     """Schema for partially updating an existing parameter."""
     name: Optional[str] = None
     unit: Optional[str] = None
+    aggregation_strategy: Optional[str] = None
 
 
 class ParameterOut(ParameterBase):
@@ -79,6 +87,7 @@ class ParameterService:
         new_param = Parameter(
             name=data.name,
             unit=data.unit,
+            aggregation_strategy=data.aggregation_strategy,
             group_id=group_id
         )
         self.db.add(new_param)
@@ -107,8 +116,8 @@ router = APIRouter(prefix="/parameters", tags=["Parameters"])
 
 @router.get("/", response_model=List[ParameterOut])
 async def list_parameters(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     """Retrieves all measurement parameters for the current group."""
     service = ParameterService(db)
@@ -117,9 +126,9 @@ async def list_parameters(
 
 @router.post("/", response_model=ParameterOut, status_code=status.HTTP_201_CREATED)
 async def create_new_parameter(
-    param_data: ParameterCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+        param_data: ParameterCreate,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     """Defines a new measurement parameter (Trainers/Admins only)."""
     if current_user.role not in ["admin", "trainer"]:
@@ -134,10 +143,10 @@ async def create_new_parameter(
 
 @router.patch("/{param_id}/", response_model=ParameterOut)
 async def update_existing_parameter(
-    param_id: int,
-    param_update: ParameterUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+        param_id: int,
+        param_update: ParameterUpdate,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     """Updates an existing parameter's details."""
     if current_user.role not in ["admin", "trainer"]:
@@ -155,9 +164,9 @@ async def update_existing_parameter(
 
 @router.delete("/{param_id}/")
 async def remove_parameter(
-    param_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+        param_id: int,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
     """Deletes a parameter definition from the group."""
     if current_user.role not in ["admin", "trainer"]:
