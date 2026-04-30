@@ -1,57 +1,74 @@
 import React from 'react';
-import SubExerciseCreator from '../ExercisePage/TrainerControls/SubExerciseCreator';
-import ParameterLinker from '../ExercisePage/TrainerControls/ParameterLinker';
+import SubExerciseCreator from './TrainerControls/SubExerciseCreator';
+import ParameterLinker from './TrainerControls/ParameterLinker';
 
+/**
+ * Component providing administrative controls for trainers and admins.
+ * Allows linking parameters to an exercise or creating sub-exercises.
+ */
 const TrainerControls = ({ 
-  isTrainer, 
-  hasParameters, 
-  hasSubExercises, 
-  parameters, 
-  selectedParamId, 
-  setSelectedParamId, 
-  onLinkParam, 
-  newSubExName, 
-  setNewSubExName, 
-  onAddSub 
+    isTrainer, 
+    hasParameters, 
+    hasSubExercises, 
+    parameters, 
+    selectedParamId, 
+    setSelectedParamId, 
+    onLinkParam, 
+    onCreateAndLink, 
+    newSubExName, 
+    setNewSubExName, 
+    onAddSub 
 }) => {
-  // Guard clause for non-trainer users
-  if (!isTrainer) return null;
+    // Guard clause: Only render for authorized roles
+    if (!isTrainer) return null;
 
-  // Determine grid layout: 2 columns if both are visible, 1 column otherwise
-  const gridTemplateColumns = (!hasParameters && !hasSubExercises) ? '1fr 1fr' : '1fr';
+    /**
+     * Grid configuration:
+     * Shows both panels side-by-side if no content is established yet.
+     * Otherwise, centers the single available action.
+     */
+    const gridTemplateColumns = (!hasParameters && !hasSubExercises) ? '1fr 1fr' : '1fr';
 
-  return (
-    <div style={{ 
-      marginTop: '40px', 
-      display: 'grid', 
-      gridTemplateColumns: gridTemplateColumns, 
-      gap: '20px', 
-      background: '#f8f9fa', 
-      padding: '20px', 
-      borderRadius: '12px' 
-    }}>
-      
-      {/* Logic: Only show linker if the exercise has no sub-exercises (children) */}
-      {!hasSubExercises && (
-        <ParameterLinker 
-          parameters={parameters}
-          selectedParamId={selectedParamId}
-          setSelectedParamId={setSelectedParamId}
-          onLinkParam={onLinkParam}
-        />
-      )}
+    return (
+        <div style={{ 
+            marginTop: '40px', 
+            display: 'grid', 
+            gridTemplateColumns: gridTemplateColumns, 
+            gap: '20px', 
+            background: '#f8f9fa', 
+            padding: '20px', 
+            borderRadius: '12px',
+            border: '1px solid #e9ecef'
+        }}>
+            
+            {/* 
+                Logic: Parameter linking is only allowed if the exercise 
+                does not act as a parent to other sub-exercises.
+            */}
+            {!hasSubExercises && (
+                <ParameterLinker 
+                    parameters={parameters}
+                    selectedParamId={selectedParamId}
+                    setSelectedParamId={setSelectedParamId}
+                    onLinkParam={onLinkParam}
+                    onCreateAndLink={onCreateAndLink}
+                />
+            )}
 
-      {/* Logic: Only show sub-exercise creator if the exercise has no parameters linked */}
-      {!hasParameters && (
-        <SubExerciseCreator
-          newSubExName={newSubExName}
-          setNewSubExName={setNewSubExName}
-          onAddSub={onAddSub}
-        />
-      )}
+            {/* 
+                Logic: Sub-exercise creation is only allowed if there are 
+                no parameters directly linked to this exercise.
+            */}
+            {!hasParameters && (
+                <SubExerciseCreator
+                    newSubExName={newSubExName}
+                    setNewSubExName={setNewSubExName}
+                    onAddSub={onAddSub}
+                />
+            )}
 
-    </div>
-  );
+        </div>
+    );
 };
 
 export default TrainerControls;

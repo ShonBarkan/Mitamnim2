@@ -3,14 +3,35 @@ import { activeParamService } from '../services/activeParamService';
 
 export const ActiveParamContext = createContext();
 
+/**
+ * Context provider for managing exercise-parameter links.
+ * Designed for modular component consumption without prop-drilling.
+ */
 export const ActiveParamProvider = ({ children }) => {
-  const [activeParams, setActiveParams] = useState([]); 
+  const [activeParams, setActiveParams] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /**
-   * Fetches parameters linked to a specific exercise.
+   * Fetches all active parameters for the current group.
+   * Highly efficient for context initialization.
+   */
+  const fetchAllGroupParams = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await activeParamService.getAllGroupParams();
+      setActiveParams(response.data);
+    } catch (err) {
+      console.error("ActiveParamContext: Failed to fetch group params:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Fetches active parameters for a specific exercise node.
    */
   const fetchActiveParams = useCallback(async (exerciseId) => {
+    if (!exerciseId) return;
     setLoading(true);
     try {
       const response = await activeParamService.getByExercise(exerciseId);
@@ -23,16 +44,28 @@ export const ActiveParamProvider = ({ children }) => {
   }, []);
 
   /**
-   * Links a new parameter to an exercise.
-   * The state is updated immediately with the enriched data from the server.
+   * Fetches specific active parameters based on an ID array.
+   */
+  const fetchActiveParamsBatch = useCallback(async (ids = null) => {
+    setLoading(true);
+    try {
+      const response = await activeParamService.getBatch(ids);
+      setActiveParams(response.data);
+    } catch (err) {
+      console.error("ActiveParamContext: Failed to fetch batch active params:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Links a parameter to an exercise and updates the local state.
    */
   const linkParam = async (data) => {
     try {
       const response = await activeParamService.link(data);
-      
-      // Update state immediately with the enriched object returned by the Backend
+      // Immediately update state with the enriched metadata from backend
       setActiveParams(prev => [...prev, response.data]);
-      
       return response.data;
     } catch (err) {
       console.error("ActiveParamContext: Link failed:", err);
@@ -41,7 +74,7 @@ export const ActiveParamProvider = ({ children }) => {
   };
 
   /**
-   * Removes a link between a parameter and an exercise.
+   * Removes a link and filters the local state.
    */
   const unlinkParam = async (linkId) => {
     try {
@@ -56,8 +89,10 @@ export const ActiveParamProvider = ({ children }) => {
   return (
     <ActiveParamContext.Provider value={{ 
       activeParams, 
-      loading, 
+      loading,
+      fetchAllGroupParams,
       fetchActiveParams, 
+      fetchActiveParamsBatch,
       linkParam, 
       unlinkParam 
     }}>

@@ -23,7 +23,7 @@ const ExercisePage = () => {
   const navigate = useNavigate();
   
   const { exercises, fetchExercises, addExercise } = useContext(ExerciseContext);
-  const { parameters, fetchParameters } = useContext(ParameterContext);
+  const { parameters, fetchParameters, addParameter } = useContext(ParameterContext);
   const { activeParams, fetchActiveParams, linkParam, unlinkParam, loading: paramsLoading } = useContext(ActiveParamContext);
 
   const [selectedEx, setSelectedEx] = useState(null);
@@ -58,13 +58,14 @@ const ExercisePage = () => {
     }
   }, [exerciseId, exercises, fetchActiveParams]);
 
+  /**
+   * Links an existing parameter to the current exercise
+   */
   const handleLinkParam = async (e, directParamId = null) => {
-    // Check if e exists and has preventDefault to avoid "Cannot read properties of null"
     if (e && typeof e.preventDefault === 'function') {
       e.preventDefault();
     }
     
-    // Priority: use the ID passed directly from the card, fallback to state if not provided
     const paramIdToUse = directParamId || selectedParamId;
     
     if (!paramIdToUse) {
@@ -80,12 +81,43 @@ const ExercisePage = () => {
         default_value: defaultValue
       });
       
-      // Reset local state
       setSelectedParamId('');
       showToast("Parameter linked", "success");
     } catch (err) {
       console.error("Failed to link parameter:", err);
       showToast("Failed to link parameter", "error");
+    }
+  };
+
+  /**
+   * Logic for "Create New Parameter and Link"
+   * Receives formData from the custom inline form in ParameterLinker
+   */
+  const handleCreateAndLinkParam = async (formData) => {
+    // Validation is handled by the form, but double-check here
+    if (!formData.name) return;
+
+    try {
+      // 1. Create the parameter in the global pool with its aggregation strategy
+      const newParam = await addParameter({
+        name: formData.name,
+        unit: formData.unit,
+        aggregation_strategy: formData.aggregation_strategy,
+        group_id: user.group_id
+      });
+
+      // 2. Link it specifically to this exercise
+      await linkParam({
+        exercise_id: selectedEx.id,
+        parameter_id: newParam.id,
+        group_id: user.group_id,
+        default_value: ""
+      });
+
+      showToast("New parameter created and linked", "success");
+    } catch (err) {
+      console.error("Failed to create and link parameter:", err);
+      showToast("Failed to create and link parameter", "error");
     }
   };
 
@@ -150,10 +182,11 @@ const ExercisePage = () => {
               isTrainer={isTrainer}
               hasParameters={activeParams.length > 0}
               hasSubExercises={exercises.some(ex => ex.parent_id === selectedEx.id)}
-              parameters={availableParameters} // Pass only filtered parameters
+              parameters={availableParameters}
               selectedParamId={selectedParamId}
               setSelectedParamId={setSelectedParamId}
               onLinkParam={handleLinkParam}
+              onCreateAndLink={handleCreateAndLinkParam}
               newSubExName={newSubExName}
               setNewSubExName={setNewSubExName}
               onAddSub={handleAddSubExercise}

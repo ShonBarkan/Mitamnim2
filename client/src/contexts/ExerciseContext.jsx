@@ -7,9 +7,6 @@ export const ExerciseProvider = ({ children }) => {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  /**
-   * Fetches all exercises including hierarchy flags.
-   */
   const fetchExercises = useCallback(async () => {
     setLoading(true);
     try {
@@ -22,10 +19,7 @@ export const ExerciseProvider = ({ children }) => {
     }
   }, []);
 
-  /**
-   * Utility: Builds a breadcrumb path for a specific exercise.
-   * Useful for showing "Chest > Bench Press" in search results.
-   */
+
   const getExercisePath = useCallback((exercise, allNodes) => {
     if (!exercise || !allNodes) return "";
     let path = [];
@@ -44,10 +38,7 @@ export const ExerciseProvider = ({ children }) => {
     return path.join(" > ");
   }, []);
 
-  /**
-   * Utility: Recursively flattens categories for hierarchical dropdowns.
-   * Uses loose equality (==) to handle string/number ID mismatches.
-   */
+
   const getCategoryTree = useCallback((list, parentId = null, depth = 0) => {
     let items = [];
     const categories = list.filter(ex => ex.parent_id == parentId && ex.has_children);
@@ -65,10 +56,7 @@ export const ExerciseProvider = ({ children }) => {
     return items;
   }, []);
 
-  /**
-   * Utility: Recursively finds all exercises (leaves) under a specific branch.
-   * Enriches each exercise with its full category path.
-   */
+
   const getAllLeafDescendants = useCallback((list, pid) => {
     if (!list || list.length === 0) return [];
     

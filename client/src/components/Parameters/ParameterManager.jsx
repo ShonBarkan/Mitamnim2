@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { ParameterContext } from '../../contexts/ParameterContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useStats } from '../../contexts/StatsContext';
-import StatsSettingsGroup from '../Parameters/StatsSettingsGroup';
+import StatsSettingsGroup from './StatsSettingsGroup';
 
 const ParameterManager = () => {
   const { user } = useAuth();

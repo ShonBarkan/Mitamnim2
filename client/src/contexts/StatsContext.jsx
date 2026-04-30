@@ -1,88 +1,51 @@
 import React, { createContext, useState, useCallback, useContext } from 'react';
-import formulaService from '../services/formulaService';
-import conversionService from '../services/conversionService';
 import statsEngineService from '../services/statsEngineService';
 import dashboardConfigService from '../services/dashboardConfigService';
 
 export const StatsContext = createContext();
 
+/**
+ * Context provider for statistics and dashboard configurations.
+ * Centralizes analytics retrieval and manages leaderboard display settings.
+ */
 export const StatsProvider = ({ children }) => {
-    const [formulas, setFormulas] = useState([]);
-    const [conversions, setConversions] = useState([]);
     const [dashboardConfigs, setDashboardConfigs] = useState([]);
     const [loading, setLoading] = useState(false);
 
     /**
-     * Sync all configuration data from the server.
-     * Fetches Formulas, Conversions, and Dashboard Configurations in parallel.
+     * Synchronizes dashboard configurations from the backend.
      */
     const refreshAllConfigs = useCallback(async () => {
         setLoading(true);
         try {
-            const [f, c, d] = await Promise.all([
-                formulaService.getFormulas(),
-                conversionService.getConversions(),
-                dashboardConfigService.getConfigs()
-            ]);
-            setFormulas(f);
-            setConversions(c);
-            setDashboardConfigs(d);
+            const configs = await dashboardConfigService.getConfigs();
+            setDashboardConfigs(configs);
         } catch (error) {
-            console.error("StatsContext: Failed to sync stats configurations", error);
+            console.error("StatsContext: Sync failed", error);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    // --- Formula Management ---
-    const addFormula = async (data) => {
-        try {
-            const newFormula = await formulaService.createFormula(data);
-            setFormulas(prev => [...prev, newFormula]);
-            return newFormula;
-        } catch (error) {
-            console.error("StatsContext: Failed to add formula", error);
-            throw error;
-        }
-    };
+    // --- Dashboard Settings Logic ---
 
-    // --- Conversion Management ---
-    const addConversion = async (data) => {
-        try {
-            const newConv = await conversionService.createConversion(data);
-            setConversions(prev => [...prev, newConv]);
-            return newConv;
-        } catch (error) {
-            console.error("StatsContext: Failed to add conversion", error);
-            throw error;
-        }
-    };
-
-    const removeConversion = async (id) => {
-        try {
-            await conversionService.deleteConversion(id);
-            setConversions(prev => prev.filter(c => c.id !== id));
-        } catch (error) {
-            console.error("StatsContext: Failed to remove conversion", error);
-            throw error;
-        }
-    };
-
-    // --- Dashboard Configuration Management ---
+    /**
+     * Registers a new dashboard display rule.
+     */
     const addDashboardConfig = async (data) => {
         try {
             const newConfig = await dashboardConfigService.createConfig(data);
             setDashboardConfigs(prev => [...prev, newConfig]);
             return newConfig;
         } catch (error) {
-            console.error("StatsContext: Failed to add dashboard config", error);
+            console.error("StatsContext: Add dashboard config failed", error);
             throw error;
         }
     };
 
     /**
      * Updates an existing dashboard configuration.
-     * Essential for Drag and Drop (display_order), field edits, and public toggles.
+     * Supports reordering, metric editing, and visibility toggles.
      */
     const updateDashboardConfig = async (id, data) => {
         try {
@@ -92,58 +55,55 @@ export const StatsProvider = ({ children }) => {
             );
             return updated;
         } catch (error) {
-            console.error("StatsContext: Failed to update dashboard config", error);
+            console.error("StatsContext: Update dashboard config failed", error);
             throw error;
         }
     };
 
+    /**
+     * Removes an item from the dashboard configuration.
+     */
     const removeDashboardConfig = async (id) => {
         try {
             await dashboardConfigService.removeConfig(id);
             setDashboardConfigs(prev => prev.filter(d => d.id !== id));
         } catch (error) {
-            console.error("StatsContext: Failed to remove dashboard config", error);
+            console.error("StatsContext: Remove dashboard config failed", error);
             throw error;
         }
     };
 
-    // --- Data Retrieval for Charts & Leaderboards ---
+    // --- Data Engine Retrieval ---
 
     /**
-     * Data Retrieval for Individual Charts.
-     * Triggers the real-time Pandas engine on the backend for personal history.
+     * Fetches personal performance trends and history.
+     * Aggregates data across exercise hierarchy and applies aggregation strategies.
      */
     const fetchPersonalStats = async (exerciseId, targetUserId = null) => {
         try {
             return await statsEngineService.getPersonalHistory(exerciseId, targetUserId);
         } catch (error) {
-            console.error("StatsContext: Failed to fetch personal stats", error);
+            console.error("StatsContext: Fetch personal stats failed", error);
             return [];
         }
     };
 
     /**
-     * Data Retrieval for Group Leaderboards (Landing Page).
-     * Fetches all public rankings based on the configured aggregation strategies.
+     * Fetches group-wide rankings for public leaderboards within a timeframe.
      */
     const fetchGroupLeaderboard = async (startDate, endDate) => {
         try {
             return await statsEngineService.getGroupLeaderboard(startDate, endDate);
         } catch (error) {
-            console.error("StatsContext: Failed to fetch group leaderboard", error);
+            console.error("StatsContext: Fetch group leaderboard failed", error);
             return [];
         }
     };
 
     const value = {
-        formulas,
-        conversions,
         dashboardConfigs,
         loading,
         refreshAllConfigs,
-        addFormula,
-        addConversion,
-        removeConversion,
         addDashboardConfig,
         updateDashboardConfig,
         removeDashboardConfig,
@@ -159,7 +119,7 @@ export const StatsProvider = ({ children }) => {
 };
 
 /**
- * Custom hook for easy access to the StatsContext.
+ * Custom hook for accessing statistics and dashboard settings.
  */
 export const useStats = () => {
     const context = useContext(StatsContext);

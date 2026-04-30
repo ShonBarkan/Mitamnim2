@@ -32,7 +32,6 @@ export const SocketProvider = ({ children }) => {
 
     ws.onopen = () => {
       if (!isMounted.current) return;
-      console.log("WebSocket connected ✅");
       setSocket(ws);
       setIsConnected(true);
     };
@@ -40,7 +39,6 @@ export const SocketProvider = ({ children }) => {
     ws.onclose = (e) => {
       if (!isMounted.current) return;
       
-      console.log(`WebSocket disconnected ❌ (Code: ${e.code})`);
       setSocket(null);
       setIsConnected(false);
       socketRef.current = null;
@@ -53,7 +51,6 @@ export const SocketProvider = ({ children }) => {
        */
       if (token && user && e.code !== 1000) {
         reconnectTimeoutRef.current = setTimeout(() => {
-          console.log("Attempting to reconnect...");
           connect();
         }, 3000); 
       }

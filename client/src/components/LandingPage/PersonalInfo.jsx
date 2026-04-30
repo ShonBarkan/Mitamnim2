@@ -60,7 +60,6 @@ const PersonalInfo = ({ user }) => {
         setIsEditing(false);
       }
     } catch (error) {
-      console.error("Update failed:", error);
       showToast("שגיאה בעדכון הפרטים", "error");
     }
   };

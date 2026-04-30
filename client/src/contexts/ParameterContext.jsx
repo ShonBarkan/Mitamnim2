@@ -7,10 +7,7 @@ export const ParameterProvider = ({ children }) => {
   const [parameters, setParameters] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  /**
-   * Fetches all measurement parameters belonging to the user's group.
-   * Includes the aggregation_strategy for each parameter.
-   */
+
   const fetchParameters = useCallback(async () => {
     setLoading(true);
     try {
@@ -23,10 +20,7 @@ export const ParameterProvider = ({ children }) => {
     }
   }, []);
 
-  /**
-   * Creates a new parameter definition.
-   * @param {Object} data - Includes name, unit, and aggregation_strategy.
-   */
+
   const addParameter = async (data) => {
     try {
       const response = await parameterService.create(data);
@@ -38,11 +32,7 @@ export const ParameterProvider = ({ children }) => {
     }
   };
 
-  /**
-   * Updates an existing parameter.
-   * @param {number} id - The parameter ID.
-   * @param {Object} data - Partial data (name, unit, or aggregation_strategy).
-   */
+
   const editParameter = async (id, data) => {
     try {
       const response = await parameterService.update(id, data);
@@ -54,9 +44,6 @@ export const ParameterProvider = ({ children }) => {
     }
   };
 
-  /**
-   * Removes a parameter definition.
-   */
   const removeParameter = async (id) => {
     try {
       await parameterService.delete(id);
@@ -67,15 +54,20 @@ export const ParameterProvider = ({ children }) => {
     }
   };
 
+  const getParameterNameById = useCallback((id) => {
+    const param = parameters.find(p => p.id === parseInt(id));
+    return param ? param.name : "לא נמצא פרמטר";
+  }, [parameters]);
+
   const value = {
     parameters,
     loading,
     fetchParameters,
     addParameter,
     editParameter,
-    removeParameter
+    removeParameter,
+    getParameterNameById,
   };
-
   return (
     <ParameterContext.Provider value={value}>
       {children}

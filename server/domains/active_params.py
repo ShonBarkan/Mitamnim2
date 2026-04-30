@@ -29,7 +29,7 @@ class ActiveParam(Base):
     group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
     default_value = Column(Text, nullable=True)
 
-    # Relationships
+    # Relationships - joinedload is used in the service to optimize queries
     parameter = relationship("Parameter")
     exercise = relationship("ExerciseTree", back_populates="active_params")
 
@@ -58,21 +58,43 @@ class ActiveParamOut(ActiveParamBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ActiveParamBatchRequest(BaseModel):
+    """Schema for requesting multiple active parameters by their IDs."""
+    ids: Optional[List[int]] = None
+
+
 # --- ActiveParamService ---
 
 class ActiveParamService:
     """
-    Business logic for exercise-parameter mapping.
+    Business logic for exercise-parameter mapping with optimized queries.
     """
 
     def __init__(self, db: Session):
         self.db = db
 
+    def _enrich_metadata(self, active_param: ActiveParam):
+        """Helper to map relationship data to flat output fields."""
+        if active_param.parameter:
+            active_param.parameter_name = active_param.parameter.name
+            active_param.parameter_unit = active_param.parameter.unit
+        return active_param
+
+    def get_all_group_params(self, group_id: uuid.UUID) -> List[ActiveParam]:
+        """
+        Retrieves all active parameters for a group in one query.
+        Used by the Frontend Context to minimize API calls.
+        """
+        results = (
+            self.db.query(ActiveParam)
+            .options(joinedload(ActiveParam.parameter))
+            .filter(ActiveParam.group_id == group_id)
+            .all()
+        )
+        return [self._enrich_metadata(r) for r in results]
+
     def get_params_by_exercise(self, exercise_id: int, group_id: uuid.UUID) -> List[ActiveParam]:
-        """
-        Retrieves parameters for an exercise and uses joinedload to fetch
-        parameter metadata (name, unit) in a single query.
-        """
+        """Retrieves parameters for a specific exercise node."""
         results = (
             self.db.query(ActiveParam)
             .options(joinedload(ActiveParam.parameter))
@@ -82,32 +104,34 @@ class ActiveParamService:
             )
             .all()
         )
+        return [self._enrich_metadata(r) for r in results]
 
-        # Enrich results for the Pydantic response model
-        for r in results:
-            r.parameter_name = r.parameter.name
-            r.parameter_unit = r.parameter.unit
+    def get_active_params_batch(self, group_id: uuid.UUID, ids: Optional[List[int]] = None) -> List[ActiveParam]:
+        """Retrieves specific active parameters by ID list or all for the group if empty."""
+        query = self.db.query(ActiveParam).options(joinedload(ActiveParam.parameter)).filter(
+            ActiveParam.group_id == group_id
+        )
 
-        return results
+        if ids and len(ids) > 0:
+            query = query.filter(ActiveParam.id.in_(ids))
+
+        results = query.all()
+        return [self._enrich_metadata(r) for r in results]
 
     def link_parameter(self, data: ActiveParamCreate) -> ActiveParam:
-        """
-        Links a parameter to an exercise. Enforces the rule that parameters
-        can only be linked to 'leaf' exercises (no children).
-        """
-        # Business Rule: Cannot link params to categories
+        """Links a parameter to an exercise node. Only leaf nodes are allowed."""
+        # Check if node is a category (has children)
         has_children = self.db.query(ExerciseTree).filter(
             ExerciseTree.parent_id == data.exercise_id
         ).first() is not None
 
         if has_children:
-            raise ValueError("Cannot link parameters to a category exercise.")
+            raise ValueError("Cannot link parameters to a category node.")
 
-        # Check for existing link to prevent duplicates
+        # Prevent duplicate links
         existing = self.db.query(ActiveParam).filter(
             ActiveParam.exercise_id == data.exercise_id,
-            ActiveParam.parameter_id == data.parameter_id,
-            ActiveParam.group_id == data.group_id
+            ActiveParam.parameter_id == data.parameter_id
         ).first()
 
         if existing:
@@ -118,14 +142,11 @@ class ActiveParamService:
         self.db.commit()
         self.db.refresh(new_link)
 
-        # Populate metadata from the relationship for immediate UI update
-        new_link.parameter_name = new_link.parameter.name
-        new_link.parameter_unit = new_link.parameter.unit
-
-        return new_link
+        # Re-fetch with joinedload for the response
+        return self.get_params_by_exercise(new_link.exercise_id, new_link.group_id)[-1]
 
     def unlink_parameter(self, link_id: int, group_id: uuid.UUID) -> bool:
-        """Removes a link after ownership check."""
+        """Deletes a link if the group ownership is valid."""
         db_link = self.db.query(ActiveParam).filter(
             ActiveParam.id == link_id,
             ActiveParam.group_id == group_id
@@ -144,15 +165,36 @@ class ActiveParamService:
 router = APIRouter(prefix="/active-params", tags=["Active Parameters"])
 
 
-@router.get("/{exercise_id}/", response_model=List[ActiveParamOut])
+@router.get("/", response_model=List[ActiveParamOut])
+async def get_all_group_active_params(
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """Fetches all mappings for the group - highly efficient for Frontend Context initialization."""
+    service = ActiveParamService(db)
+    return service.get_all_group_params(current_user.group_id)
+
+
+@router.get("/exercise/{exercise_id}/", response_model=List[ActiveParamOut])
 async def get_active_params_for_exercise(
         exercise_id: int,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Fetches parameters for a specific exercise."""
+    """Fetches parameters for a specific exercise node."""
     service = ActiveParamService(db)
     return service.get_params_by_exercise(exercise_id, current_user.group_id)
+
+
+@router.post("/batch/", response_model=List[ActiveParamOut])
+async def get_active_params_batch(
+        request: ActiveParamBatchRequest,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """Fetches a batch of parameters by ID or returns all group parameters if empty."""
+    service = ActiveParamService(db)
+    return service.get_active_params_batch(current_user.group_id, request.ids)
 
 
 @router.post("/", response_model=ActiveParamOut, status_code=status.HTTP_201_CREATED)
@@ -161,7 +203,7 @@ async def link_parameter_to_exercise(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Creates a new link (Admins/Trainers only)."""
+    """Links a parameter to an exercise node (Trainers/Admins only)."""
     if current_user.role not in ["admin", "trainer"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -181,7 +223,7 @@ async def unlink_parameter(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Removes a link (Admins/Trainers only)."""
+    """Removes a link entry (Trainers/Admins only)."""
     if current_user.role not in ["admin", "trainer"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
