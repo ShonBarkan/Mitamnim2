@@ -4,7 +4,7 @@ from typing import List, Optional, Dict
 
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship, Session
+from sqlalchemy.orm import relationship, Session, joinedload
 from pydantic import BaseModel, ConfigDict
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -13,7 +13,7 @@ from db.database import Base, get_db
 from middlewares.auth import get_current_user
 from domains.users import User
 from domains.activities import ActivityLog
-from domains.parameters import Parameter  # Assuming Parameter model exists in parameters.py
+from domains.parameters import Parameter
 
 
 # --- Database Model ---
@@ -21,8 +21,7 @@ from domains.parameters import Parameter  # Assuming Parameter model exists in p
 class WorkoutSession(Base):
     """
     SQLAlchemy model representing a completed workout session.
-    Logs contain performance_data structured as List of Lists:
-    Each inner list represents a 'Set' containing {parameter_id, value}.
+    Each session is linked to multiple ActivityLog entries, where each entry represents one set.
     """
     __tablename__ = "workout_sessions"
 
@@ -40,6 +39,7 @@ class WorkoutSession(Base):
     # Relationships
     user = relationship("User")
     template = relationship("WorkoutTemplate")
+    # Links to individual sets (ActivityLogs)
     logs = relationship("ActivityLog", back_populates="workout_session", cascade="all, delete-orphan")
 
 
@@ -52,12 +52,14 @@ class ParamValueSchema(BaseModel):
 
 
 class PerformedExerciseSchema(BaseModel):
+    """Payload for an exercise containing multiple sets."""
     exercise_id: int
-    # Each list inside performance_data represents a 'Set'
+    # Each inner list represents one set: List[List[ParamValue]]
     performance_data: List[List[ParamValueSchema]]
 
 
 class WorkoutSessionFinish(BaseModel):
+    """Payload to finalize a workout session."""
     template_id: Optional[int] = None
     start_time: datetime
     workout_summary: Optional[str] = None
@@ -66,6 +68,7 @@ class WorkoutSessionFinish(BaseModel):
 
 
 class WorkoutSessionOut(BaseModel):
+    """Response schema for workout session metadata."""
     id: int
     user_id: uuid.UUID
     template_id: Optional[int]
@@ -86,7 +89,7 @@ class WorkoutSessionService:
         self.db = db
 
     def _calculate_virtual_value(self, calc_type: str, sources: List[float], multiplier: float) -> str:
-        """Core math engine for dependent parameters."""
+        """Core math engine for dependent (virtual) parameters."""
         try:
             if calc_type == 'sum':
                 res = sum(sources)
@@ -109,50 +112,43 @@ class WorkoutSessionService:
             return "0"
 
     def finish_workout(self, user: User, data: WorkoutSessionFinish) -> WorkoutSession:
+        """
+        Finalizes the workout. Splits the bulk payload so that each set
+        becomes a separate ActivityLog entry.
+        """
         if not data.performed_exercises:
-            raise ValueError("לא ניתן לסיים אימון ללא תרגילים")
+            raise ValueError("לא ניתן לסיים אימון ללא תרגילים שבוצעו")
 
-        # Fetch all parameters to identify virtual ones and their logic
+        # Fetch all group parameters to calculate virtual values server-side if missing
         all_params = {p.id: p for p in self.db.query(Parameter).filter(Parameter.group_id == user.group_id).all()}
 
         end_time = datetime.now(timezone.utc)
-        duration_str = data.actual_duration
-        if not duration_str:
-            delta = end_time - data.start_time
-            duration_str = f"{delta.seconds // 60} דקות"
 
+        # Create main session record
         db_session = WorkoutSession(
             user_id=user.id,
             template_id=data.template_id,
             start_time=data.start_time,
             end_time=end_time,
             workout_summary=data.workout_summary,
-            actual_duration=duration_str
+            actual_duration=data.actual_duration
         )
         self.db.add(db_session)
         self.db.flush()
 
+        # Iterate through exercises and their corresponding sets
         for exercise in data.performed_exercises:
-            processed_logs = []
-
             for set_data in exercise.performance_data:
-                # Convert input to a dictionary for easy source lookup
+                # current_set_values: {param_id: value} for lookup/math
                 current_set_values = {p.parameter_id: p.value for p in set_data}
 
-                # We need to ensure all parameters (including virtual ones) are stored
-                # We iterate over the exercise's required parameters (logic here simplified)
-                final_set = []
+                # Final set performance data (flat list of params for this single set)
+                final_set_params = [p.model_dump() for p in set_data]
 
-                # First, add the provided raw values
-                for p in set_data:
-                    final_set.append(p.model_dump())
-
-                # Second, check for missing virtual parameters that depend on these raw values
+                # Check and calculate virtual parameters for this specific set
                 for p_id, p_meta in all_params.items():
                     if p_meta.is_virtual and p_id not in current_set_values:
                         source_ids = p_meta.source_parameter_ids or []
-
-                        # If all sources are present in the current set, calculate the virtual param
                         if all(sid in current_set_values for sid in source_ids):
                             source_values = [float(current_set_values[sid]) for sid in source_ids]
                             calculated_val = self._calculate_virtual_value(
@@ -160,31 +156,37 @@ class WorkoutSessionService:
                                 source_values,
                                 p_meta.multiplier
                             )
-                            final_set.append({"parameter_id": p_id, "value": calculated_val})
+                            final_set_params.append({"parameter_id": p_id, "value": calculated_val})
 
-                processed_logs.append(final_set)
-
-            log_entry = ActivityLog(
-                exercise_id=exercise.exercise_id,
-                user_id=user.id,
-                workout_session_id=db_session.id,
-                timestamp=data.start_time,
-                performance_data=processed_logs  # JSONB List of Lists of Dicts
-            )
-            self.db.add(log_entry)
+                # Create a SEPARATE row for EACH SET
+                set_log = ActivityLog(
+                    exercise_id=exercise.exercise_id,
+                    user_id=user.id,
+                    workout_session_id=db_session.id,
+                    timestamp=end_time,
+                    performance_data=final_set_params  # JSONB: List[Dict] for one set
+                )
+                self.db.add(set_log)
 
         self.db.commit()
         self.db.refresh(db_session)
         return db_session
 
     def get_user_history(self, user_id: uuid.UUID) -> List[WorkoutSession]:
-        sessions = self.db.query(WorkoutSession).filter(
-            WorkoutSession.user_id == user_id
-        ).order_by(WorkoutSession.start_time.desc()).all()
+        """Retrieves history and counts unique exercises performed in each session."""
+        sessions = (
+            self.db.query(WorkoutSession)
+            .options(joinedload(WorkoutSession.template))
+            .filter(WorkoutSession.user_id == user_id)
+            .order_by(WorkoutSession.start_time.desc())
+            .all()
+        )
 
         for s in sessions:
             s.template_name = s.template.name if s.template else "אימון מותאם אישית"
-            s.exercise_count = len(s.logs)
+            # Count unique exercise_ids across all logs (sets) in the session
+            unique_exercises = {log.exercise_id for log in s.logs}
+            s.exercise_count = len(unique_exercises)
 
         return sessions
 
@@ -200,13 +202,14 @@ async def finish_workout_session(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
+    """Endpoint to submit and split workout results into individual sets."""
     service = WorkoutSessionService(db)
     try:
         return service.finish_workout(current_user, data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"Server Error: {e}")
+        print(f"Server Error during finish_workout: {e}")
         raise HTTPException(status_code=500, detail="שגיאה פנימית בשמירת האימון")
 
 
@@ -215,5 +218,6 @@ async def get_workout_history(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
+    """Retrieves workout history for the current user."""
     service = WorkoutSessionService(db)
     return service.get_user_history(current_user.id)

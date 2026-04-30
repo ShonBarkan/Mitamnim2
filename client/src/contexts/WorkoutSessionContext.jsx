@@ -1,6 +1,10 @@
 import React, { createContext, useState, useCallback } from 'react';
 import { workoutSessionService } from '../services/workoutSessionService';
 
+/**
+ * Context for managing workout sessions and history.
+ * Coordinates with workoutSessionService to finalize workouts and retrieve past sessions.
+ */
 export const WorkoutSessionContext = createContext();
 
 export const WorkoutSessionProvider = ({ children }) => {
@@ -8,13 +12,15 @@ export const WorkoutSessionProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
 
   /**
-   * Fetches the user's workout history and updates the local state.
+   * Fetches the user's workout history.
+   * Backend returns metadata for each session, including template names and exercise counts.
    */
   const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
       const response = await workoutSessionService.getHistory();
-      setTemplates(response.data); // Synchronize with backend history
+      // Updated to correctly synchronize with the sessions state
+      setSessions(response.data); 
     } catch (err) {
       console.error("WorkoutSessionContext: Fetching history failed", err);
     } finally {
@@ -23,14 +29,17 @@ export const WorkoutSessionProvider = ({ children }) => {
   }, []);
 
   /**
-   * Submits the current workout data and adds the new session to history.
-   * @param {Object} workoutData - The performance data from ActiveWorkoutPage.
+   * Submits a bulk workout payload to be finalized.
+   * The backend will automatically split the performed_exercises into individual 
+   * ActivityLog entries (one per set) and link them to this session.
+   * 
+   * @param {Object} workoutData - Bulk payload including start_time, duration, summary, and exercises.
    */
   const submitWorkout = async (workoutData) => {
     try {
       const response = await workoutSessionService.finishWorkout(workoutData);
       
-      // Update history state immediately with the new session
+      // Immediately add the new session metadata to the top of the history list
       setSessions(prev => [response.data, ...prev]);
       
       return response.data;
@@ -51,3 +60,5 @@ export const WorkoutSessionProvider = ({ children }) => {
     </WorkoutSessionContext.Provider>
   );
 };
+
+export default WorkoutSessionProvider;

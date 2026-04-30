@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useWorkoutSessions } from '../hooks/useWorkoutSessions';
 import { ExerciseContext } from '../contexts/ExerciseContext';
+import { ParameterContext } from '../contexts/ParameterContext';
+import { TemplateContext } from '../contexts/TemplateContext';
 import { useToast } from '../hooks/useToast';
-import { workoutSessionService } from '../services/workoutSessionService';
 import { exerciseService } from '../services/exerciseService';
 
 // Sub-components
@@ -62,57 +63,113 @@ const WorkoutFooterSection = ({
 };
 
 const ActiveWorkoutPage = () => {
+  const { templateId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  
   const { submitWorkout, loading: isSaving } = useWorkoutSessions();
   const { exercises, getAllLeafDescendants, fetchExercises } = useContext(ExerciseContext);
+  const { parameters, fetchParameters } = useContext(ParameterContext);
+  const { fetchTemplateById } = useContext(TemplateContext);
   const { showToast } = useToast();
 
-  const template = location.state?.template;
-
+  const [template, setTemplate] = useState(location.state?.template || null);
   const [workoutData, setWorkoutData] = useState([]);
   const [startTime] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [workoutSummary, setWorkoutSummary] = useState("");
   const [actualDuration, setActualDuration] = useState("");
+  const [isFetchingTemplate, setIsFetchingTemplate] = useState(false);
 
+  // Load metadata and template if missing (e.g., page refresh)
   useEffect(() => {
-    if (exercises.length === 0) {
-      fetchExercises();
+    if (exercises.length === 0) fetchExercises();
+    if (parameters.length === 0) fetchParameters();
+    
+    const loadTemplate = async () => {
+      if (templateId && !template) {
+        setIsFetchingTemplate(true);
+        try {
+          const data = await fetchTemplateById(parseInt(templateId));
+          setTemplate(data);
+        } catch (err) {
+          showToast("Failed to load workout template", "error");
+          navigate('/workout-templates');
+        } finally {
+          setIsFetchingTemplate(false);
+        }
+      }
+    };
+    loadTemplate();
+  }, [templateId, template, fetchTemplateById, navigate, showToast, exercises.length, parameters.length, fetchExercises, fetchParameters]);
+
+  /**
+   * Frontend Math Engine for Virtual Parameters.
+   * Calculates values based on source parameters in real-time.
+   */
+  const runMath = useCallback((type, values, multiplier) => {
+    const nums = values.map(v => parseFloat(v) || 0);
+    switch (type) {
+      case 'sum': return nums.reduce((a, b) => a + b, 0);
+      case 'subtract': return nums[0] - (nums[1] || 0);
+      case 'multiply': return nums.reduce((a, b) => a * b, 1);
+      case 'divide': return nums[1] !== 0 ? nums[0] / nums[1] : 0;
+      case 'percentage': return nums[1] !== 0 ? (nums[0] / nums[1]) * 100 : 0;
+      case 'conversion': return nums[0] * (multiplier || 1);
+      default: return 0;
     }
-  }, [exercises.length, fetchExercises]);
+  }, []);
 
-  const parentExerciseName = useMemo(() => {
-    if (!template?.parent_exercise_id || exercises.length === 0) return "כללי";
-    const parent = exercises.find(ex => ex.id == template.parent_exercise_id);
-    return parent ? parent.name : "כללי";
-  }, [exercises, template]);
-
+  // Initialize workout state based on template config and parameter metadata
   useEffect(() => {
-    if (!template) {
-      navigate('/workout-templates');
-      return;
+    if (template && parameters.length > 0 && workoutData.length === 0) {
+      const initialExercises = template.exercises_config.map((ex, idx) => {
+        const initialValues = {};
+        ex.params.forEach(p => {
+          initialValues[p.parameter_id] = p.value;
+        });
+
+        return {
+          ...ex,
+          instanceId: `ex-${idx}-${Date.now()}`, 
+          isDone: false,
+          paramsMetadata: ex.params.map(p => {
+            const meta = parameters.find(m => Number(m.id) === Number(p.parameter_id));
+            return { ...p, ...meta };
+          }),
+          actualSets: Array.from({ length: ex.num_of_sets }, (_, i) => ({
+            id: `set-${idx}-${i}-${Date.now()}`,
+            setNum: i + 1,
+            isDone: false,
+            values: { ...initialValues }
+          }))
+        };
+      });
+      setWorkoutData(initialExercises);
     }
+  }, [template, parameters, workoutData.length]);
 
-    const initialExercises = template.exercises_config.map((ex, idx) => ({
-      ...ex,
-      instanceId: `ex-${idx}-${Date.now()}`, 
-      isDone: false,
-      paramsMetadata: ex.params, 
-      actualSets: Array.from({ length: ex.num_of_sets }, (_, i) => ({
-        id: `set-${idx}-${i}-${Date.now()}`,
-        setNum: i + 1,
-        isDone: false,
-        values: ex.params.reduce((acc, p) => ({ ...acc, [p.parameter_name]: p.value }), {})
-      }))
-    }));
-
-    setWorkoutData(initialExercises);
-  }, [template, navigate]);
-
-  const updateSetValue = (exIdx, setIdx, paramName, value) => {
+  /**
+   * Updates a parameter value in a specific set and triggers virtual calculations.
+   */
+  const updateSetValue = (exIdx, setIdx, parameterId, newValue) => {
     const newData = [...workoutData];
-    newData[exIdx].actualSets[setIdx].values[paramName] = value;
+    const exercise = newData[exIdx];
+    const set = exercise.actualSets[setIdx];
+
+    set.values[parameterId] = newValue;
+
+    // Recalculate all virtual parameters for this specific set
+    exercise.paramsMetadata.forEach(pMeta => {
+      if (pMeta.is_virtual) {
+        const sourceIds = pMeta.source_parameter_ids || [];
+        const sourceValues = sourceIds.map(sId => set.values[sId] || 0);
+        const result = runMath(pMeta.calculation_type, sourceValues, pMeta.multiplier);
+        // Format result to remove unnecessary trailing zeros
+        set.values[pMeta.id] = result.toFixed(2).replace(/\.00$/, "");
+      }
+    });
+
     setWorkoutData(newData);
   };
 
@@ -152,48 +209,65 @@ const ActiveWorkoutPage = () => {
     setWorkoutData(newData);
   };
 
+  /**
+   * Adds a new exercise dynamically during the workout.
+   */
   const addNewExercise = async (exercise) => {
     try {
       const res = await exerciseService.getActiveParams(exercise.id);
-      const params = res.data;
+      const enrichedParams = res.data.map(ap => {
+        const meta = parameters.find(m => Number(m.id) === Number(ap.parameter_id));
+        return { ...ap, ...meta };
+      });
+
+      const initialValues = {};
+      enrichedParams.forEach(p => {
+        initialValues[p.parameter_id] = p.default_value || "0";
+      });
 
       const newEntry = {
         exercise_id: exercise.id,
         exercise_name: exercise.name,
         instanceId: `ex-new-${Date.now()}`,
         isDone: false,
-        paramsMetadata: params,
+        paramsMetadata: enrichedParams,
         actualSets: [{
           id: `set-init-${Date.now()}`,
           setNum: 1,
           isDone: false,
-          values: params.reduce((acc, p) => ({ ...acc, [p.parameter_name]: "" }), {})
+          values: initialValues
         }]
       };
       setWorkoutData(prev => [...prev, newEntry]);
       setIsModalOpen(false);
       showToast(`${exercise.name} נוסף לאימון`, "success");
     } catch (err) {
-      showToast("נכשל בהוספת תרגיל", "error");
+      showToast("Failed to add exercise", "error");
     }
   };
 
+  /**
+   * Finalizes the workout session and builds the bulk payload for the server.
+   */
   const handleFinish = async () => {
-    // 1. Filter only the exercises that have at least one set done
-    // 2. Map each DONE set to its own entry in performed_exercises
-    const performedExercisesPayload = workoutData.flatMap(ex => {
-      const completedSets = ex.actualSets.filter(s => s.isDone);
-      
-      return completedSets.map(set => ({
-        exercise_id: ex.exercise_id,
-        performance_data: ex.paramsMetadata.map(p => ({
-          parameter_id: p.parameter_id,
-          parameter_name: p.parameter_name,
-          unit: p.parameter_unit || p.unit, 
-          value: String(set.values[p.parameter_name] || "")
-        }))
-      }));
-    });
+    // Structure: Each exercise contains performance_data as a List of Lists (sets)
+    const performedExercisesPayload = workoutData
+      .map(ex => {
+        const completedSets = ex.actualSets.filter(s => s.isDone);
+        if (completedSets.length === 0) return null;
+
+        return {
+          exercise_id: ex.exercise_id,
+          // List of Lists structure: each set is a list of parameters
+          performance_data: completedSets.map(set => (
+            ex.paramsMetadata.map(p => ({
+              parameter_id: p.parameter_id,
+              value: String(set.values[p.parameter_id] || "0")
+            }))
+          ))
+        };
+      })
+      .filter(Boolean);
 
     if (performedExercisesPayload.length === 0) {
       showToast("יש לסמן לפחות סט אחד כבוצע", "warning");
@@ -201,10 +275,10 @@ const ActiveWorkoutPage = () => {
     }
 
     const sessionPayload = {
-      template_id: template.id,
+      template_id: template?.id || null,
       start_time: startTime.toISOString(),
       workout_summary: workoutSummary,
-      actual_duration: actualDuration ? `${actualDuration} min` : null, // Backend expects string based on your schema
+      actual_duration: actualDuration ? `${actualDuration} min` : null,
       performed_exercises: performedExercisesPayload
     };
 
@@ -217,9 +291,20 @@ const ActiveWorkoutPage = () => {
     }
   };
 
+  // UI Helpers
+  const parentExerciseName = useMemo(() => {
+    if (!template?.parent_exercise_id || exercises.length === 0) return "כללי";
+    const parent = exercises.find(ex => Number(ex.id) === Number(template.parent_exercise_id));
+    return parent ? parent.name : "כללי";
+  }, [exercises, template]);
+
   const availableToAdd = useMemo(() => {
     return getAllLeafDescendants(exercises, template?.parent_exercise_id);
   }, [exercises, template, getAllLeafDescendants]);
+
+  if (isFetchingTemplate || !template) {
+    return <div style={{ textAlign: 'center', marginTop: '50px' }}>טוען נתוני אימון...</div>;
+  }
 
   return (
     <div style={{ paddingBottom: '80px', direction: 'rtl' }}>
@@ -241,7 +326,7 @@ const ActiveWorkoutPage = () => {
           <ExerciseActiveCard 
             key={ex.instanceId}
             exercise={ex}
-            onUpdateValue={(sIdx, pName, val) => updateSetValue(idx, sIdx, pName, val)}
+            onUpdateValue={(sIdx, pId, val) => updateSetValue(idx, sIdx, pId, val)}
             onAddSet={() => addSetToExercise(idx)}
             onDeleteSet={(sIdx) => deleteSet(idx, sIdx)}
             onToggleSetDone={(sIdx) => toggleSetDone(idx, sIdx)}
@@ -277,64 +362,17 @@ const ActiveWorkoutPage = () => {
 };
 
 const footerStyles = {
-  container: {
-    marginTop: '30px',
-    padding: '20px',
-    backgroundColor: '#fff',
-    borderRadius: '15px',
-    border: '1px solid #eee',
-    boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
-  },
+  container: { marginTop: '30px', padding: '20px', backgroundColor: '#fff', borderRadius: '15px', border: '1px solid #eee', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' },
   title: { margin: '0 0 20px', color: '#333', fontSize: '1.2rem' },
   inputGroup: { marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' },
   label: { fontSize: '14px', fontWeight: 'bold', color: '#555' },
-  durationInput: {
-    padding: '12px',
-    borderRadius: '10px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box'
-  },
-  summaryArea: {
-    padding: '12px',
-    borderRadius: '10px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-    minHeight: '100px',
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box',
-    fontFamily: 'inherit'
-  },
-  finishBtn: {
-    width: '100%',
-    padding: '16px',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    boxShadow: '0 4px 12px rgba(40, 167, 69, 0.2)',
-    transition: 'transform 0.1s'
-  }
+  durationInput: { padding: '12px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', outline: 'none', width: '100%', boxSizing: 'border-box' },
+  summaryArea: { padding: '12px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', minHeight: '100px', outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: 'inherit' },
+  finishBtn: { width: '100%', padding: '16px', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(40, 167, 69, 0.2)', transition: 'transform 0.1s' }
 };
 
 const styles = {
-  addExBtn: { 
-    width: '100%', 
-    padding: '15px', 
-    backgroundColor: '#f8f9fa', 
-    border: '2px dashed #ddd', 
-    borderRadius: '12px', 
-    cursor: 'pointer', 
-    marginTop: '20px', 
-    marginBottom: '10px',
-    fontWeight: 'bold',
-    color: '#555'
-  }
+  addExBtn: { width: '100%', padding: '15px', backgroundColor: '#f8f9fa', border: '2px dashed #ddd', borderRadius: '12px', cursor: 'pointer', marginTop: '20px', marginBottom: '10px', fontWeight: 'bold', color: '#555' }
 };
 
 export default ActiveWorkoutPage;
