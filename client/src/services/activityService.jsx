@@ -2,18 +2,23 @@ import api from './api';
 
 /**
  * Service for handling Activity Logs (Performance Data).
- * All performance_data should follow the structure: 
- * [{"parameter_id": int, "parameter_name": string, "unit": string, "value": string}]
+ * In this architecture, each record represents a SINGLE SET.
+ * 
+ * performance_data follows a flat structure for one set:
+ * [{"parameter_id": int, "value": string}, ...]
+ * 
+ * The Backend enriches the GET responses with:
+ * "parameter_name" and "unit" for each parameter entry.
  */
 export const activityService = {
   /**
-   * Create a new activity log entry.
+   * Create a new activity log entry for a single set.
    * @param {Object} logData - { exercise_id, performance_data, workout_session_id }
    */
   create: (logData) => api.post('/activity-logs', logData),
 
   /**
-   * Fetch personal logs for a specific exercise and all its descendants.
+   * Fetch personal logs (sets) for a specific exercise and all its descendants.
    * @param {number} exerciseId
    */
   getPersonalLogs: (exerciseId) => api.get(`/activity-logs/${exerciseId}`),
@@ -25,15 +30,17 @@ export const activityService = {
   getGroupLogs: (exerciseId) => api.get(`/trainer/group-logs/${exerciseId}`),
 
   /**
-   * Update an existing activity log (timestamp or performance data).
+   * Update a specific activity log (single set).
    * @param {number} logId
    * @param {Object} updateData - { timestamp, performance_data }
    */
   update: (logId, updateData) => api.patch(`/activity-logs/${logId}`, updateData),
 
   /**
-   * Delete an activity log entry.
+   * Delete a specific activity log entry (single set).
    * @param {number} logId
    */
   delete: (logId) => api.delete(`/activity-logs/${logId}`)
 };
+
+export default activityService;

@@ -33,6 +33,8 @@ const Navbar = () => {
 
       <Link to="/chats">צ'אטים</Link>
 
+      <Link to="/stats-page">סטטסטיקה אישית</Link>
+
       {(user.role === 'admin' || user.role === 'trainer') && (
         <Link to="/coach-messages">הודעות מאמן</Link>
       )}

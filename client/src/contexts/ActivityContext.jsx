@@ -1,16 +1,21 @@
 import React, { createContext, useState, useCallback } from 'react';
 import { activityService } from '../services/activityService';
 
-// Export the context so the hook can import it
+// Export the context so hooks and components can consume it
 export const ActivityContext = createContext();
 
+/**
+ * Provider for managing exercise activity logs for the Mitamnim application.
+ * In this architecture, each log entry represents a single performed set.
+ * The backend provides enriched data including parameter names and units via joins.
+ */
 export const ActivityProvider = ({ children }) => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /**
-   * Fetches performance logs for a specific exercise.
-   * Data now includes workout_session_id and workout_session_name from the backend.
+   * Fetches performance logs (individual sets) for a specific exercise.
+   * Data includes enriched metadata such as exercise_name and workout_session_name.
    */
   const fetchLogs = useCallback(async (exerciseId, isTrainerView = false) => {
     setLoading(true);
@@ -28,7 +33,8 @@ export const ActivityProvider = ({ children }) => {
   }, []);
 
   /**
-   * Adds a manual log entry.
+   * Adds a new activity log entry for a single set.
+   * Updates the local state by prepending the enriched entry returned by the server.
    */
   const addLog = async (logData) => {
     try {
@@ -42,7 +48,8 @@ export const ActivityProvider = ({ children }) => {
   };
 
   /**
-   * Updates an existing log entry.
+   * Updates an existing activity log (set entry).
+   * Synchronizes the local state with the updated and enriched response.
    */
   const editLog = async (logId, updateData) => {
     try {
@@ -56,7 +63,7 @@ export const ActivityProvider = ({ children }) => {
   };
 
   /**
-   * Deletes a log entry.
+   * Deletes an activity log entry and removes it from the local state.
    */
   const removeLog = async (logId) => {
     try {
@@ -81,3 +88,5 @@ export const ActivityProvider = ({ children }) => {
     </ActivityContext.Provider>
   );
 };
+
+export default ActivityProvider;

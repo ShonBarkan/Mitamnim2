@@ -32,7 +32,7 @@ export const StatsProvider = ({ children }) => {
     /**
      * Registers a new dashboard display rule.
      */
-    const addDashboardConfig = async (data) => {
+    const addDashboardConfig = useCallback(async (data) => {
         try {
             const newConfig = await dashboardConfigService.createConfig(data);
             setDashboardConfigs(prev => [...prev, newConfig]);
@@ -41,13 +41,12 @@ export const StatsProvider = ({ children }) => {
             console.error("StatsContext: Add dashboard config failed", error);
             throw error;
         }
-    };
+    }, []);
 
     /**
      * Updates an existing dashboard configuration.
-     * Supports reordering, metric editing, and visibility toggles.
      */
-    const updateDashboardConfig = async (id, data) => {
+    const updateDashboardConfig = useCallback(async (id, data) => {
         try {
             const updated = await dashboardConfigService.updateConfig(id, data);
             setDashboardConfigs(prev => 
@@ -58,12 +57,12 @@ export const StatsProvider = ({ children }) => {
             console.error("StatsContext: Update dashboard config failed", error);
             throw error;
         }
-    };
+    }, []);
 
     /**
      * Removes an item from the dashboard configuration.
      */
-    const removeDashboardConfig = async (id) => {
+    const removeDashboardConfig = useCallback(async (id) => {
         try {
             await dashboardConfigService.removeConfig(id);
             setDashboardConfigs(prev => prev.filter(d => d.id !== id));
@@ -71,34 +70,50 @@ export const StatsProvider = ({ children }) => {
             console.error("StatsContext: Remove dashboard config failed", error);
             throw error;
         }
-    };
+    }, []);
 
-    // --- Data Engine Retrieval ---
+    // --- Data Engine Retrieval (Memoized to prevent infinite loops) ---
 
     /**
-     * Fetches personal performance trends and history.
-     * Aggregates data across exercise hierarchy and applies aggregation strategies.
+     * Fetches a consolidated overview of user performance.
+     * Includes total workouts, duration, PR hall of fame, and day distribution.
      */
-    const fetchPersonalStats = async (exerciseId, targetUserId = null) => {
+    const fetchUserOverview = useCallback(async (targetUserId = null) => {
+        setLoading(true);
+        try {
+            const data = await statsEngineService.getUserOverview(targetUserId);
+            return data;
+        } catch (error) {
+            console.error("StatsContext: Fetch user overview failed", error);
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    /**
+     * Fetches personal performance trends and history for a specific exercise.
+     */
+    const fetchPersonalStats = useCallback(async (exerciseId, targetUserId = null) => {
         try {
             return await statsEngineService.getPersonalHistory(exerciseId, targetUserId);
         } catch (error) {
             console.error("StatsContext: Fetch personal stats failed", error);
             return [];
         }
-    };
+    }, []);
 
     /**
      * Fetches group-wide rankings for public leaderboards within a timeframe.
      */
-    const fetchGroupLeaderboard = async (startDate, endDate) => {
+    const fetchGroupLeaderboard = useCallback(async (startDate, endDate) => {
         try {
             return await statsEngineService.getGroupLeaderboard(startDate, endDate);
         } catch (error) {
             console.error("StatsContext: Fetch group leaderboard failed", error);
             return [];
         }
-    };
+    }, []);
 
     const value = {
         dashboardConfigs,
@@ -107,6 +122,7 @@ export const StatsProvider = ({ children }) => {
         addDashboardConfig,
         updateDashboardConfig,
         removeDashboardConfig,
+        fetchUserOverview,
         fetchPersonalStats,
         fetchGroupLeaderboard
     };

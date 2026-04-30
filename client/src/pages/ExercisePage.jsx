@@ -154,10 +154,6 @@ const ExercisePage = () => {
               onUnlink={unlinkParam} 
             />
 
-            <section style={{ marginTop: '40px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
-              <ActivityJournal exerciseId={selectedEx.id} />
-            </section>
-
             <TrainerControls 
               isTrainer={isTrainer}
               hasParameters={activeParams.length > 0}
@@ -169,7 +165,13 @@ const ExercisePage = () => {
               setNewSubExName={setNewSubExName}
               onAddSub={handleAddSubExercise}
             />
+
+            <section style={{ marginTop: '40px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+              <ActivityJournal exerciseId={selectedEx.id} />
+            </section>
+            
           </>
+          
         )}
       </main>
 

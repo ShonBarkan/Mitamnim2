@@ -18,6 +18,7 @@ import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
 import ChatsPage from './pages/ChatsPage';
 import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
+import PersonalStatsPage from './pages/PersonalStatsPage';
 
 function App() {
   return (
@@ -97,6 +98,15 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+
+            <Route path="/stats-page" element={
+                <ProtectedRoute allowedRoles={['admin', 'trainer']}>
+                  <PersonalStatsPage />
+                </ProtectedRoute>
+              } 
+            />
+
+
           </Routes>
         </div>
       </Router>
