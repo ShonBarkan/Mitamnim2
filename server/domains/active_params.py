@@ -29,7 +29,7 @@ class ActiveParam(Base):
     group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
     default_value = Column(Text, nullable=True)
 
-    # Relationships - joinedload is used in the service to optimize queries
+    # Relationships
     parameter = relationship("Parameter")
     exercise = relationship("ExerciseTree", back_populates="active_params")
 
@@ -67,7 +67,7 @@ class ActiveParamBatchRequest(BaseModel):
 
 class ActiveParamService:
     """
-    Business logic for exercise-parameter mapping with optimized queries.
+    Business logic for exercise-parameter mapping with optimized queries and dependency handling.
     """
 
     def __init__(self, db: Session):
@@ -81,10 +81,7 @@ class ActiveParamService:
         return active_param
 
     def get_all_group_params(self, group_id: uuid.UUID) -> List[ActiveParam]:
-        """
-        Retrieves all active parameters for a group in one query.
-        Used by the Frontend Context to minimize API calls.
-        """
+        """Retrieves all active parameters for a group."""
         results = (
             self.db.query(ActiveParam)
             .options(joinedload(ActiveParam.parameter))
@@ -107,7 +104,7 @@ class ActiveParamService:
         return [self._enrich_metadata(r) for r in results]
 
     def get_active_params_batch(self, group_id: uuid.UUID, ids: Optional[List[int]] = None) -> List[ActiveParam]:
-        """Retrieves specific active parameters by ID list or all for the group if empty."""
+        """Retrieves specific active parameters by ID list."""
         query = self.db.query(ActiveParam).options(joinedload(ActiveParam.parameter)).filter(
             ActiveParam.group_id == group_id
         )
@@ -120,7 +117,6 @@ class ActiveParamService:
 
     def link_parameter(self, data: ActiveParamCreate) -> ActiveParam:
         """Links a parameter to an exercise node. Only leaf nodes are allowed."""
-        # Check if node is a category (has children)
         has_children = self.db.query(ExerciseTree).filter(
             ExerciseTree.parent_id == data.exercise_id
         ).first() is not None
@@ -128,7 +124,6 @@ class ActiveParamService:
         if has_children:
             raise ValueError("Cannot link parameters to a category node.")
 
-        # Prevent duplicate links
         existing = self.db.query(ActiveParam).filter(
             ActiveParam.exercise_id == data.exercise_id,
             ActiveParam.parameter_id == data.parameter_id
@@ -142,11 +137,12 @@ class ActiveParamService:
         self.db.commit()
         self.db.refresh(new_link)
 
-        # Re-fetch with joinedload for the response
         return self.get_params_by_exercise(new_link.exercise_id, new_link.group_id)[-1]
 
     def unlink_parameter(self, link_id: int, group_id: uuid.UUID) -> bool:
-        """Deletes a link if the group ownership is valid."""
+        """
+        Deletes a link and recursively removes any virtual parameters that depend on it.
+        """
         db_link = self.db.query(ActiveParam).filter(
             ActiveParam.id == link_id,
             ActiveParam.group_id == group_id
@@ -155,7 +151,30 @@ class ActiveParamService:
         if not db_link:
             return False
 
+        exercise_id = db_link.exercise_id
+        parameter_id = db_link.parameter_id
+
+        # 1. Delete the primary link
         self.db.delete(db_link)
+        self.db.flush() # Sync state before checking dependencies
+
+        # 2. Recursive cleanup: Find virtual parameters linked to THIS exercise
+        # that use the deleted parameter_id in their source_parameter_ids.
+        dependent_active_params = (
+            self.db.query(ActiveParam)
+            .join(Parameter, ActiveParam.parameter_id == Parameter.id)
+            .filter(
+                ActiveParam.exercise_id == exercise_id,
+                Parameter.is_virtual == True,
+                Parameter.source_parameter_ids.any(parameter_id)
+            )
+            .all()
+        )
+
+        for dep in dependent_active_params:
+            # Recursively call unlink to handle nested dependencies (chains)
+            self.unlink_parameter(dep.id, group_id)
+
         self.db.commit()
         return True
 
@@ -170,7 +189,6 @@ async def get_all_group_active_params(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Fetches all mappings for the group - highly efficient for Frontend Context initialization."""
     service = ActiveParamService(db)
     return service.get_all_group_params(current_user.group_id)
 
@@ -181,7 +199,6 @@ async def get_active_params_for_exercise(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Fetches parameters for a specific exercise node."""
     service = ActiveParamService(db)
     return service.get_params_by_exercise(exercise_id, current_user.group_id)
 
@@ -192,7 +209,6 @@ async def get_active_params_batch(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Fetches a batch of parameters by ID or returns all group parameters if empty."""
     service = ActiveParamService(db)
     return service.get_active_params_batch(current_user.group_id, request.ids)
 
@@ -203,7 +219,6 @@ async def link_parameter_to_exercise(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Links a parameter to an exercise node (Trainers/Admins only)."""
     if current_user.role not in ["admin", "trainer"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -223,7 +238,6 @@ async def unlink_parameter(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Removes a link entry (Trainers/Admins only)."""
     if current_user.role not in ["admin", "trainer"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 

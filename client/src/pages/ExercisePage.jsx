@@ -8,8 +8,6 @@ import { useToast } from '../hooks/useToast';
 
 import ActivityJournal from '../components/Activity/ActivityJournal';
 import ExerciseTreeManager from '../components/Exercises/ExerciseTreeManager';
-
-// Modular Components
 import Sidebar from '../components/ExercisePage/Sidebar';
 import ExerciseHeader from '../components/ExercisePage/ExerciseHeader';
 import ActiveParameters from '../components/ExercisePage/ActiveParameters';
@@ -23,18 +21,15 @@ const ExercisePage = () => {
   const navigate = useNavigate();
   
   const { exercises, fetchExercises, addExercise } = useContext(ExerciseContext);
-  const { parameters, fetchParameters, addParameter } = useContext(ParameterContext);
+  const { parameters, fetchParameters } = useContext(ParameterContext);
   const { activeParams, fetchActiveParams, linkParam, unlinkParam, loading: paramsLoading } = useContext(ActiveParamContext);
 
   const [selectedEx, setSelectedEx] = useState(null);
   const [newSubExName, setNewSubExName] = useState('');
-  const [selectedParamId, setSelectedParamId] = useState('');
-  const [defaultValue, setDefaultValue] = useState('');
   const [isAddLogOpen, setIsAddLogOpen] = useState(false);
 
   const isTrainer = user?.role === 'trainer' || user?.role === 'admin';
 
-  // Calculate parameters that are not yet linked to the selected exercise
   const availableParameters = useMemo(() => {
     return parameters.filter(
       p => !activeParams.some(ap => ap.parameter_id === p.id)
@@ -53,36 +48,43 @@ const ExercisePage = () => {
         setSelectedEx(found);
         fetchActiveParams(found.id);
       }
-    } else {
-      setSelectedEx(null);
     }
   }, [exerciseId, exercises, fetchActiveParams]);
 
   /**
-   * Links an existing parameter to the current exercise
+   * Links a parameter and its dependencies if they are not already linked.
    */
-  const handleLinkParam = async (e, directParamId = null) => {
-    if (e && typeof e.preventDefault === 'function') {
-      e.preventDefault();
-    }
-    
-    const paramIdToUse = directParamId || selectedParamId;
-    
-    if (!paramIdToUse) {
-      console.warn("handleLinkParam: No parameter ID selected.");
-      return;
-    }
+  const handleLinkParam = async (paramId) => {
+    if (!paramId || !selectedEx) return;
+
+    const paramToLink = parameters.find(p => p.id === parseInt(paramId));
+    if (!paramToLink) return;
 
     try {
+      // 1. Recursive linking: If virtual, ensure all source parameters are linked first
+      if (paramToLink.is_virtual && paramToLink.source_parameter_ids) {
+        for (const sourceId of paramToLink.source_parameter_ids) {
+          const isAlreadyLinked = activeParams.some(ap => ap.parameter_id === sourceId);
+          if (!isAlreadyLinked) {
+            await linkParam({
+              exercise_id: selectedEx.id,
+              parameter_id: sourceId,
+              group_id: user.group_id,
+              default_value: "" // Dependencies are usually raw, but we keep default empty
+            });
+          }
+        }
+      }
+
+      // 2. Link the target parameter itself
       await linkParam({
         exercise_id: selectedEx.id,
-        parameter_id: parseInt(paramIdToUse),
+        parameter_id: paramToLink.id,
         group_id: user.group_id,
-        default_value: defaultValue
+        default_value: paramToLink.is_virtual ? "" : "0" // Virtuals never have default values
       });
       
-      setSelectedParamId('');
-      showToast("Parameter linked", "success");
+      showToast(`${paramToLink.name} linked successfully`, "success");
     } catch (err) {
       console.error("Failed to link parameter:", err);
       showToast("Failed to link parameter", "error");
@@ -90,34 +92,12 @@ const ExercisePage = () => {
   };
 
   /**
-   * Logic for "Create New Parameter and Link"
-   * Receives formData from the custom inline form in ParameterLinker
+   * Triggered when ParameterForm (inside ParameterLinker) completes creation.
    */
-  const handleCreateAndLinkParam = async (formData) => {
-    // Validation is handled by the form, but double-check here
-    if (!formData.name) return;
-
-    try {
-      // 1. Create the parameter in the global pool with its aggregation strategy
-      const newParam = await addParameter({
-        name: formData.name,
-        unit: formData.unit,
-        aggregation_strategy: formData.aggregation_strategy,
-        group_id: user.group_id
-      });
-
-      // 2. Link it specifically to this exercise
-      await linkParam({
-        exercise_id: selectedEx.id,
-        parameter_id: newParam.id,
-        group_id: user.group_id,
-        default_value: ""
-      });
-
-      showToast("New parameter created and linked", "success");
-    } catch (err) {
-      console.error("Failed to create and link parameter:", err);
-      showToast("Failed to create and link parameter", "error");
+  const handleAfterCreate = async (newParam) => {
+    if (newParam && selectedEx) {
+        // After creation, we just use the existing link logic to handle potential dependencies
+        await handleLinkParam(newParam.id);
     }
   };
 
@@ -183,10 +163,8 @@ const ExercisePage = () => {
               hasParameters={activeParams.length > 0}
               hasSubExercises={exercises.some(ex => ex.parent_id === selectedEx.id)}
               parameters={availableParameters}
-              selectedParamId={selectedParamId}
-              setSelectedParamId={setSelectedParamId}
               onLinkParam={handleLinkParam}
-              onCreateAndLink={handleCreateAndLinkParam}
+              onAfterCreate={handleAfterCreate}
               newSubExName={newSubExName}
               setNewSubExName={setNewSubExName}
               onAddSub={handleAddSubExercise}

@@ -1,7 +1,7 @@
 import api from './api';
 
 /**
- * Service handling the API communication for active parameters.
+ * Service handling the API communication for active parameters (exercise-parameter links).
  * Maintains consistency with the backend trailing slash requirements.
  */
 export const activeParamService = {
@@ -26,13 +26,18 @@ export const activeParamService = {
 
   /**
    * Links a new parameter to an exercise node.
+   * Note: If the parameter is virtual, the backend may automatically link its dependencies.
    * @param {Object} data - Contains parameter_id, exercise_id, group_id, and default_value.
    */
   link: (data) => api.post('/active-params/', data),
 
   /**
    * Removes the link between a parameter and an exercise.
+   * Note: This operation triggers a recursive cleanup in the backend, 
+   * removing any virtual parameters that depend on the unlinked parameter.
    * @param {number} linkId - The database ID of the link entry.
    */
   unlink: (linkId) => api.delete(`/active-params/${linkId}/`)
 };
+
+export default activeParamService;

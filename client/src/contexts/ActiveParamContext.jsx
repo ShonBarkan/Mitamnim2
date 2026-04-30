@@ -5,7 +5,7 @@ export const ActiveParamContext = createContext();
 
 /**
  * Context provider for managing exercise-parameter links.
- * Designed for modular component consumption without prop-drilling.
+ * Handles cascading updates when parameters are unlinked.
  */
 export const ActiveParamProvider = ({ children }) => {
   const [activeParams, setActiveParams] = useState([]);
@@ -13,7 +13,6 @@ export const ActiveParamProvider = ({ children }) => {
 
   /**
    * Fetches all active parameters for the current group.
-   * Highly efficient for context initialization.
    */
   const fetchAllGroupParams = useCallback(async () => {
     setLoading(true);
@@ -59,13 +58,16 @@ export const ActiveParamProvider = ({ children }) => {
   }, []);
 
   /**
-   * Links a parameter to an exercise and updates the local state.
+   * Links a parameter to an exercise and updates local state.
+   * Note: If the backend logic also links dependencies, we might need 
+   * to fetchActiveParams instead of just appending.
    */
   const linkParam = async (data) => {
     try {
       const response = await activeParamService.link(data);
-      // Immediately update state with the enriched metadata from backend
-      setActiveParams(prev => [...prev, response.data]);
+      // If linking a virtual parameter causes cascading links in the backend,
+      // it is safer to refresh the whole list for the exercise:
+      await fetchActiveParams(data.exercise_id);
       return response.data;
     } catch (err) {
       console.error("ActiveParamContext: Link failed:", err);
@@ -74,12 +76,22 @@ export const ActiveParamProvider = ({ children }) => {
   };
 
   /**
-   * Removes a link and filters the local state.
+   * Removes a link and refreshes the state.
+   * Since unlinking can trigger recursive deletions in the backend, 
+   * we must re-fetch the parameters for the exercise to ensure UI consistency.
    */
   const unlinkParam = async (linkId) => {
+    // Find the exercise ID before unlinking to know what to refresh
+    const linkToDelete = activeParams.find(p => p.id === linkId);
+    if (!linkToDelete) return;
+
+    const exerciseId = linkToDelete.exercise_id;
+
     try {
       await activeParamService.unlink(linkId);
-      setActiveParams(prev => prev.filter(p => p.id !== linkId));
+      
+      // Re-fetch to catch recursive deletions (e.g., virtual params depending on this one)
+      await fetchActiveParams(exerciseId);
     } catch (err) {
       console.error("ActiveParamContext: Unlink failed:", err);
       throw err;
