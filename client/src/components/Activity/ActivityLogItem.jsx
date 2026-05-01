@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useActivity } from '../../hooks/useActivity';
 import { formatTime } from '../../utils/activityDateUtils';
-import ActivityLogEditModal from './ActivityLogEditModal'; // Will be Step 5
+import ActivityLogEditModal from './ActivityLogEditModal';
 
 /**
- * Represents a single performance record.
- * Displays time, exercise name (for grouped views), parameters, and actions.
+ * Represents a single performance record in the journal.
+ * High-contrast, minimalist design following the Arctic Mirror aesthetic.
  */
 const ActivityLogItem = ({ log, isTrainerView }) => {
   const { removeLog } = useActivity();
@@ -18,85 +18,72 @@ const ActivityLogItem = ({ log, isTrainerView }) => {
   };
 
   return (
-    <div 
-      className="activity-log-item"
-      style={{
-        backgroundColor: '#fff',
-        border: '1px solid #e9ecef',
-        borderRadius: '10px',
-        padding: '12px 15px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-        transition: 'box-shadow 0.2s',
-        position: 'relative'
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.05)'}
-      onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
-    >
-      {/* Header: Time, User (if trainer), and Exercise Name */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', color: '#868e96', fontWeight: 'bold' }}>
+    <div className="group relative bg-white border border-zinc-100 rounded-[1.5rem] p-5 transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/40 hover:border-zinc-200 font-sans">
+      
+      {/* Upper Section: Time, Name and Actions */}
+      <div className="flex justify-between items-start mb-4">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider">
               {formatTime(log.timestamp)}
             </span>
-            <span style={{ fontWeight: 'bold', color: '#212529' }}>
+            <h5 className="text-sm font-black text-zinc-900 tracking-tight">
               {log.exercise_name}
-            </span>
+            </h5>
           </div>
+          
           {isTrainerView && log.user_full_name && (
-            <span style={{ fontSize: '12px', color: '#007bff', marginTop: '2px' }}>
-              👤 {log.user_full_name}
-            </span>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-[10px] text-zinc-400">👤</span>
+              <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-tight">
+                {log.user_full_name}
+              </span>
+            </div>
           )}
         </div>
 
-        {/* Action Buttons: Only for the owner (not trainer view, unless allowed) */}
+        {/* Action Buttons - Visible on hover for clean UI */}
         {!isTrainerView && (
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <button 
               onClick={() => setIsEditModalOpen(true)}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#adb5bd', fontSize: '14px' }}
-              title="ערוך"
+              className="w-8 h-8 flex items-center justify-center rounded-xl bg-zinc-50 text-zinc-400 hover:bg-zinc-900 hover:text-white transition-all"
+              title="Edit"
             >
-              ✎
+              <span className="text-xs">✎</span>
             </button>
             <button 
               onClick={handleDelete}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ff8787', fontSize: '14px' }}
-              title="מחק"
+              className="w-8 h-8 flex items-center justify-center rounded-xl bg-rose-50 text-rose-300 hover:bg-rose-500 hover:text-white transition-all"
+              title="Delete"
             >
-              🗑
+              <span className="text-xs">🗑</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* Performance Data: Dynamic chips for each parameter */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+      {/* Performance Data Grid */}
+      <div className="flex flex-wrap gap-2">
         {log.performance_data.map((param, index) => (
           <div 
             key={index}
-            style={{
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #dee2e6',
-              borderRadius: '6px',
-              padding: '4px 10px',
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
+            className="flex items-baseline gap-1.5 bg-slate-50/50 border border-zinc-100 px-3 py-1.5 rounded-xl transition-colors hover:bg-white hover:border-zinc-200"
           >
-            <span style={{ color: '#495057' }}>{param.parameter_name}:</span>
-            <strong style={{ color: '#212529' }}>{param.value}</strong>
-            <span style={{ fontSize: '11px', color: '#868e96' }}>{param.unit}</span>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">
+              {param.parameter_name}
+            </span>
+            <span className="text-sm font-black text-zinc-900">
+              {param.value}
+            </span>
+            <span className="text-[9px] font-black text-blue-500/70 uppercase">
+              {param.unit}
+            </span>
           </div>
         ))}
       </div>
 
-      {/* Edit Modal (Step 5) */}
+      {/* Edit Modal Injection */}
       {isEditModalOpen && (
         <ActivityLogEditModal 
           log={log} 

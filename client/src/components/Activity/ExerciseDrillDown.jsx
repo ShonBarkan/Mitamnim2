@@ -2,150 +2,105 @@ import React, { useState, useContext, useEffect } from 'react';
 import { ExerciseContext } from '../../contexts/ExerciseContext';
 
 /**
- * Navigation component to drill down through exercise categories.
- * Supports starting from a specific category via initialParentId.
+ * Modern Navigation component for drilling through exercise hierarchies.
  */
 const ExerciseDrillDown = ({ onSelect, initialParentId = null }) => {
   const { exercises } = useContext(ExerciseContext);
-  
-  // Initialize navigation state. 
-  // If initialParentId is provided, we start deeper in the tree.
   const [currentParentId, setCurrentParentId] = useState(initialParentId);
 
-  // Sync state if initialParentId changes (e.g., user selects a different category in the background)
   useEffect(() => {
     setCurrentParentId(initialParentId);
   }, [initialParentId]);
 
-  // Filter exercises belonging to the currently viewed category level
   const visibleExercises = exercises.filter(ex => ex.parent_id === currentParentId);
 
-  /**
-   * Navigates one level up in the exercise tree.
-   */
   const handleBack = () => {
     const currentCategory = exercises.find(ex => ex.id === currentParentId);
-    if (currentCategory) {
-      setCurrentParentId(currentCategory.parent_id);
-    } else {
-      // If we can't find the category, we're likely at the root
-      setCurrentParentId(null);
-    }
+    setCurrentParentId(currentCategory ? currentCategory.parent_id : null);
   };
 
-  /**
-   * Handles item selection or deeper navigation.
-   */
   const handleItemClick = (exercise) => {
     if (exercise.has_children) {
-      // Move deeper into the tree branch
       setCurrentParentId(exercise.id);
     } else {
-      // It's a leaf node - trigger the final selection
       onSelect(exercise);
     }
   };
 
   return (
-    <div className="exercise-drill-down">
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
-        marginBottom: '15px',
-        minHeight: '32px' 
-      }}>
-        <span style={{ fontSize: '14px', color: '#6c757d', fontWeight: '500' }}>
-          {currentParentId ? 'בחר תת-תרגיל:' : 'בחר קטגוריה:'}
-        </span>
+    <div className="exercise-drill-down font-sans space-y-6" dir="rtl">
+      {/* Dynamic Breadcrumb / Navigation Header */}
+      <div className="flex items-center justify-between min-h-[40px] px-2">
+        <div className="flex flex-col">
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+            {currentParentId ? 'Sub-Category' : 'Main Library'}
+          </span>
+          <h4 className="text-lg font-black text-zinc-900 tracking-tight">
+            {currentParentId 
+              ? exercises.find(e => e.id === currentParentId)?.name 
+              : 'בחר קטגוריה להתחלה'}
+          </h4>
+        </div>
         
-        {/* Show "Back" only if we are NOT at the absolute root */}
         {currentParentId !== null && (
           <button 
             onClick={handleBack}
-            style={{
-              padding: '5px 12px',
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #dee2e6',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
+            className="group flex items-center gap-2 bg-white border border-zinc-200 px-4 py-2 rounded-2xl shadow-sm hover:shadow-md hover:border-zinc-300 transition-all active:scale-95"
           >
-            ⬅ חזור
+            <span className="text-zinc-400 group-hover:text-blue-600 transition-colors">←</span>
+            <span className="text-xs font-bold text-zinc-600">חזור</span>
           </button>
         )}
       </div>
 
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '1fr 1fr', 
-        gap: '12px',
-        maxHeight: '400px',
-        overflowY: 'auto',
-        padding: '2px' // Prevent box-shadow clipping
-      }}>
-        {visibleExercises.map(ex => (
-          <button
-            key={ex.id}
-            onClick={() => handleItemClick(ex)}
-            style={{
-              padding: '16px 12px',
-              backgroundColor: ex.has_children ? '#ffffff' : '#f0f7ff',
-              border: `1px solid ${ex.has_children ? '#e9ecef' : '#cce5ff'}`,
-              borderRadius: '12px',
-              cursor: 'pointer',
-              textAlign: 'center',
-              fontWeight: ex.has_children ? '500' : '700',
-              color: ex.has_children ? '#495057' : '#0056b3',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = ex.has_children ? '#adb5bd' : '#66b2ff';
-              e.currentTarget.style.backgroundColor = ex.has_children ? '#f8f9fa' : '#e0efff';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = ex.has_children ? '#e9ecef' : '#cce5ff';
-              e.currentTarget.style.backgroundColor = ex.has_children ? '#ffffff' : '#f0f7ff';
-            }}
-            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
-            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            <span style={{ fontSize: '15px', lineHeight: '1.2' }}>{ex.name}</span>
-            {ex.has_children && (
-              <span style={{ 
-                fontSize: '10px', 
-                color: '#adb5bd', 
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px' 
-              }}>
-                📂 תת-קטגוריה
+      {/* Exercise Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[450px] overflow-y-auto pr-1 pl-2 scrollbar-hide">
+        {visibleExercises.map(ex => {
+          const isCategory = ex.has_children;
+          
+          return (
+            <button
+              key={ex.id}
+              onClick={() => handleItemClick(ex)}
+              className={`relative flex flex-col items-start p-5 rounded-[2rem] border transition-all duration-300 group ${
+                isCategory 
+                  ? 'bg-white border-zinc-100 hover:border-zinc-300 hover:shadow-xl hover:shadow-slate-200/50' 
+                  : 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-100 hover:bg-blue-700 hover:shadow-blue-200'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full mb-2">
+                <span className={`text-[9px] font-black uppercase tracking-widest ${isCategory ? 'text-zinc-400' : 'text-blue-200'}`}>
+                  {isCategory ? 'Folder' : 'Exercise'}
+                </span>
+                {isCategory && (
+                  <div className="w-6 h-6 rounded-lg bg-zinc-50 flex items-center justify-center text-[10px] text-zinc-300 group-hover:text-zinc-500">
+                    ▼
+                  </div>
+                )}
+              </div>
+              
+              <span className={`text-lg font-black tracking-tight text-right ${isCategory ? 'text-zinc-900' : 'text-white'}`}>
+                {ex.name}
               </span>
-            )}
-          </button>
-        ))}
+
+              {!isCategory && (
+                <div className="mt-4 flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/10">
+                  <span className="text-[10px] font-bold text-white uppercase tracking-tighter">Start Entry</span>
+                  <span className="text-white text-xs">→</span>
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
 
+      {/* Empty State */}
       {visibleExercises.length === 0 && (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px 20px', 
-          color: '#adb5bd', 
-          fontStyle: 'italic',
-          backgroundColor: '#fcfcfc',
-          borderRadius: '12px',
-          border: '1px dashed #eee'
-        }}>
-          אין תרגילים זמינים במיקום זה.
+        <div className="flex flex-col items-center justify-center py-16 bg-zinc-50 rounded-[2.5rem] border border-dashed border-zinc-200">
+          <div className="text-2xl mb-2 opacity-20">📂</div>
+          <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest italic">
+            No items in this branch
+          </p>
         </div>
       )}
     </div>
