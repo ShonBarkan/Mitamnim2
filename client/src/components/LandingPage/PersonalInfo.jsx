@@ -4,12 +4,11 @@ import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 
 /**
- * PersonalInfo Component
- * Displays and allows editing of the current logged-in user's details.
+ * PersonalInfo Component - Arctic Mirror Edition
  */
 const PersonalInfo = ({ user }) => {
   const { updateUser } = useUsers();
-  const { setUser } = useAuth(); 
+  const { setUser } = useAuth();
   const { showToast } = useToast();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -18,12 +17,9 @@ const PersonalInfo = ({ user }) => {
     second_name: user?.second_name || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    password: '' 
+    password: ''
   });
 
-  /**
-   * Keep the form data in sync if the user prop changes
-   */
   useEffect(() => {
     if (user) {
       setFormData({
@@ -44,16 +40,10 @@ const PersonalInfo = ({ user }) => {
   const handleSave = async () => {
     try {
       const payload = { ...formData };
-      
-      // Only include password if the user actually typed a new one
-      if (!payload.password) {
-        delete payload.password;
-      }
-      
-      // 1. Update via the UserContext/Service
+      if (!payload.password) delete payload.password;
+
       const updatedUser = await updateUser(user.id, payload);
-      
-      // 2. Update the Global Auth state to trigger UI-wide updates
+
       if (updatedUser) {
         setUser(updatedUser);
         showToast("הפרטים עודכנו בהצלחה", "success");
@@ -64,78 +54,103 @@ const PersonalInfo = ({ user }) => {
     }
   };
 
+  // --- Input Styling Helper ---
+  const inputClasses = "w-full bg-white/50 border border-white/60 rounded-2xl px-4 py-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all";
+
   if (isEditing) {
     return (
-      <section style={{ border: '2px solid #007bff', padding: '15px', borderRadius: '8px', marginBottom: '20px', backgroundColor: '#f0f8ff' }}>
-        <h3 style={{ margin: '0 0 15px' }}>עריכת הפרטים שלי</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <input 
-            name="first_name" 
-            placeholder="שם פרטי" 
-            value={formData.first_name} 
-            onChange={handleInputChange} 
-          />
-          <input 
-            name="second_name" 
-            placeholder="שם משפחה" 
-            value={formData.second_name} 
-            onChange={handleInputChange} 
-          />
-          <input 
-            name="email" 
-            type="email" 
-            placeholder="אימייל" 
-            value={formData.email} 
-            onChange={handleInputChange} 
-          />
-          <input 
-            name="phone" 
-            placeholder="טלפון" 
-            value={formData.phone} 
-            onChange={handleInputChange} 
-          />
-          <input 
-            name="password" 
-            type="password" 
-            placeholder="סיסמה חדשה (אופציונלי)" 
-            value={formData.password} 
-            onChange={handleInputChange} 
-            style={{ gridColumn: 'span 2' }} 
-          />
-        </div>
-        <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-          <button 
-            onClick={handleSave} 
-            style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}
-          >
-            שמור שינויים
-          </button>
-          <button 
-            onClick={() => setIsEditing(false)} 
-            style={{ backgroundColor: '#6c757d', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}
-          >
-            ביטול
-          </button>
+      <section className="bg-white/70 backdrop-blur-xl border border-white rounded-[2.5rem] p-8 shadow-2xl shadow-blue-100/50 transition-all duration-500 overflow-hidden relative">
+        {/* Decorative background element */}
+        <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-100/30 rounded-full blur-3xl" />
+        
+        <div className="relative">
+          <header className="mb-8">
+            <h3 className="text-2xl font-black text-zinc-900 tracking-tight">עריכת פרופיל</h3>
+            <p className="text-zinc-500 text-sm font-medium">עדכן את הפרטים האישיים שלך במידת הצורך</p>
+          </header>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-zinc-400 mr-2 uppercase tracking-widest">שם פרטי</label>
+              <input name="first_name" value={formData.first_name} onChange={handleInputChange} className={inputClasses} placeholder="שם פרטי" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-zinc-400 mr-2 uppercase tracking-widest">שם משפחה</label>
+              <input name="second_name" value={formData.second_name} onChange={handleInputChange} className={inputClasses} placeholder="שם משפחה" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-zinc-400 mr-2 uppercase tracking-widest">אימייל</label>
+              <input name="email" type="email" value={formData.email} onChange={handleInputChange} className={inputClasses} placeholder="אימייל" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-zinc-400 mr-2 uppercase tracking-widest">טלפון</label>
+              <input name="phone" value={formData.phone} onChange={handleInputChange} className={inputClasses} placeholder="טלפון" />
+            </div>
+            <div className="md:col-span-2 space-y-1">
+              <label className="text-xs font-bold text-zinc-400 mr-2 uppercase tracking-widest">סיסמה חדשה</label>
+              <input name="password" type="password" value={formData.password} onChange={handleInputChange} className={inputClasses} placeholder="השאר ריק כדי לא לשנות" />
+            </div>
+          </div>
+
+          <div className="mt-8 flex gap-3">
+            <button 
+              onClick={handleSave} 
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-200 transition-all active:scale-95"
+            >
+              שמור שינויים
+            </button>
+            <button 
+              onClick={() => setIsEditing(false)} 
+              className="flex-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 font-bold py-4 rounded-2xl transition-all"
+            >
+              ביטול
+            </button>
+          </div>
         </div>
       </section>
     );
   }
 
   return (
-    <section style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff' }}>
-      <div>
-        <h3 style={{ margin: '0 0 10px' }}>הפרטים שלי:</h3>
-        <p><strong>שם:</strong> {user?.first_name} {user?.second_name}</p>
-        <p><strong>אימייל:</strong> {user?.email || 'לא הוזן'}</p>
-        <p><strong>טלפון:</strong> {user?.phone || 'לא הוזן'}</p>
-        <p><strong>תפקיד:</strong> {user?.role === 'trainee' ? 'מתאמן' : user?.role === 'trainer' ? 'מאמן' : user?.role}</p>
+    <section className="bg-white/80 backdrop-blur-2xl border border-white rounded-[2.5rem] p-8 shadow-2xl shadow-slate-200/50 transition-all hover:shadow-blue-100/40 relative overflow-hidden group">
+      {/* Arctic Mirror highlight */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-full blur-3xl -translate-y-12 translate-x-12 group-hover:bg-blue-100 transition-colors duration-700" />
+      
+      <div className="relative flex flex-col md:flex-row justify-between items-center gap-8">
+        <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-right">
+          {/* Avatar Placeholder */}
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-50 to-white border border-white shadow-inner flex items-center justify-center text-3xl shadow-blue-50">
+            {user?.first_name?.[0] || user?.username?.[0]}
+          </div>
+          
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 justify-center md:justify-start">
+              <h3 className="text-3xl font-black text-zinc-900 tracking-tight">
+                {user?.first_name} {user?.second_name}
+              </h3>
+              <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                {user?.role === 'trainee' ? 'מתאמן' : user?.role === 'trainer' ? 'מאמן' : user?.role}
+              </span>
+            </div>
+            
+            <div className="flex flex-wrap gap-x-6 gap-y-1 justify-center md:justify-start">
+              <p className="flex items-center gap-1.5 text-zinc-500 font-medium">
+                <span className="opacity-40 text-xs">📧</span> {user?.email || 'לא הוזן אימייל'}
+              </p>
+              <p className="flex items-center gap-1.5 text-zinc-500 font-medium">
+                <span className="opacity-40 text-xs">📱</span> {user?.phone || 'לא הוזן טלפון'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <button 
+          onClick={() => setIsEditing(true)} 
+          className="w-full md:w-auto bg-white border border-zinc-200 hover:border-blue-300 text-zinc-900 font-black px-8 py-4 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95"
+        >
+          עריכת פרופיל
+        </button>
       </div>
-      <button 
-        onClick={() => setIsEditing(true)} 
-        style={{ padding: '10px 20px', cursor: 'pointer', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px' }}
-      >
-        ערוך פרטים
-      </button>
     </section>
   );
 };

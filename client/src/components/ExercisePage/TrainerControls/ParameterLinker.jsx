@@ -1,76 +1,98 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import ParameterForm from '../../Parameters/ParameterForm';
 
 const ParameterLinker = ({ parameters, onLinkParam, onAfterCreate }) => {
   const [isCreating, setIsCreating] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // מנוע חיפוש פנימי לפרמטרים הזמינים
+  const filteredParams = useMemo(() => {
+    return parameters.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.unit.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [parameters, searchTerm]);
 
   return (
-    <div style={{ padding: '15px', border: '1px dashed #007bff', borderRadius: '12px', backgroundColor: '#f0f7ff' }}>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '15px' 
-      }}>
-        <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          🔗 קישור פרמטרים לתרגיל
-        </h4>
-        
+    <div className="p-6 bg-white border border-zinc-100 rounded-[2.5rem] shadow-sm font-sans" dir="rtl">
+      
+      {/* Header & Main Actions */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-blue-600">🔗</span>
+            <h4 className="text-sm font-black text-zinc-800 uppercase tracking-widest">קישור פרמטרים</h4>
+          </div>
+          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">בחר פרמטרים קיימים או צור חדש</p>
+        </div>
+
         <button 
           onClick={() => setIsCreating(!isCreating)}
-          style={{
-            backgroundColor: isCreating ? '#6c757d' : '#28a745',
-            color: 'white', border: 'none', borderRadius: '6px',
-            padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer'
-          }}
+          className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 ${
+            isCreating 
+            ? 'bg-zinc-100 text-zinc-500' 
+            : 'bg-zinc-900 text-white hover:bg-zinc-800'
+          }`}
         >
-          {isCreating ? 'ביטול' : '+ צור פרמטר חדש'}
+          {isCreating ? 'ביטול' : '+ פרמטר חדש'}
         </button>
       </div>
 
+      {/* Inline Creation Form */}
       {isCreating && (
-        <div style={{ marginBottom: '20px', backgroundColor: '#fff', padding: '10px', borderRadius: '12px', border: '1px solid #28a745' }}>
-             {/* Using the standard ParameterForm but passing an onSuccess handler to link it immediately */}
-             <ParameterForm onSuccess={(newParam) => {
-                 setIsCreating(false);
-                 onAfterCreate(newParam);
-             }} />
+        <div className="mb-8 p-6 bg-blue-50/50 border border-blue-100 rounded-3xl animate-in fade-in slide-in-from-top-2 duration-300">
+           <ParameterForm onSuccess={(newParam) => {
+               setIsCreating(false);
+               onAfterCreate(newParam);
+           }} />
         </div>
       )}
+
+      {/* Search Input */}
+      <div className="relative mb-6">
+        <input 
+          type="text"
+          placeholder="חפש פרמטר (משקל, חזרות, זמן...)"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-xs font-bold text-zinc-900 outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/20 transition-all placeholder:text-zinc-300"
+        />
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-20 text-xs">🔍</span>
+      </div>
       
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', 
-        gap: '10px' 
-      }}>
-        {parameters.map(p => (
-          <div 
-            key={p.id}
-            onClick={() => onLinkParam(p.id)}
-            style={{
-              backgroundColor: 'white',
-              border: p.is_virtual ? '1px solid #007bff' : '1px solid #d0e3ff',
-              borderRadius: '8px', padding: '10px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer',
-              transition: 'transform 0.2s', textAlign: 'center', position: 'relative'
-            }}
-          >
-            {p.is_virtual && (
-                <span style={{ 
-                    position: 'absolute', top: '5px', left: '5px', 
-                    fontSize: '9px', background: '#e7f1ff', color: '#007bff',
-                    padding: '1px 4px', borderRadius: '4px', fontWeight: 'bold'
-                }}>VIRTUAL</span>
-            )}
-            <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#333', marginTop: p.is_virtual ? '10px' : '0' }}>{p.name}</div>
-            <div style={{ fontSize: '12px', color: '#666' }}>({p.unit})</div>
-            <div style={{
-              marginTop: '8px', backgroundColor: '#007bff', color: 'white',
-              width: '24px', height: '24px', borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold'
-            }}>+</div>
+      {/* Parameters Grid - Compact Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-1 scrollbar-hide">
+        {filteredParams.length > 0 ? (
+          filteredParams.map(p => (
+            <button 
+              key={p.id}
+              onClick={() => onLinkParam(p.id)}
+              className={`group flex items-center justify-between p-3 rounded-2xl border transition-all hover:shadow-lg hover:-translate-y-0.5 ${
+                p.is_virtual 
+                ? 'bg-blue-50/30 border-blue-100 hover:border-blue-300' 
+                : 'bg-white border-zinc-100 hover:border-zinc-300'
+              }`}
+            >
+              <div className="flex flex-col items-start overflow-hidden">
+                <div className="flex items-center gap-1.5 w-full">
+                  <span className="text-xs font-black text-zinc-900 truncate tracking-tight">{p.name}</span>
+                  {p.is_virtual && (
+                    <span className="text-[7px] font-black bg-blue-600 text-white px-1 py-0.5 rounded uppercase">V</span>
+                  )}
+                </div>
+                <span className="text-[10px] font-bold text-zinc-400 uppercase leading-none">{p.unit}</span>
+              </div>
+
+              <div className="w-6 h-6 rounded-lg bg-zinc-100 text-zinc-400 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center transition-colors">
+                <span className="text-xs font-bold">+</span>
+              </div>
+            </button>
+          ))
+        ) : (
+          <div className="col-span-full py-10 text-center">
+            <p className="text-xs font-bold text-zinc-300 italic tracking-widest uppercase">No parameters found</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

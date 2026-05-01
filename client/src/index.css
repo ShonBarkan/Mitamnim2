@@ -1,1 +1,45 @@
 @import "tailwindcss";
+
+/* ייבוא Rubik - פונט גאומטרי, מודרני ויוקרתי שתומך מצוין בעברית */
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700;800;900&display=swap');
+
+@theme {
+  /* הגדרת הפונט החדש כברירת המחדל של המערכת */
+  --font-sans: 'Rubik', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    /* שימוש ב-font-sans החדש (Rubik) */
+    @apply bg-slate-50 text-zinc-900 antialiased font-sans;
+    direction: rtl;
+    letter-spacing: -0.01em; /* שיפור הקריאות בעברית מודרנית */
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    /* משקל 900 (Black) ב-Rubik נראה מדהים ויוקרתי */
+    @apply font-black tracking-tighter text-zinc-900;
+  }
+}
+
+/* Utilities עבור שפת העיצוב Arctic Mirror */
+@utility arctic-glass {
+  @apply bg-white/70 backdrop-blur-xl border border-white shadow-xl shadow-slate-200/50 transition-all;
+}
+
+@utility arctic-card {
+  @apply arctic-glass rounded-[2.5rem];
+}
+
+/* עיצוב ה-Scrollbar המינימליסטי */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-200 rounded-full hover:bg-zinc-300 transition-colors;
+}
