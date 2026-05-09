@@ -1,79 +1,11 @@
-import uuid
 from datetime import datetime, timezone
-from typing import List, Optional, Dict
+from typing import List, Optional
 
-from sqlalchemy import Column, Integer, ForeignKey, DateTime
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship, Session, joinedload
-from pydantic import BaseModel, ConfigDict
-from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session, joinedload
 
-# Infrastructure and internal domain imports
-from db.database import Base, get_db
-from middlewares.auth import get_current_user
-from domains.users import User
-from domains.exercises import ExerciseTree
-from domains.parameters import Parameter
-
-
-# --- Database Model ---
-
-class ActivityLog(Base):
-    """
-    SQLAlchemy model for recording exercise performance.
-    Performance data is stored as a list of dicts: [{'parameter_id': int, 'value': str}]
-    """
-    __tablename__ = "activity_logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    exercise_id = Column(Integer, ForeignKey("exercise_tree.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    workout_session_id = Column(Integer, ForeignKey("workout_sessions.id", ondelete="SET NULL"), nullable=True)
-
-    timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    performance_data = Column(JSONB, nullable=False)
-
-    # Relationships
-    exercise = relationship("ExerciseTree")
-    user = relationship("User")
-    workout_session = relationship("WorkoutSession", back_populates="logs")
-
-
-# --- Pydantic Schemas ---
-
-class PerformanceEntry(BaseModel):
-    """Enriched structure for API responses."""
-    parameter_id: int
-    parameter_name: Optional[str] = None
-    unit: Optional[str] = None
-    value: str
-
-
-class ActivityLogBase(BaseModel):
-    exercise_id: int
-    performance_data: List[PerformanceEntry]
-    workout_session_id: Optional[int] = None
-
-
-class ActivityLogCreate(ActivityLogBase):
-    pass
-
-
-class ActivityLogUpdate(BaseModel):
-    timestamp: Optional[datetime] = None
-    performance_data: Optional[List[PerformanceEntry]] = None
-    model_config = ConfigDict(from_attributes=True)
-
-
-class ActivityLogOut(ActivityLogBase):
-    id: int
-    user_id: uuid.UUID
-    timestamp: datetime
-    exercise_name: Optional[str] = None
-    user_full_name: Optional[str] = None
-    workout_session_name: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
+from .models import ActivityLog, ActivityLogCreate, ActivityLogUpdate, PerformanceEntry
+from ..parameters.models import Parameter
+from ..workout_sessions.models import WorkoutSession
 
 
 # --- ActivityLogService ---
@@ -84,6 +16,7 @@ class ActivityLogService:
 
     def _get_all_child_exercise_ids(self, parent_id: int) -> List[int]:
         ids = [parent_id]
+        from ..exercises.models import ExerciseTree
         children = self.db.query(ExerciseTree.id).filter(ExerciseTree.parent_id == parent_id).all()
         for child_id, in children:
             ids.extend(self._get_all_child_exercise_ids(child_id))
@@ -125,7 +58,7 @@ class ActivityLogService:
                 })
             log.performance_data = enriched_data
 
-    def create_log(self, user_id: uuid.UUID, data: ActivityLogCreate) -> ActivityLog:
+    def create_log(self, user_id, data: ActivityLogCreate) -> ActivityLog:
         # Strip enriched data before saving to keep JSONB clean (only ID and Value)
         clean_performance = [
             {"parameter_id": entry.parameter_id, "value": entry.value}
@@ -148,9 +81,7 @@ class ActivityLogService:
         new_log.exercise_name = new_log.exercise.name
         return new_log
 
-    def get_logs_by_exercise(self, user_id: uuid.UUID, exercise_id: int) -> List[ActivityLog]:
-        from domains.workout_sessions import WorkoutSession
-
+    def get_logs_by_exercise(self, user_id, exercise_id: int) -> List[ActivityLog]:
         target_ids = self._get_all_child_exercise_ids(exercise_id)
 
         logs = (
@@ -179,7 +110,7 @@ class ActivityLogService:
                 )
         return logs
 
-    def update_log(self, log_id: int, user_id: uuid.UUID, update_data: dict) -> Optional[ActivityLog]:
+    def update_log(self, log_id: int, user_id, update_data: dict) -> Optional[ActivityLog]:
         db_log = self.db.query(ActivityLog).filter(
             ActivityLog.id == log_id,
             ActivityLog.user_id == user_id
@@ -207,7 +138,7 @@ class ActivityLogService:
         db_log.exercise_name = db_log.exercise.name
         return db_log
 
-    def delete_log(self, log_id: int, user_id: uuid.UUID) -> bool:
+    def delete_log(self, log_id: int, user_id) -> bool:
         db_log = self.db.query(ActivityLog).filter(
             ActivityLog.id == log_id,
             ActivityLog.user_id == user_id
@@ -219,56 +150,3 @@ class ActivityLogService:
         self.db.delete(db_log)
         self.db.commit()
         return True
-
-
-# --- Router Setup ---
-
-router = APIRouter(prefix="/activity-logs", tags=["Activity Logs"])
-
-
-@router.post("", response_model=ActivityLogOut, status_code=status.HTTP_201_CREATED)
-async def create_activity_log(
-        data: ActivityLogCreate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    service = ActivityLogService(db)
-    return service.create_log(current_user.id, data)
-
-
-@router.get("/{exercise_id}", response_model=List[ActivityLogOut])
-async def get_activity_history(
-        exercise_id: int,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    service = ActivityLogService(db)
-    return service.get_logs_by_exercise(current_user.id, exercise_id)
-
-
-@router.patch("/{log_id}", response_model=ActivityLogOut)
-async def update_activity_entry(
-        log_id: int,
-        log_update: ActivityLogUpdate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    service = ActivityLogService(db)
-    update_dict = log_update.model_dump(exclude_unset=True)
-    updated_log = service.update_log(log_id, current_user.id, update_dict)
-
-    if not updated_log:
-        raise HTTPException(status_code=404, detail="Log entry not found or unauthorized")
-    return updated_log
-
-
-@router.delete("/{log_id}")
-async def delete_activity_entry(
-        log_id: int,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    service = ActivityLogService(db)
-    if not service.delete_log(log_id, current_user.id):
-        raise HTTPException(status_code=404, detail="Log entry not found or unauthorized")
-    return {"message": "Log entry deleted successfully"}

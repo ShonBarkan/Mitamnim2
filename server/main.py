@@ -17,19 +17,18 @@ from cron.tasks import scheduled_cleanup
 from core.socket_manager import socket_manager
 
 # Import Domain Routers (Modular Architecture)
-from domains.users import router as users_router, auth_router
-from domains.groups import router as groups_router
-from domains.messages import router as messages_router
-from domains.parameters import router as parameters_router
-from domains.exercises import router as exercises_router
-from domains.active_params import router as active_params_router
-from domains.activities import router as activities_router
-from domains.templates import router as templates_router
-from domains.workout_sessions import router as workout_sessions_router
+from domains.users.router import router as users_router, auth_router
+from domains.groups.router import router as groups_router
+from domains.parameters.router import router as parameters_router
+from domains.exercises.router import router as exercises_router
+from domains.active_params.router import router as active_params_router
+from domains.activities.router import router as activities_router
+from domains.templates.router import router as templates_router
+from domains.workout_sessions.router import router as workout_sessions_router
 
 # Import Statistics Domain Routers (Real-time architecture)
-from domains.stats import router as stats_router
-from domains.stats_dashboard_config import router as dashboard_router
+from domains.stats.router import router as stats_router
+from domains.stats_dashboard_config.router import router as dashboard_router
 
 # --- Database Initialization ---
 # Synchronize SQLAlchemy models with the database schema
@@ -140,7 +139,6 @@ app.include_router(users_router)
 app.include_router(groups_router)
 
 # Social and Training Domains
-app.include_router(messages_router)
 app.include_router(parameters_router)
 app.include_router(exercises_router)
 app.include_router(active_params_router)

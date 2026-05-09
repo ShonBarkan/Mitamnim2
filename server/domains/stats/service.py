@@ -6,71 +6,14 @@ from typing import List, Optional, Dict, Any
 
 from sqlalchemy import and_, func, Integer
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, ConfigDict
-from fastapi import APIRouter, Depends, HTTPException, status
 
-# Infrastructure and core imports
-from db.database import get_db
-from middlewares.auth import get_current_user
-from domains.users import User
-from domains.activities import ActivityLog
-from domains.workout_sessions import WorkoutSession
-from domains.stats_dashboard_config import StatsDashboardConfig
-from domains.exercises import ExerciseTree
-from domains.parameters import Parameter
-
-
-# --- Pydantic Schemas ---
-
-class StatsOutput(BaseModel):
-    """Schema for historical performance data with trends."""
-    timestamp: datetime
-    value: float
-    label: str
-    unit: Optional[str] = None
-    trend_percentage: float = 0.0
-    model_config = ConfigDict(from_attributes=True)
-
-
-class PRRecord(BaseModel):
-    """Entry for the Personal Record (PR) Hall of Fame."""
-    exercise_name: str
-    value: float
-    unit: Optional[str] = None
-    date: datetime
-
-
-class TrainingDayDist(BaseModel):
-    """Count of workouts per day of the week."""
-    day_name: str
-    count: int
-
-
-class UserOverviewStats(BaseModel):
-    """Consolidated high-level overview for the user dashboard."""
-    total_workouts: int
-    total_duration_minutes: int
-    relative_rank_percentile: float  # e.g., Top 10%
-    day_distribution: List[TrainingDayDist]
-    pr_hall_of_fame: List[PRRecord]
-    velocity_of_progress: Dict[str, float]  # Exercise name -> percentage change
-
-
-class LeaderboardEntry(BaseModel):
-    """Individual entry in the group leaderboard ranking."""
-    full_name: str
-    value: float
-    rank: int
-
-
-class GroupLeaderboardOutput(BaseModel):
-    """Container for a specific exercise/parameter ranking set."""
-    exercise_id: int
-    exercise_name: str
-    parameter_name: str
-    unit: Optional[str] = None
-    ranking_direction: str
-    entries: List[LeaderboardEntry]
+from .models import StatsOutput, PRRecord, TrainingDayDist, UserOverviewStats, LeaderboardEntry, GroupLeaderboardOutput
+from ..activities.models import ActivityLog
+from ..workout_sessions.models import WorkoutSession
+from ..stats_dashboard_config.models import StatsDashboardConfig
+from ..exercises.models import ExerciseTree
+from ..parameters.models import Parameter
+from ..users.models import User
 
 
 # --- StatisticsEngineService ---
@@ -371,47 +314,3 @@ class StatisticsEngineService:
             })
 
         return leaderboards
-
-
-# --- Router Setup ---
-
-router = APIRouter(prefix="/stats", tags=["Statistics Engine"])
-
-
-@router.get("/overview/", response_model=UserOverviewStats)
-async def get_user_overview(
-        target_user_id: Optional[uuid.UUID] = None,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """Fetches high-level consolidated stats for the user dashboard."""
-    uid = target_user_id if (target_user_id and current_user.role in ["admin", "trainer"]) else current_user.id
-    service = StatisticsEngineService(db)
-    return service.get_user_consolidated_overview(uid, current_user.group_id)
-
-
-@router.get("/personal/{exercise_id}/", response_model=List[StatsOutput])
-async def get_personal_stats(
-        exercise_id: int,
-        target_user_id: Optional[uuid.UUID] = None,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """Fetches personal performance trends aggregated across the exercise hierarchy."""
-    uid = target_user_id if (target_user_id and current_user.role in ["admin", "trainer"]) else current_user.id
-    service = StatisticsEngineService(db)
-    return service.calculate_realtime_stats(uid, exercise_id, current_user.group_id)
-
-
-@router.get("/group-leaderboard/", response_model=List[GroupLeaderboardOutput])
-async def get_group_leaderboard(
-        start_date: datetime,
-        end_date: datetime,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """Fetches group-wide rankings for the public dashboard within a timeframe."""
-    if start_date > end_date:
-        raise HTTPException(status_code=400, detail="Start date must be before end date")
-    service = StatisticsEngineService(db)
-    return service.get_group_leaderboards(current_user.group_id, start_date, end_date)

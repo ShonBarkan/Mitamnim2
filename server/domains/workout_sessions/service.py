@@ -1,85 +1,11 @@
-import uuid
 from datetime import datetime, timezone
-from typing import List, Optional, Dict
+from typing import List, Optional
+from sqlalchemy.orm import Session, joinedload
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, func
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship, Session, joinedload
-from pydantic import BaseModel, ConfigDict
-from fastapi import APIRouter, Depends, HTTPException, status
-
-# Infrastructure and domain imports
-from db.database import Base, get_db
-from middlewares.auth import get_current_user
-from domains.users import User
-from domains.activities import ActivityLog
-from domains.parameters import Parameter
-
-
-# --- Database Model ---
-
-class WorkoutSession(Base):
-    """
-    SQLAlchemy model representing a completed workout session.
-    Each session is linked to multiple ActivityLog entries, where each entry represents one set.
-    """
-    __tablename__ = "workout_sessions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    template_id = Column(Integer, ForeignKey("workout_templates.id", ondelete="SET NULL"), nullable=True)
-
-    start_time = Column(DateTime(timezone=True), server_default=func.now())
-    end_time = Column(DateTime(timezone=True), server_default=func.now())
-
-    workout_summary = Column(Text, nullable=True)
-    actual_duration = Column(String, nullable=True)
-    notes = Column(Text, nullable=True)
-
-    # Relationships
-    user = relationship("User")
-    template = relationship("WorkoutTemplate")
-    # Links to individual sets (ActivityLogs)
-    logs = relationship("ActivityLog", back_populates="workout_session", cascade="all, delete-orphan")
-
-
-# --- Pydantic Schemas ---
-
-class ParamValueSchema(BaseModel):
-    """Simplified parameter storage: only ID and Value."""
-    parameter_id: int
-    value: str
-
-
-class PerformedExerciseSchema(BaseModel):
-    """Payload for an exercise containing multiple sets."""
-    exercise_id: int
-    # Each inner list represents one set: List[List[ParamValue]]
-    performance_data: List[List[ParamValueSchema]]
-
-
-class WorkoutSessionFinish(BaseModel):
-    """Payload to finalize a workout session."""
-    template_id: Optional[int] = None
-    start_time: datetime
-    workout_summary: Optional[str] = None
-    actual_duration: Optional[str] = None
-    performed_exercises: List[PerformedExerciseSchema]
-
-
-class WorkoutSessionOut(BaseModel):
-    """Response schema for workout session metadata."""
-    id: int
-    user_id: uuid.UUID
-    template_id: Optional[int]
-    template_name: Optional[str] = None
-    start_time: datetime
-    end_time: Optional[datetime]
-    workout_summary: Optional[str]
-    actual_duration: Optional[str]
-    exercise_count: int = 0
-
-    model_config = ConfigDict(from_attributes=True)
+from .models import WorkoutSession, WorkoutSessionFinish
+from ..users.models import User
+from ..activities.models import ActivityLog
+from ..parameters.models import Parameter
 
 
 # --- WorkoutSessionService ---
@@ -172,7 +98,7 @@ class WorkoutSessionService:
         self.db.refresh(db_session)
         return db_session
 
-    def get_user_history(self, user_id: uuid.UUID) -> List[WorkoutSession]:
+    def get_user_history(self, user_id) -> List[WorkoutSession]:
         """Retrieves history and counts unique exercises performed in each session."""
         sessions = (
             self.db.query(WorkoutSession)
@@ -189,35 +115,3 @@ class WorkoutSessionService:
             s.exercise_count = len(unique_exercises)
 
         return sessions
-
-
-# --- Router Setup ---
-
-router = APIRouter(prefix="/workout-sessions", tags=["Workout Sessions"])
-
-
-@router.post("/finish", response_model=WorkoutSessionOut)
-async def finish_workout_session(
-        data: WorkoutSessionFinish,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """Endpoint to submit and split workout results into individual sets."""
-    service = WorkoutSessionService(db)
-    try:
-        return service.finish_workout(current_user, data)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        print(f"Server Error during finish_workout: {e}")
-        raise HTTPException(status_code=500, detail="שגיאה פנימית בשמירת האימון")
-
-
-@router.get("/history", response_model=List[WorkoutSessionOut])
-async def get_workout_history(
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """Retrieves workout history for the current user."""
-    service = WorkoutSessionService(db)
-    return service.get_user_history(current_user.id)
