@@ -3,7 +3,6 @@ import ParameterValueInput from './ParameterValueInput';
 
 /**
  * Step-by-step form for entering performance values for multiple parameters.
- * Navigates through parameters one by one and aggregates results.
  */
 const StepByStepParameterForm = ({ params, onSubmit, onCancel }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -11,24 +10,29 @@ const StepByStepParameterForm = ({ params, onSubmit, onCancel }) => {
 
   if (!params || params.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '20px' }}>
-        <p>לא הוגדרו פרמטרים לתרגיל זה.</p>
-        <button onClick={onCancel} style={{ padding: '8px 16px', cursor: 'pointer' }}>ביטול</button>
+      <div className="text-center py-12 px-6 arctic-glass rounded-[2rem] border-dashed border-zinc-200">
+        <p className="text-zinc-400 font-bold mb-6 italic">לא הוגדרו פרמטרים לתרגיל זה.</p>
+        <button 
+          onClick={onCancel} 
+          className="bg-zinc-900 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all"
+        >
+          ביטול
+        </button>
       </div>
     );
   }
 
   const currentParam = params[currentIndex];
   const isLastStep = currentIndex === params.length - 1;
+  const progress = ((currentIndex + 1) / params.length) * 100;
 
-  // Update a single parameter's value in the local state
   const handleValueChange = (val) => {
     setResults({ ...results, [currentParam.parameter_id]: val });
   };
 
   const nextStep = () => {
     if (!results[currentParam.parameter_id]) {
-      alert("נא להזין ערך לפני שממשיכים");
+      // כאן אפשר להחליף ב-Toast בעתיד
       return;
     }
     setCurrentIndex(prev => prev + 1);
@@ -39,12 +43,8 @@ const StepByStepParameterForm = ({ params, onSubmit, onCancel }) => {
   };
 
   const handleFinish = () => {
-    if (!results[currentParam.parameter_id]) {
-      alert("נא להזין ערך אחרון");
-      return;
-    }
+    if (!results[currentParam.parameter_id]) return;
 
-    // Map internal results to the JSON schema expected by the Backend
     const performanceData = params.map(p => ({
       parameter_id: p.parameter_id,
       parameter_name: p.parameter_name,
@@ -56,54 +56,58 @@ const StepByStepParameterForm = ({ params, onSubmit, onCancel }) => {
   };
 
   return (
-    <div className="step-form">
-      {/* Progress Indicator */}
-      <div style={{ 
-        height: '6px', 
-        width: '100%', 
-        backgroundColor: '#e9ecef', 
-        borderRadius: '3px', 
-        marginBottom: '20px', 
-        overflow: 'hidden' 
-      }}>
-        <div style={{
-          height: '100%',
-          width: `${((currentIndex + 1) / params.length) * 100}%`,
-          backgroundColor: '#28a745',
-          transition: 'width 0.3s ease'
-        }} />
+    <div className="w-full font-sans space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      
+      {/* Progress Section */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-end px-2">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">
+              Metric Progress
+            </span>
+            <h4 className="text-2xl font-black text-zinc-900 leading-none">
+              {currentParam.parameter_name}
+            </h4>
+          </div>
+          <span className="text-xs font-black text-zinc-400 tabular-nums">
+            {currentIndex + 1} / {params.length}
+          </span>
+        </div>
+
+        {/* Dynamic Bar */}
+        <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-blue-600 rounded-full transition-all duration-700 ease-out shadow-[0_0_12px_rgba(37,99,235,0.4)]"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
       </div>
 
-      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-        <span style={{ fontSize: '12px', color: '#6c757d' }}>
-          שלב {currentIndex + 1} מתוך {params.length}
-        </span>
-        <h4 style={{ margin: '5px 0', fontSize: '20px', color: '#007bff' }}>
-          {currentParam.parameter_name}
-        </h4>
+      {/* Input Zone - Key Interaction */}
+      <div className="py-6 min-h-[280px] flex items-center justify-center bg-slate-50/50 rounded-[2.5rem] border border-zinc-100 shadow-inner">
+        <div className="w-full max-w-sm px-4">
+            <ParameterValueInput
+                unit={currentParam.parameter_unit}
+                defaultValue={currentParam.default_value}
+                value={results[currentParam.parameter_id] || ''}
+                onChange={handleValueChange}
+            />
+        </div>
       </div>
 
-      {/* Actual Input Component (Step 9) */}
-      <ParameterValueInput
-        unit={currentParam.parameter_unit}
-        defaultValue={currentParam.default_value}
-        value={results[currentParam.parameter_id] || ''}
-        onChange={handleValueChange}
-      />
-
-      {/* Navigation Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '30px' }}>
+      {/* Navigation Footer */}
+      <div className="flex items-center gap-4">
         {currentIndex > 0 ? (
           <button 
             onClick={prevStep} 
-            style={{ padding: '10px 25px', cursor: 'pointer', borderRadius: '8px', border: '1px solid #ddd', background: '#fff' }}
+            className="flex-1 bg-white border border-zinc-200 text-zinc-500 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest hover:bg-zinc-50 hover:text-zinc-900 transition-all active:scale-95"
           >
             חזור
           </button>
         ) : (
           <button 
             onClick={onCancel} 
-            style={{ padding: '10px 25px', cursor: 'pointer', borderRadius: '8px', border: 'none', background: '#f8f9fa', color: '#6c757d' }}
+            className="flex-1 bg-zinc-50 text-zinc-400 py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest hover:bg-zinc-100 transition-all active:scale-95"
           >
             ביטול
           </button>
@@ -112,19 +116,26 @@ const StepByStepParameterForm = ({ params, onSubmit, onCancel }) => {
         {isLastStep ? (
           <button 
             onClick={handleFinish} 
-            style={{ padding: '10px 35px', cursor: 'pointer', borderRadius: '8px', border: 'none', background: '#28a745', color: '#fff', fontWeight: 'bold' }}
+            disabled={!results[currentParam.parameter_id]}
+            className="flex-[2] bg-emerald-600 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-30 disabled:grayscale"
           >
             סיום ושמירה
           </button>
         ) : (
           <button 
             onClick={nextStep} 
-            style={{ padding: '10px 35px', cursor: 'pointer', borderRadius: '8px', border: 'none', background: '#007bff', color: '#fff', fontWeight: 'bold' }}
+            disabled={!results[currentParam.parameter_id]}
+            className="flex-[2] bg-blue-600 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-30"
           >
             הבא
           </button>
         )}
       </div>
+
+      {/* Visual Context */}
+      <p className="text-center text-[10px] font-bold text-zinc-300 uppercase tracking-tighter italic">
+        * מומלץ להזין נתונים מיד בתום הסט לדיוק מרבי
+      </p>
     </div>
   );
 };
