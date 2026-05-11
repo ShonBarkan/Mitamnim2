@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
+import uuid
 
 from db.database import get_db
 from middlewares.auth import get_current_user
@@ -28,11 +29,19 @@ async def create_activity_log(
 @router.get("/{exercise_id}", response_model=List[ActivityLogOut])
 async def get_activity_history(
         exercise_id: int,
+        target_user_id: Optional[uuid.UUID] = None,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     service = ActivityLogService(db)
-    return service.get_logs_by_exercise(current_user.id, exercise_id)
+    if target_user_id and current_user.role in ["admin", "trainer"]:
+        target_user = db.query(User).filter(User.id == target_user_id).first()
+        if not target_user or (current_user.role == "trainer" and target_user.group_id != current_user.group_id):
+            raise HTTPException(status_code=403, detail="Access denied to user activities")
+        uid = target_user_id
+    else:
+        uid = current_user.id
+    return service.get_logs_by_exercise(uid, exercise_id)
 
 
 @router.patch("/{log_id}", response_model=ActivityLogOut)

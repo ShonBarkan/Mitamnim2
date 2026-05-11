@@ -113,7 +113,7 @@ class ConnectionManager:
                 return None
 
             # Local import within method to avoid potential circular dependency issues
-            from domains.users import User
+            from domains.users.models import User
             return db.query(User).filter(User.username == username).first()
 
         except (JWTError, Exception):

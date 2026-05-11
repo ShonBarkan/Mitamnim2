@@ -74,7 +74,7 @@ class AuthService:
         Validates user credentials and generates an access token upon success.
         """
         # Local import to prevent circular dependency with domains.users
-        from domains.users import User
+        from domains.users.models import User
 
         user = self.db.query(User).filter(User.username == form_data.username).first()
 
@@ -100,7 +100,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     It extracts the JWT from the request, validates it, and fetches the user from the DB.
     """
     # Local import to prevent circular dependency with domains.users
-    from domains.users import User
+    from domains.users.models import User
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

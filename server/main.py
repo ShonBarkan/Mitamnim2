@@ -23,6 +23,7 @@ from domains.parameters.router import router as parameters_router
 from domains.exercises.router import router as exercises_router
 from domains.active_params.router import router as active_params_router
 from domains.activities.router import router as activities_router
+from domains.messages.router import router as messages_router
 from domains.templates.router import router as templates_router
 from domains.workout_sessions.router import router as workout_sessions_router
 
@@ -143,6 +144,7 @@ app.include_router(parameters_router)
 app.include_router(exercises_router)
 app.include_router(active_params_router)
 app.include_router(activities_router)
+app.include_router(messages_router)
 app.include_router(templates_router)
 app.include_router(workout_sessions_router)
 

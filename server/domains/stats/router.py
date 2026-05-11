@@ -24,7 +24,13 @@ async def get_user_overview(
         current_user: User = Depends(get_current_user)
 ):
     """Fetches high-level consolidated stats for the user dashboard."""
-    uid = target_user_id if (target_user_id and current_user.role in ["admin", "trainer"]) else current_user.id
+    if target_user_id and current_user.role in ["admin", "trainer"]:
+        target_user = db.query(User).filter(User.id == target_user_id).first()
+        if not target_user or (current_user.role == "trainer" and target_user.group_id != current_user.group_id):
+            raise HTTPException(status_code=403, detail="Access denied to user stats")
+        uid = target_user_id
+    else:
+        uid = current_user.id
     service = StatisticsEngineService(db)
     return service.get_user_consolidated_overview(uid, current_user.group_id)
 
@@ -37,7 +43,13 @@ async def get_personal_stats(
         current_user: User = Depends(get_current_user)
 ):
     """Fetches personal performance trends aggregated across the exercise hierarchy."""
-    uid = target_user_id if (target_user_id and current_user.role in ["admin", "trainer"]) else current_user.id
+    if target_user_id and current_user.role in ["admin", "trainer"]:
+        target_user = db.query(User).filter(User.id == target_user_id).first()
+        if not target_user or (current_user.role == "trainer" and target_user.group_id != current_user.group_id):
+            raise HTTPException(status_code=403, detail="Access denied to user stats")
+        uid = target_user_id
+    else:
+        uid = current_user.id
     service = StatisticsEngineService(db)
     return service.calculate_realtime_stats(uid, exercise_id, current_user.group_id)
 
