@@ -41,6 +41,10 @@ class WorkoutSessionService:
         """
         Finalizes the workout. Splits the bulk payload so that each set
         becomes a separate ActivityLog entry.
+        
+        The start_time is taken from the frontend payload (data.start_time), allowing
+        the user to specify when the workout actually began, rather than using the 
+        server's current time.
         """
         if not data.performed_exercises:
             raise ValueError("לא ניתן לסיים אימון ללא תרגילים שבוצעו")
@@ -48,6 +52,8 @@ class WorkoutSessionService:
         # Fetch all group parameters to calculate virtual values server-side if missing
         all_params = {p.id: p for p in self.db.query(Parameter).filter(Parameter.group_id == user.group_id).all()}
 
+        # end_time is set to when the user is finishing/submitting the workout (now)
+        # start_time is taken from the frontend, allowing the user to specify when the workout began
         end_time = datetime.now(timezone.utc)
 
         # Create main session record
@@ -85,11 +91,12 @@ class WorkoutSessionService:
                             final_set_params.append({"parameter_id": p_id, "value": calculated_val})
 
                 # Create a SEPARATE row for EACH SET
+                # Use start_time from the frontend (when workout actually began), not server's current time
                 set_log = ActivityLog(
                     exercise_id=exercise.exercise_id,
                     user_id=user.id,
                     workout_session_id=db_session.id,
-                    timestamp=end_time,
+                    timestamp=data.start_time,
                     performance_data=final_set_params  # JSONB: List[Dict] for one set
                 )
                 self.db.add(set_log)

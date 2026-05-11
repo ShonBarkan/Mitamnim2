@@ -1,8 +1,5 @@
 import React from 'react';
 
-/**
- * Section for workout summary, actual duration, and the final submit action.
- */
 const WorkoutFooterSection = ({ 
   summary, 
   setSummary, 
@@ -12,88 +9,43 @@ const WorkoutFooterSection = ({
   isSaving 
 }) => {
   return (
-    <div style={styles.container}>
-      <h3 style={styles.title}>סיכום וסיום אימון</h3>
+    <div className="bg-white rounded-[2.5rem] p-8 border border-zinc-100 shadow-xl shadow-slate-200/50 font-sans mt-8 mb-8" dir="rtl">
+      <h3 className="text-xl font-black text-zinc-900 tracking-tighter mb-6">סיכום וסיום אימון</h3>
       
-      <div style={styles.inputGroup}>
-        <label style={styles.label}>כמה זמן לקח האימון? (בדקות - אופציונלי)</label>
+      <div className="flex flex-col gap-2 mb-6">
+        <label className="text-xs font-black uppercase tracking-widest text-zinc-500">כמה זמן לקח האימון? (בדקות - אופציונלי)</label>
         <input 
           type="number"
           placeholder="למשל: 45"
           value={duration}
           onChange={(e) => setDuration(e.target.value)}
-          style={styles.durationInput}
+          className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-4 text-sm font-bold text-zinc-900 outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
         />
       </div>
 
-      <div style={styles.inputGroup}>
-        <label style={styles.label}>איך היה האימון? (סיכום קצר)</label>
+      <div className="flex flex-col gap-2 mb-8">
+        <label className="text-xs font-black uppercase tracking-widest text-zinc-500">איך היה האימון? (סיכום קצר)</label>
         <textarea 
           placeholder="כתוב כאן הערות, תחושות או דגשים..."
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
-          style={styles.summaryArea}
+          className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-4 text-sm font-bold text-zinc-900 outline-none focus:ring-4 focus:ring-blue-500/5 transition-all min-h-[120px] resize-y"
         />
       </div>
 
       <button 
         onClick={onFinish}
         disabled={isSaving}
-        style={{
-          ...styles.finishBtn,
-          backgroundColor: isSaving ? '#94d3a2' : '#28a745'
-        }}
+        className={`w-full py-5 rounded-[1.5rem] font-black text-lg transition-all active:scale-95 ${
+          isSaving 
+            ? 'bg-zinc-400 text-zinc-100 cursor-not-allowed' 
+            : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-xl shadow-zinc-200'
+        }`}
       >
         {isSaving ? "שומר נתונים..." : "✅ סיום ושמירת אימון"}
       </button>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    marginTop: '30px',
-    padding: '20px',
-    backgroundColor: '#fff',
-    borderRadius: '15px',
-    border: '1px solid #eee',
-    boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
-  },
-  title: { margin: '0 0 20px', color: '#333', fontSize: '1.2rem' },
-  inputGroup: { marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' },
-  label: { fontSize: '14px', fontWeight: 'bold', color: '#555' },
-  durationInput: {
-    padding: '12px',
-    borderRadius: '10px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box'
-  },
-  summaryArea: {
-    padding: '12px',
-    borderRadius: '10px',
-    border: '1px solid #ddd',
-    fontSize: '16px',
-    minHeight: '100px',
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box',
-    fontFamily: 'inherit'
-  },
-  finishBtn: {
-    width: '100%',
-    padding: '16px',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    boxShadow: '0 4px 12px rgba(40, 167, 69, 0.2)',
-    transition: 'transform 0.1s'
-  }
 };
 
 export default WorkoutFooterSection;

@@ -16,10 +16,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-/**
- * Sub-component for a single Sortable Set Row.
- * Displays parameters (manual or virtual), completion toggle, and delete action.
- */
 const SortableSetRow = ({ 
   set, 
   sIdx, 
@@ -28,7 +24,6 @@ const SortableSetRow = ({
   onDeleteSet, 
   onToggleSetDone 
 }) => {
-  // Setup sortable hook for drag-and-drop stability using set.id
   const {
     attributes,
     listeners,
@@ -41,51 +36,42 @@ const SortableSetRow = ({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    ...styles.setRow,
     opacity: isDragging ? 0.5 : 1,
-    backgroundColor: set.isDone ? '#f0fff4' : 'transparent',
     zIndex: isDragging ? 10 : 1
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
-      {/* Drag Handle - Restricted to the icon area */}
-      <div {...attributes} {...listeners} style={styles.dragHandle}>
+    <div ref={setNodeRef} style={style} className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${set.isDone ? 'bg-green-50/50 border-green-100' : 'bg-white border-zinc-100'} hover:border-zinc-200`}>
+      {/* Drag Handle */}
+      <div {...attributes} {...listeners} className="cursor-grab text-zinc-300 hover:text-zinc-500 px-1 font-bold user-select-none active:cursor-grabbing">
         ⣿
       </div>
 
-      <span style={styles.setNum}>{sIdx + 1}</span>
+      <span className="font-black bg-zinc-100 w-8 h-8 flex items-center justify-center rounded-full text-xs text-zinc-600 shrink-0">{sIdx + 1}</span>
 
-      <div style={styles.paramsInputs}>
+      <div className="flex gap-4 flex-1 overflow-x-auto py-1 px-1 scrollbar-hide">
         {paramsMetadata.map((p) => {
           const isVirtual = p.is_virtual;
           const currentValue = set.values[p.parameter_id] || '';
 
           return (
-            <div key={p.parameter_id} style={styles.inputGroup}>
-              <span style={{ 
-                fontSize: '11px', 
-                fontWeight: 'bold', 
-                color: isVirtual ? '#0050b3' : '#555',
-                marginBottom: '2px'
-              }}>
+            <div key={p.parameter_id} className="flex items-center gap-2 min-w-fit">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${isVirtual ? 'text-blue-500' : 'text-zinc-500'} shrink-0`}>
                 {p.parameter_name}
               </span>
               
               {isVirtual ? (
-                /* Calculated Virtual Parameter - Read Only */
-                <div style={styles.virtualDisplay}>
+                <div className="w-14 py-1.5 rounded-xl text-center text-sm font-black text-blue-600 bg-blue-50 border border-blue-100">
                   {currentValue || '0'}
                 </div>
               ) : (
-                /* Manual Input Parameter */
                 <input
                   type="number"
                   value={currentValue}
                   onChange={(e) => onUpdateValue(sIdx, p.parameter_id, e.target.value)}
-                  style={styles.input}
                   disabled={set.isDone}
                   placeholder="0"
+                  className="w-14 py-1.5 border border-zinc-200 rounded-xl text-center text-sm font-black text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 bg-white transition-all disabled:opacity-50 disabled:bg-zinc-50"
                 />
               )}
             </div>
@@ -93,17 +79,16 @@ const SortableSetRow = ({
         })}
       </div>
 
-      {/* Action Buttons: Toggle Done & Delete */}
-      <div style={styles.rowActions}>
-        <input
-          type="checkbox"
-          checked={set.isDone || false}
-          onChange={() => onToggleSetDone(sIdx)}
-          style={styles.checkbox}
-        />
+      <div className="flex items-center gap-2 shrink-0">
+        <button 
+          onClick={() => onToggleSetDone(sIdx)}
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all border ${set.isDone ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-zinc-200 text-transparent hover:border-green-500'}`}
+        >
+          ✓
+        </button>
         <button 
           onClick={() => onDeleteSet(sIdx)} 
-          style={styles.deleteBtn}
+          className="w-8 h-8 rounded-xl flex items-center justify-center bg-rose-50 text-rose-400 hover:bg-rose-500 hover:text-white transition-all border border-transparent"
           title="Delete Set"
         >
           ✕
@@ -113,10 +98,6 @@ const SortableSetRow = ({
   );
 };
 
-/**
- * Main Card Component for an Active Exercise.
- * Manages the collection of sets and drag-and-drop reordering logic.
- */
 const ExerciseActiveCard = ({ 
   exercise, 
   onUpdateValue, 
@@ -125,15 +106,11 @@ const ExerciseActiveCard = ({
   onReorderSets, 
   onToggleSetDone 
 }) => {
-  // Configure sensors for pointer (distance-based for scroll) and keyboard reordering
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  /**
-   * Finalizes the reordering of sets when dragging ends.
-   */
   const handleDragEnd = (event) => {
     const { active, over } = event;
     if (active && over && active.id !== over.id) {
@@ -147,12 +124,12 @@ const ExerciseActiveCard = ({
   };
 
   return (
-    <div style={styles.card}>
-      <div style={styles.cardHeader}>
-        <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#333' }}>{exercise.exercise_name}</h3>
-        <small style={{ color: '#666', background: '#f0f0f0', padding: '2px 8px', borderRadius: '10px' }}>
+    <div className="bg-white rounded-[2rem] p-6 mb-6 border border-zinc-100 shadow-sm font-sans" dir="rtl">
+      <div className="flex justify-between items-center mb-6 border-b border-zinc-50 pb-4">
+        <h3 className="m-0 text-xl font-black text-zinc-900 tracking-tighter">{exercise.exercise_name}</h3>
+        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 bg-zinc-100 px-3 py-1 rounded-lg">
           {exercise.actualSets.length} סטים
-        </small>
+        </span>
       </div>
 
       <DndContext 
@@ -164,7 +141,7 @@ const ExerciseActiveCard = ({
           items={exercise.actualSets.map((s, i) => s.id || i)} 
           strategy={verticalListSortingStrategy}
         >
-          <div style={styles.setsTable}>
+          <div className="flex flex-col gap-3">
             {exercise.actualSets.map((set, sIdx) => (
               <SortableSetRow
                 key={set.id || sIdx}
@@ -180,28 +157,14 @@ const ExerciseActiveCard = ({
         </SortableContext>
       </DndContext>
 
-      <button onClick={onAddSet} style={styles.addSetBtn}>
+      <button 
+        onClick={onAddSet} 
+        className="mt-6 w-full py-3 bg-zinc-50 hover:bg-zinc-100 border border-dashed border-zinc-300 rounded-2xl text-zinc-600 font-bold text-sm transition-all"
+      >
         + הוסף סט
       </button>
     </div>
   );
-};
-
-const styles = {
-  card: { border: '1px solid #eee', borderRadius: '15px', padding: '15px', marginBottom: '15px', backgroundColor: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', direction: 'rtl' },
-  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #f5f5f5', paddingBottom: '10px' },
-  setsTable: { display: 'flex', flexDirection: 'column', gap: '8px' },
-  setRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '8px', border: '1px solid #f0f0f0', transition: 'background-color 0.2s' },
-  dragHandle: { cursor: 'grab', color: '#ccc', padding: '0 5px', fontSize: '18px', userSelect: 'none' },
-  setNum: { fontWeight: 'bold', backgroundColor: '#f0f0f0', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: '10px', color: '#666' },
-  paramsInputs: { display: 'flex', gap: '15px', flex: 1, justifyContent: 'flex-start', overflowX: 'auto', padding: '2px' },
-  inputGroup: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: 'fit-content' },
-  input: { width: '50px', padding: '6px', border: '1px solid #e0e0e0', borderRadius: '8px', textAlign: 'center', fontSize: '14px', outline: 'none', background: '#fff' },
-  virtualDisplay: { width: '50px', padding: '6px', borderRadius: '8px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold', color: '#0050b3', background: '#e6f7ff', border: '1px solid #bae7ff' },
-  rowActions: { display: 'flex', alignItems: 'center', gap: '10px' },
-  checkbox: { width: '22px', height: '22px', cursor: 'pointer', accentColor: '#28a745' },
-  deleteBtn: { background: 'none', border: 'none', color: '#ff4d4f', cursor: 'pointer', fontSize: '16px', padding: '5px' },
-  addSetBtn: { marginTop: '15px', width: '100%', padding: '10px', background: '#f8f9fa', border: '1px dashed #d9d9d9', borderRadius: '10px', color: '#007bff', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', transition: 'background 0.2s' }
 };
 
 export default ExerciseActiveCard;

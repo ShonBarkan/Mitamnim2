@@ -11,56 +11,7 @@ import { exerciseService } from '../services/exerciseService';
 import WorkoutHeader from '../components/ActiveWorkoutPage/WorkoutHeader';
 import ExerciseActiveCard from '../components/ActiveWorkoutPage/ExerciseActiveCard';
 import AddExerciseModal from '../components/ActiveWorkoutPage/AddExerciseModal';
-
-/**
- * Internal component for the workout summary and final actions.
- */
-const WorkoutFooterSection = ({ 
-  summary, 
-  setSummary, 
-  duration, 
-  setDuration, 
-  onFinish, 
-  isSaving 
-}) => {
-  return (
-    <div style={footerStyles.container}>
-      <h3 style={footerStyles.title}>סיכום וסיום אימון</h3>
-      
-      <div style={footerStyles.inputGroup}>
-        <label style={footerStyles.label}>כמה זמן לקח האימון? (בדקות - אופציונלי)</label>
-        <input 
-          type="number"
-          placeholder="למשל: 45"
-          value={duration}
-          onChange={(e) => setDuration(e.target.value)}
-          style={footerStyles.durationInput}
-        />
-      </div>
-
-      <div style={footerStyles.inputGroup}>
-        <label style={footerStyles.label}>איך היה האימון? (סיכום קצר)</label>
-        <textarea 
-          placeholder="כתוב כאן הערות, תחושות או דגשים..."
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-          style={footerStyles.summaryArea}
-        />
-      </div>
-
-      <button 
-        onClick={onFinish}
-        disabled={isSaving}
-        style={{
-          ...footerStyles.finishBtn,
-          backgroundColor: isSaving ? '#94d3a2' : '#28a745'
-        }}
-      >
-        {isSaving ? "שומר נתונים..." : "✅ סיום ושמירת אימון"}
-      </button>
-    </div>
-  );
-};
+import WorkoutFooterSection from '../components/ActiveWorkoutPage/WorkoutFooterSection';
 
 const ActiveWorkoutPage = () => {
   const { templateId } = useParams();
@@ -75,7 +26,7 @@ const ActiveWorkoutPage = () => {
 
   const [template, setTemplate] = useState(location.state?.template || null);
   const [workoutData, setWorkoutData] = useState([]);
-  const [startTime] = useState(new Date());
+  const [startTime, setStartTime] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [workoutSummary, setWorkoutSummary] = useState("");
   const [actualDuration, setActualDuration] = useState("");
@@ -103,10 +54,6 @@ const ActiveWorkoutPage = () => {
     loadTemplate();
   }, [templateId, template, fetchTemplateById, navigate, showToast, exercises.length, parameters.length, fetchExercises, fetchParameters]);
 
-  /**
-   * Frontend Math Engine for Virtual Parameters.
-   * Calculates values based on source parameters in real-time.
-   */
   const runMath = useCallback((type, values, multiplier) => {
     const nums = values.map(v => parseFloat(v) || 0);
     switch (type) {
@@ -120,7 +67,6 @@ const ActiveWorkoutPage = () => {
     }
   }, []);
 
-  // Initialize workout state based on template config and parameter metadata
   useEffect(() => {
     if (template && parameters.length > 0 && workoutData.length === 0) {
       const initialExercises = template.exercises_config.map((ex, idx) => {
@@ -135,7 +81,11 @@ const ActiveWorkoutPage = () => {
           isDone: false,
           paramsMetadata: ex.params.map(p => {
             const meta = parameters.find(m => Number(m.id) === Number(p.parameter_id));
-            return { ...p, ...meta };
+            return {
+              ...p,
+              ...meta,
+              parameter_name: meta?.name || p.parameter_name || `פרמטר ${p.parameter_id}`,
+            };
           }),
           actualSets: Array.from({ length: ex.num_of_sets }, (_, i) => ({
             id: `set-${idx}-${i}-${Date.now()}`,
@@ -149,9 +99,6 @@ const ActiveWorkoutPage = () => {
     }
   }, [template, parameters, workoutData.length]);
 
-  /**
-   * Updates a parameter value in a specific set and triggers virtual calculations.
-   */
   const updateSetValue = (exIdx, setIdx, parameterId, newValue) => {
     const newData = [...workoutData];
     const exercise = newData[exIdx];
@@ -159,13 +106,11 @@ const ActiveWorkoutPage = () => {
 
     set.values[parameterId] = newValue;
 
-    // Recalculate all virtual parameters for this specific set
     exercise.paramsMetadata.forEach(pMeta => {
       if (pMeta.is_virtual) {
         const sourceIds = pMeta.source_parameter_ids || [];
         const sourceValues = sourceIds.map(sId => set.values[sId] || 0);
         const result = runMath(pMeta.calculation_type, sourceValues, pMeta.multiplier);
-        // Format result to remove unnecessary trailing zeros
         set.values[pMeta.id] = result.toFixed(2).replace(/\.00$/, "");
       }
     });
@@ -209,15 +154,16 @@ const ActiveWorkoutPage = () => {
     setWorkoutData(newData);
   };
 
-  /**
-   * Adds a new exercise dynamically during the workout.
-   */
   const addNewExercise = async (exercise) => {
     try {
       const res = await exerciseService.getActiveParams(exercise.id);
       const enrichedParams = res.data.map(ap => {
         const meta = parameters.find(m => Number(m.id) === Number(ap.parameter_id));
-        return { ...ap, ...meta };
+        return {
+          ...ap,
+          ...meta,
+          parameter_name: meta?.name || ap.parameter_name || `פרמטר ${ap.parameter_id}`,
+        };
       });
 
       const initialValues = {};
@@ -246,11 +192,7 @@ const ActiveWorkoutPage = () => {
     }
   };
 
-  /**
-   * Finalizes the workout session and builds the bulk payload for the server.
-   */
   const handleFinish = async () => {
-    // Structure: Each exercise contains performance_data as a List of Lists (sets)
     const performedExercisesPayload = workoutData
       .map(ex => {
         const completedSets = ex.actualSets.filter(s => s.isDone);
@@ -258,7 +200,6 @@ const ActiveWorkoutPage = () => {
 
         return {
           exercise_id: ex.exercise_id,
-          // List of Lists structure: each set is a list of parameters
           performance_data: completedSets.map(set => (
             ex.paramsMetadata.map(p => ({
               parameter_id: p.parameter_id,
@@ -291,7 +232,6 @@ const ActiveWorkoutPage = () => {
     }
   };
 
-  // UI Helpers
   const parentExerciseName = useMemo(() => {
     if (!template?.parent_exercise_id || exercises.length === 0) return "כללי";
     const parent = exercises.find(ex => Number(ex.id) === Number(template.parent_exercise_id));
@@ -303,11 +243,16 @@ const ActiveWorkoutPage = () => {
   }, [exercises, template, getAllLeafDescendants]);
 
   if (isFetchingTemplate || !template) {
-    return <div style={{ textAlign: 'center', marginTop: '50px' }}>טוען נתוני אימון...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+        <div className="w-12 h-12 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin mb-4"></div>
+        <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest">טוען נתוני אימון...</p>
+      </div>
+    );
   }
 
   return (
-    <div style={{ paddingBottom: '80px', direction: 'rtl' }}>
+    <div className="min-h-screen bg-slate-50 font-sans pb-20" dir="rtl">
       <WorkoutHeader 
         name={template?.name} 
         description={template?.description}
@@ -319,9 +264,12 @@ const ActiveWorkoutPage = () => {
           }
         }}
         isSaving={isSaving}
+        onAddExercise={() => setIsModalOpen(true)}
+        startTime={startTime}
+        setStartTime={setStartTime}
       />
 
-      <div style={{ padding: '15px', maxWidth: '800px', margin: '0 auto' }}>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 animate-in fade-in duration-500">
         {workoutData.map((ex, idx) => (
           <ExerciseActiveCard 
             key={ex.instanceId}
@@ -333,13 +281,6 @@ const ActiveWorkoutPage = () => {
             onReorderSets={(newSets) => reorderSets(idx, newSets)}
           />
         ))}
-
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          style={styles.addExBtn}
-        >
-          + הוסף תרגיל לאימון
-        </button>
 
         <WorkoutFooterSection 
           summary={workoutSummary}
@@ -359,20 +300,6 @@ const ActiveWorkoutPage = () => {
       />
     </div>
   );
-};
-
-const footerStyles = {
-  container: { marginTop: '30px', padding: '20px', backgroundColor: '#fff', borderRadius: '15px', border: '1px solid #eee', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' },
-  title: { margin: '0 0 20px', color: '#333', fontSize: '1.2rem' },
-  inputGroup: { marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' },
-  label: { fontSize: '14px', fontWeight: 'bold', color: '#555' },
-  durationInput: { padding: '12px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', outline: 'none', width: '100%', boxSizing: 'border-box' },
-  summaryArea: { padding: '12px', borderRadius: '10px', border: '1px solid #ddd', fontSize: '16px', minHeight: '100px', outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: 'inherit' },
-  finishBtn: { width: '100%', padding: '16px', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(40, 167, 69, 0.2)', transition: 'transform 0.1s' }
-};
-
-const styles = {
-  addExBtn: { width: '100%', padding: '15px', backgroundColor: '#f8f9fa', border: '2px dashed #ddd', borderRadius: '12px', cursor: 'pointer', marginTop: '20px', marginBottom: '10px', fontWeight: 'bold', color: '#555' }
 };
 
 export default ActiveWorkoutPage;

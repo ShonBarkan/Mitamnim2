@@ -161,7 +161,10 @@ const UserPanelPage = () => {
                   <td>{groups.find(g => g.id === u.group_id)?.name || 'ללא'}</td>
                   <td>
                     <button onClick={() => startEdit(u)} style={{ color: 'blue', marginLeft: '10px' }}>ערוך</button>
-                    <button onClick={() => handleDelete(u.id)} style={{ color: 'red' }}>מחק</button>
+                    <button onClick={() => handleDelete(u.id)} style={{ color: 'red', marginLeft: '10px' }}>מחק</button>
+                    {u.role === 'trainee' && (
+                      <Link to={`/stats-page/${u.id}`} style={{ color: 'green', textDecoration: 'none' }}>סטטיסטיקה</Link>
+                    )}
                   </td>
                 </tr>
               ))}

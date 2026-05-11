@@ -1,204 +1,76 @@
 import React, { useState } from 'react';
 
-/**
- * Modal component to select and add a new exercise to an ongoing workout.
- * Includes a real-time search filter and scrollable list.
- */
 const AddExerciseModal = ({ isOpen, onClose, exercises, onSelect }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Early return if modal is hidden
   if (!isOpen) return null;
 
-  /**
-   * Filters the available exercises based on the user's search input.
-   */
   const filteredExercises = exercises.filter(ex => 
     ex.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  /**
-   * Handles the selection of an exercise and resets the search state.
-   */
   const handleSelect = (exercise) => {
     onSelect(exercise);
     setSearchTerm('');
   };
 
   return (
-    <div style={styles.overlay}>
-      <div style={styles.modal}>
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-zinc-900/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-lg rounded-[2.5rem] flex flex-col max-h-[80vh] shadow-2xl overflow-hidden font-sans animate-in zoom-in-95 duration-300" dir="rtl">
         
-        {/* Modal Header */}
-        <div style={styles.header}>
-          <h3 style={{ margin: 0, fontWeight: '800' }}>הוספת תרגיל חדש</h3>
-          <button onClick={onClose} style={styles.closeBtn}>✕</button>
+        <div className="p-6 border-b border-zinc-50 flex justify-between items-center bg-white">
+          <h3 className="m-0 text-xl font-black text-zinc-900 tracking-tighter">הוספת תרגיל חדש</h3>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 transition-all">✕</button>
         </div>
 
-        {/* Search Input Area */}
-        <div style={styles.searchContainer}>
+        <div className="p-4 border-b border-zinc-50">
           <input 
             type="text" 
             placeholder="חפש תרגיל (למשל: לחיצת חזה)..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
+            className="w-full px-5 py-3 rounded-2xl border border-zinc-200 bg-zinc-50 text-sm font-bold text-zinc-900 outline-none focus:border-blue-500 focus:bg-white transition-all"
             autoFocus
           />
         </div>
 
-        {/* Dynamic Exercise List */}
-        <div style={styles.listContainer}>
+        <div className="flex-1 overflow-y-auto p-2 scrollbar-hide">
           {filteredExercises.length > 0 ? (
-            filteredExercises.map((ex) => (
-              <div 
-                key={ex.id} 
-                onClick={() => handleSelect(ex)}
-                style={styles.exerciseItem}
-              >
-                <div style={styles.exerciseInfo}>
-                  <span style={styles.exerciseName}>{ex.name}</span>
-                  {ex.category_name && (
-                    <small style={styles.categoryName}>{ex.category_name}</small>
-                  )}
+            <div className="flex flex-col gap-1">
+              {filteredExercises.map((ex) => (
+                <div 
+                  key={ex.id} 
+                  onClick={() => handleSelect(ex)}
+                  className="flex justify-between items-center p-4 hover:bg-zinc-50 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-zinc-100 group"
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-black text-zinc-900">{ex.name}</span>
+                    {ex.category_name && (
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{ex.category_name}</span>
+                    )}
+                  </div>
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white transition-all">
+                    +
+                  </div>
                 </div>
-                <span style={styles.addIcon}>+</span>
-              </div>
-            ))
+              ))}
+            </div>
           ) : (
-            <div style={styles.noResults}>לא נמצאו תרגילים מתאימים</div>
+            <div className="text-center p-10 text-zinc-400 text-sm font-bold">לא נמצאו תרגילים מתאימים</div>
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div style={styles.footer}>
-          <button onClick={onClose} style={styles.cancelBtn}>ביטול</button>
+        <div className="p-4 border-t border-zinc-50 bg-zinc-50/50">
+          <button 
+            onClick={onClose} 
+            className="w-full py-3 bg-white border border-zinc-200 rounded-xl text-zinc-600 font-bold text-sm hover:bg-zinc-100 hover:text-zinc-900 transition-all active:scale-95"
+          >
+            ביטול
+          </button>
         </div>
       </div>
     </div>
   );
-};
-
-const styles = {
-  overlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1100,
-    backdropFilter: 'blur(8px)',
-    padding: '20px'
-  },
-  modal: {
-    backgroundColor: '#fff',
-    width: '100%',
-    maxWidth: '450px',
-    borderRadius: '24px',
-    display: 'flex',
-    flexDirection: 'column',
-    maxHeight: '80vh',
-    boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-    overflow: 'hidden',
-    direction: 'rtl'
-  },
-  header: {
-    padding: '20px',
-    borderBottom: '1px solid #f0f0f0',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff'
-  },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    fontSize: '20px',
-    cursor: 'pointer',
-    color: '#adb5bd',
-    padding: '5px'
-  },
-  searchContainer: {
-    padding: '15px 20px'
-  },
-  searchInput: {
-    width: '100%',
-    padding: '12px 18px',
-    borderRadius: '14px',
-    border: '1px solid #e9ecef',
-    backgroundColor: '#f8f9fa',
-    fontSize: '16px',
-    outline: 'none',
-    boxSizing: 'border-box',
-    transition: 'border-color 0.2s'
-  },
-  listContainer: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '0 10px 15px 10px'
-  },
-  exerciseItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 12px',
-    borderBottom: '1px solid #f8f9fa',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    borderRadius: '12px'
-  },
-  exerciseInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px'
-  },
-  exerciseName: {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#212529'
-  },
-  categoryName: {
-    fontSize: '12px',
-    color: '#868e96'
-  },
-  addIcon: {
-    color: '#28a745',
-    fontSize: '22px',
-    fontWeight: 'bold',
-    backgroundColor: '#eafaf1',
-    width: '30px',
-    height: '30px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '10px'
-  },
-  noResults: {
-    textAlign: 'center',
-    padding: '40px',
-    color: '#adb5bd',
-    fontSize: '14px'
-  },
-  footer: {
-    padding: '15px 20px',
-    borderTop: '1px solid #f0f0f0',
-    textAlign: 'left',
-    backgroundColor: '#fff'
-  },
-  cancelBtn: {
-    padding: '10px 20px',
-    backgroundColor: '#f8f9fa',
-    border: '1px solid #dee2e6',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#495057'
-  }
 };
 
 export default AddExerciseModal;

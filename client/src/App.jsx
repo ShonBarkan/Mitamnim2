@@ -100,6 +100,13 @@ function App() {
             />
 
             <Route path="/stats-page" element={
+                <ProtectedRoute>
+                  <PersonalStatsPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route path="/stats-page/:userId" element={
                 <ProtectedRoute allowedRoles={['admin', 'trainer']}>
                   <PersonalStatsPage />
                 </ProtectedRoute>

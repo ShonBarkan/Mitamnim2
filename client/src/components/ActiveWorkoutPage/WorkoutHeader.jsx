@@ -1,117 +1,89 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-/**
- * Sticky header for the Active Workout session.
- * Displays template info, parent category, and action buttons.
- */
-const WorkoutHeader = ({ name, description, parentName, onSave, onCancel, isSaving }) => {
+const WorkoutHeader = ({ 
+  name, 
+  description, 
+  parentName, 
+  onSave, 
+  onCancel, 
+  isSaving,
+  onAddExercise,
+  startTime,
+  setStartTime 
+}) => {
+  const [isEditingTime, setIsEditingTime] = useState(false);
+  const [tempTime, setTempTime] = useState("");
+
+  const handleEditTimeClick = () => {
+    // Format current startTime for datetime-local input
+    // toISOString gives UTC, we need local time string "YYYY-MM-DDTHH:mm"
+    const tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds
+    const localISOTime = (new Date(startTime - tzoffset)).toISOString().slice(0, 16);
+    setTempTime(localISOTime);
+    setIsEditingTime(true);
+  };
+
+  const handleTimeSave = () => {
+    if (tempTime) {
+      setStartTime(new Date(tempTime));
+    }
+    setIsEditingTime(false);
+  };
+
   return (
-    <div style={styles.header}>
-      <div style={styles.info}>
-        {/* Parent Category Badge */}
-        <span style={styles.categoryBadge}>{parentName}</span>
+    <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-zinc-100 shadow-sm px-6 py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4" dir="rtl">
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{parentName}</span>
+        <h2 className="text-2xl font-black text-zinc-900 tracking-tighter m-0">{name}</h2>
+        {description && <p className="text-sm font-bold text-zinc-500 m-0 max-w-md truncate">{description}</p>}
         
-        <h2 style={styles.title}>{name}</h2>
-        
-        {description && (
-          <p style={styles.description}>{description}</p>
-        )}
+        {/* Time Editor */}
+        <div className="mt-2 flex items-center gap-2">
+           <span className="text-xs font-bold text-zinc-500">התחלה:</span>
+           {isEditingTime ? (
+             <div className="flex items-center gap-2">
+               <input 
+                 type="datetime-local" 
+                 value={tempTime}
+                 onChange={(e) => setTempTime(e.target.value)}
+                 className="text-xs border border-zinc-200 rounded-lg px-2 py-1 bg-white font-sans text-zinc-900 outline-none focus:border-blue-500"
+               />
+               <button onClick={handleTimeSave} className="text-[10px] bg-zinc-900 text-white px-2 py-1 rounded-md font-bold">שמור</button>
+               <button onClick={() => setIsEditingTime(false)} className="text-[10px] bg-zinc-200 text-zinc-600 px-2 py-1 rounded-md font-bold">ביטול</button>
+             </div>
+           ) : (
+             <div className="flex items-center gap-2">
+               <span className="text-xs font-bold text-zinc-700">{startTime.toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' })}</span>
+               <button onClick={handleEditTimeClick} className="text-xs text-blue-600 hover:text-blue-800 transition-colors">✎ ערוך</button>
+             </div>
+           )}
+        </div>
       </div>
 
-      <div style={styles.actions}>
+      <div className="flex items-center gap-3 w-full md:w-auto">
+        <button 
+          onClick={onAddExercise}
+          className="flex-1 md:flex-none bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 px-4 py-2.5 rounded-2xl font-black text-sm transition-all active:scale-95"
+        >
+          + הוסף תרגיל
+        </button>
         <button 
           onClick={onCancel} 
-          style={styles.cancelBtn}
           disabled={isSaving}
+          className="bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 px-4 py-2.5 rounded-2xl font-black text-sm transition-all active:scale-95"
         >
           ביטול
         </button>
-        
         <button 
           onClick={onSave} 
           disabled={isSaving}
-          style={{
-            ...styles.saveBtn,
-            backgroundColor: isSaving ? '#94d3a2' : '#28a745'
-          }}
+          className={`flex-1 md:flex-none px-6 py-2.5 rounded-2xl font-black text-sm transition-all active:scale-95 text-white ${isSaving ? 'bg-zinc-400 cursor-not-allowed' : 'bg-zinc-900 hover:bg-zinc-800 shadow-lg shadow-zinc-200'}`}
         >
           {isSaving ? "שומר..." : "סיום אימון"}
         </button>
       </div>
     </div>
   );
-};
-
-const styles = {
-  header: { 
-    position: 'sticky', 
-    top: 0, 
-    zIndex: 100, 
-    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-    padding: '12px 20px', 
-    borderBottom: '1px solid #eee', 
-    display: 'flex', 
-    justifyContent: 'space-between', 
-    alignItems: 'center',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-    backdropFilter: 'blur(10px)',
-    direction: 'rtl'
-  },
-  info: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-    flex: 1
-  },
-  categoryBadge: {
-    fontSize: '11px',
-    fontWeight: 'bold',
-    color: '#007bff',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px'
-  },
-  title: { 
-    margin: 0, 
-    fontSize: '1.25rem', 
-    color: '#1a1a1a',
-    fontWeight: '800'
-  },
-  description: {
-    margin: 0,
-    fontSize: '13px',
-    color: '#666',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    maxWidth: '200px'
-  },
-  actions: {
-    display: 'flex',
-    gap: '10px',
-    alignItems: 'center'
-  },
-  saveBtn: { 
-    color: '#fff', 
-    border: 'none', 
-    padding: '10px 18px', 
-    borderRadius: '10px', 
-    fontWeight: 'bold', 
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'all 0.2s',
-    boxShadow: '0 4px 6px rgba(40, 167, 69, 0.2)'
-  },
-  cancelBtn: {
-    backgroundColor: 'transparent',
-    color: '#dc3545',
-    border: '1px solid #dc3545',
-    padding: '8px 15px',
-    borderRadius: '10px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'all 0.2s'
-  }
 };
 
 export default WorkoutHeader;

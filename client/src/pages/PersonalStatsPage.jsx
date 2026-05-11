@@ -27,7 +27,7 @@ const PersonalStatsPage = () => {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.title}>הביצועים שלי</h1>
+        <h1 style={styles.title}>{userId ? 'ביצועי מתאמן' : 'הביצועים שלי'}</h1>
         <p style={styles.subtitle}>סיכום פעילות והישגים אישיים</p>
       </header>
 
@@ -168,6 +168,9 @@ const styles = {
   prDate: { fontSize: '13px', color: '#adb5bd' },
   loading: { textAlign: 'center', marginTop: '100px', fontSize: '1.2rem', color: '#adb5bd' },
   emptyText: { textAlign: 'center', color: '#adb5bd', fontSize: '14px' }
+};
+
+export default PersonalStatsPage;Size: '14px' }
 };
 
 export default PersonalStatsPage;
