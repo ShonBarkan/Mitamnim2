@@ -2,6 +2,9 @@ import React, { useEffect } from 'react';
 import { useUsers } from '../../../hooks/useUsers';
 import { useAuth } from '../../../hooks/useAuth';
 
+/**
+ * Grid of users for template assignment.
+ */
 const UserSelectionGrid = ({ selectedUserIds, onChange }) => {
   const { user: currentUser } = useAuth();
   const { users, refreshUsers } = useUsers();
@@ -10,6 +13,7 @@ const UserSelectionGrid = ({ selectedUserIds, onChange }) => {
     if (currentUser?.group_id) refreshUsers(currentUser.group_id);
   }, [currentUser]);
 
+  // Filter only trainees for the selection
   const trainees = users.filter(u => u.role === 'trainee');
 
   const toggleUser = (userId) => {
@@ -21,46 +25,56 @@ const UserSelectionGrid = ({ selectedUserIds, onChange }) => {
   };
 
   return (
-    <div dir="rtl">
-      <div className="flex gap-2 mb-4">
+    <div style={{ direction: 'rtl' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
         <button 
           type="button" 
           onClick={() => onChange(trainees.map(u => u.id))}
-          className="px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors shadow-sm"
+          style={smallButtonStyle}
         >
           בחר את כולם
         </button>
         <button 
           type="button" 
           onClick={() => onChange([])}
-          className="px-3 py-1.5 bg-white text-zinc-600 border border-zinc-200 rounded-lg text-xs font-bold hover:bg-zinc-50 hover:text-zinc-900 transition-colors shadow-sm"
+          style={{ ...smallButtonStyle, backgroundColor: '#f8f9fa', color: '#666', border: '1px solid #ddd' }}
         >
           נקה בחירה
         </button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+        gap: '10px' 
+      }}>
         {trainees.map(u => {
           const isSelected = selectedUserIds.includes(u.id);
           return (
             <div 
               key={u.id}
               onClick={() => toggleUser(u.id)}
-              className={`p-3 rounded-xl border-2 cursor-pointer transition-all text-center flex flex-col items-center justify-center min-h-[80px] shadow-sm ${
-                isSelected 
-                  ? 'border-zinc-900 bg-zinc-900 text-white' 
-                  : 'border-zinc-100 bg-white text-zinc-900 hover:border-zinc-300'
-              }`}
+              style={{
+                padding: '10px',
+                borderRadius: '10px',
+                border: `2px solid ${isSelected ? '#007bff' : '#eee'}`,
+                backgroundColor: isSelected ? '#e3f2fd' : '#fff',
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: '0.2s'
+              }}
             >
-              <div className="font-bold text-sm leading-tight">{u.first_name} {u.second_name}</div>
-              <div className={`text-xs mt-1 ${isSelected ? 'text-zinc-300' : 'text-zinc-500'}`}>{u.username}</div>
+              <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{u.first_name}</div>
+              <div style={{ fontSize: '11px', color: '#666' }}>{u.username}</div>
             </div>
           );
         })}
       </div>
-      {trainees.length === 0 && <p className="text-zinc-500 text-sm mt-4 font-medium">אין מתאמנים רשומים בקבוצה.</p>}
+      {trainees.length === 0 && <p style={{ color: '#999', fontSize: '13px' }}>אין מתאמנים רשומים בקבוצה.</p>}
     </div>
   );
 };
+
+const smallButtonStyle = { padding: '5px 12px', fontSize: '12px', cursor: 'pointer', border: 'none', borderRadius: '5px', backgroundColor: '#007bff', color: '#fff' };
 
 export default UserSelectionGrid;

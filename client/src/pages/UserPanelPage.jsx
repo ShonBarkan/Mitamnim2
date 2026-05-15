@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUsers } from '../hooks/useUsers';
 import { useGroups } from '../hooks/useGroups';
@@ -19,13 +18,11 @@ const UserPanelPage = () => {
     second_name: '',
     email: '',
     phone: '',
-    group_id: '',
-    profile_picture: null
+    group_id: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
   const [editingUserId, setEditingUserId] = useState(null);
-  const [profilePictureFile, setProfilePictureFile] = useState(null);
 
   useEffect(() => {
     refreshUsers(currentUser.role === 'trainer' ? currentUser.group_id : null);
@@ -37,13 +34,6 @@ const UserPanelPage = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    setProfilePictureFile(file);
-    // Optionally, you can also update formData if you want to keep the file info in the form state
-    setFormData(prev => ({ ...prev, profile_picture: file }));
   };
 
   const startEdit = (user) => {
@@ -58,35 +48,21 @@ const UserPanelPage = () => {
       phone: user.phone || '',
       group_id: user.group_id || ''
     });
-    setProfilePictureFile(null); // Reset file input on edit
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEdit = () => {
     setEditingUserId(null);
     setFormData(initialFormState);
-    setProfilePictureFile(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Convert profile picture to base64 if file is selected
-      let profilePictureBase64 = null;
-      if (profilePictureFile) {
-        profilePictureBase64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(profilePictureFile);
-        });
-      }
-
       // Logic for group_id: Trainer's users always go to trainer's group
       const finalData = {
         ...formData,
-        group_id: currentUser.role === 'trainer' ? currentUser.group_id : formData.group_id,
-        profile_picture: profilePictureBase64 || formData.profile_picture
+        group_id: currentUser.role === 'trainer' ? currentUser.group_id : formData.group_id
       };
 
       if (editingUserId) {
@@ -150,27 +126,6 @@ const UserPanelPage = () => {
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
           )}
-
-          {/* Profile Picture Upload */}
-          <div style={{ gridColumn: 'span 2' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>תמונה פרופיל:</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              style={{ border: '1px solid #ccc', padding: '5px', width: '100%' }}
-            />
-            {profilePictureFile && (
-              <div style={{ marginTop: '10px' }}>
-                <p>תמונה נבחרה: {profilePictureFile.name}</p>
-                <img
-                  src={URL.createObjectURL(profilePictureFile)}
-                  alt="Profile Preview"
-                  style={{ maxWidth: '100px', maxHeight: '100px', borderRadius: '8px' }}
-                />
-              </div>
-            )}
-          </div>
 
           <div style={{ gridColumn: 'span 2' }}>
             <button type="submit">{editingUserId ? 'עדכן משתמש' : 'הוסף משתמש'}</button>

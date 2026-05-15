@@ -3,30 +3,45 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ParameterContext } from '../../../contexts/ParameterContext';
 
+/**
+ * Represents a single Exercise in the workout template with dynamic calculations.
+ * Handles internal calculation logic for virtual parameters to ensure state consistency.
+ */
 const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParams, onRemove }) => {
   const { parameters } = useContext(ParameterContext);
   const isInitialMount = useRef(true);
 
+  // 1. Memoized Metadata Map for O(1) parameter lookup
   const metaMap = useMemo(() => {
     const map = new Map();
     parameters.forEach(p => map.set(Number(p.id), p));
     return map;
   }, [parameters]);
 
+  // 2. Lifecycle & State Snapshot Logger
   useEffect(() => {
     const getSnapshot = () => item.params.map(p => {
       const meta = metaMap.get(Number(p.parameter_id));
-      return { name: p.parameter_name, value: p.value, type: meta?.is_virtual ? 'VIRTUAL' : 'RAW' };
+      return {
+        name: p.parameter_name,
+        value: p.value,
+        type: meta?.is_virtual ? 'VIRTUAL' : 'RAW'
+      };
     });
+
     if (isInitialMount.current) {
       console.log(`%c[MOUNT] ${item.exercise_name}`, 'color: #4CAF50; font-weight: bold;', getSnapshot());
       isInitialMount.current = false;
     } else {
       console.log(`%c[UPDATE] ${item.exercise_name}`, 'color: #2196F3; font-weight: bold;', getSnapshot());
     }
-    return () => console.log(`%c[EXIT] ${item.exercise_name}`, 'color: #f44336; font-weight: bold;');
+
+    return () => {
+      console.log(`%c[EXIT] ${item.exercise_name}`, 'color: #f44336; font-weight: bold;');
+    };
   }, [item.params, item.exercise_name, metaMap]);
 
+  // 3. DnD-Kit Setup
   const {
     attributes,
     listeners,
@@ -36,6 +51,7 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
     isDragging
   } = useSortable({ id: `item-${index}-${item.exercise_id}` });
 
+  // 4. Arithmetic Engine
   const runMath = useCallback((type, values, multiplier) => {
     const nums = values.map(v => parseFloat(v) || 0);
     switch (type) {
@@ -49,11 +65,13 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
     }
   }, []);
 
+  // 5. Change Handler with Bulk Update
   const handleValueChange = (pIdx, newValue) => {
     const updatedParams = item.params.map((p, i) => 
       i === pIdx ? { ...p, value: newValue } : { ...p }
     );
 
+    // Re-calculate all virtual parameters in the array
     updatedParams.forEach((p, idx) => {
       const meta = metaMap.get(Number(p.parameter_id));
       if (meta?.is_virtual) {
@@ -73,44 +91,43 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    zIndex: isDragging ? 50 : 1,
+    zIndex: isDragging ? 100 : 1,
+    opacity: isDragging ? 0.6 : 1,
+    backgroundColor: '#fff',
+    border: '1px solid #dee2e6',
+    borderRadius: '16px',
+    padding: '16px',
+    marginBottom: '15px',
+    boxShadow: isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : '0 2px 4px rgba(0,0,0,0.02)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    direction: 'rtl'
   };
 
   return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      {...attributes}
-      className={`bg-white border ${isDragging ? 'border-zinc-300 shadow-xl opacity-80' : 'border-zinc-200 shadow-sm'} rounded-2xl p-4 flex flex-col gap-4`}
-      dir="rtl"
-    >
-      <div className="flex items-center gap-4 border-b border-zinc-100 pb-3">
-        <div {...listeners} className="cursor-grab text-zinc-400 hover:text-zinc-600 text-xl px-1">⠿</div>
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid #f8f9fa', paddingBottom: '10px' }}>
+        <div {...listeners} style={{ cursor: 'grab', color: '#adb5bd', fontSize: '20px' }}>⠿</div>
         
-        <div className="flex-1 font-black text-zinc-900 text-lg">
+        <div style={{ flex: 1, fontWeight: '800', color: '#212529', fontSize: '1.1rem' }}>
           {item.exercise_name}
         </div>
 
-        <div className="flex items-center gap-2 bg-zinc-100 px-3 py-1.5 rounded-xl border border-zinc-200">
-          <label className="text-xs font-bold text-zinc-600">סטים:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#f1f3f5', padding: '5px 12px', borderRadius: '10px' }}>
+          <label style={{ fontSize: '12px', fontWeight: 'bold' }}>סטים:</label>
           <input 
             type="number"
             value={item.num_of_sets}
             onChange={(e) => onUpdateSets(index, parseInt(e.target.value) || 1)}
-            className="w-10 bg-transparent border-none text-center font-bold text-zinc-900 outline-none"
+            style={{ width: '40px', border: 'none', background: 'transparent', textAlign: 'center', fontWeight: 'bold' }}
           />
         </div>
 
-        <button 
-          onClick={() => onRemove(index)} 
-          className="text-zinc-400 hover:text-rose-500 hover:bg-rose-50 w-8 h-8 flex items-center justify-center rounded-full transition-colors"
-          title="הסר תרגיל"
-        >
-          ✕
-        </button>
+        <button onClick={() => onRemove(index)} style={{ background: 'none', border: 'none', color: '#adb5bd', cursor: 'pointer', fontSize: '18px' }}>✕</button>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {item.params.map((param, pIdx) => {
           const meta = metaMap.get(Number(param.parameter_id));
           const isVirtual = meta?.is_virtual;
@@ -118,17 +135,25 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
           return (
             <div 
               key={`${param.parameter_id}-${pIdx}`}
-              className={`flex items-center justify-between p-3 rounded-xl border ${isVirtual ? 'bg-blue-50/50 border-blue-100' : 'bg-zinc-50 border-zinc-100'}`}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                padding: '10px 14px', 
+                backgroundColor: isVirtual ? '#f0f7ff' : '#fafafa', 
+                borderRadius: '12px',
+                border: isVirtual ? '1px solid #d1dbff' : '1px solid #f1f3f5'
+              }}
             >
-              <div className="flex flex-col">
-                <span className={`text-sm font-bold ${isVirtual ? 'text-blue-800' : 'text-zinc-700'}`}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '13px', color: isVirtual ? '#0050b3' : '#6c757d', fontWeight: '600' }}>
                   {param.parameter_name} ({param.parameter_unit || 'ערך'}):
                 </span>
-                {isVirtual && <span className="text-[10px] font-black tracking-tight text-blue-400 uppercase">חישוב אוטומטי</span>}
+                {isVirtual && <span style={{ fontSize: '10px', color: '#69c0ff' }}>חישוב אוטומטי</span>}
               </div>
               
               {isVirtual ? (
-                <div className="font-bold text-blue-700 bg-blue-100 px-4 py-1.5 rounded-lg min-w-[60px] text-center shadow-inner">
+                <div style={{ fontWeight: 'bold', color: '#0050b3', background: '#e6f7ff', padding: '4px 12px', borderRadius: '6px', minWidth: '60px', textAlign: 'center' }}>
                   {param.value || "0"}
                 </div>
               ) : (
@@ -136,7 +161,7 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
                   type="number"
                   value={param.value}
                   onChange={(e) => handleValueChange(pIdx, e.target.value)}
-                  className="w-20 px-2 py-1.5 rounded-lg border border-zinc-200 text-center font-medium focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 outline-none shadow-inner"
+                  style={{ width: '80px', padding: '6px', borderRadius: '8px', border: '1px solid #d9d9d9', textAlign: 'center' }}
                 />
               )}
             </div>
