@@ -4,44 +4,28 @@ import { CSS } from '@dnd-kit/utilities';
 import { ParameterContext } from '../../../contexts/ParameterContext';
 
 /**
- * Represents a single Exercise in the workout template with dynamic calculations.
- * Handles internal calculation logic for virtual parameters to ensure state consistency.
+ * TemplateExerciseItem Component - The logical unit of a workout template.
+ * Features an integrated Arithmetic Engine for real-time virtual parameter calculations.
  */
 const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParams, onRemove }) => {
   const { parameters } = useContext(ParameterContext);
   const isInitialMount = useRef(true);
 
-  // 1. Memoized Metadata Map for O(1) parameter lookup
+  // O(1) lookup map for parameter metadata
   const metaMap = useMemo(() => {
     const map = new Map();
     parameters.forEach(p => map.set(Number(p.id), p));
     return map;
   }, [parameters]);
 
-  // 2. Lifecycle & State Snapshot Logger
+  // Lifecycle logger for debugging calculation flows
   useEffect(() => {
-    const getSnapshot = () => item.params.map(p => {
-      const meta = metaMap.get(Number(p.parameter_id));
-      return {
-        name: p.parameter_name,
-        value: p.value,
-        type: meta?.is_virtual ? 'VIRTUAL' : 'RAW'
-      };
-    });
-
     if (isInitialMount.current) {
-      console.log(`%c[MOUNT] ${item.exercise_name}`, 'color: #4CAF50; font-weight: bold;', getSnapshot());
       isInitialMount.current = false;
-    } else {
-      console.log(`%c[UPDATE] ${item.exercise_name}`, 'color: #2196F3; font-weight: bold;', getSnapshot());
     }
+  }, [item.params]);
 
-    return () => {
-      console.log(`%c[EXIT] ${item.exercise_name}`, 'color: #f44336; font-weight: bold;');
-    };
-  }, [item.params, item.exercise_name, metaMap]);
-
-  // 3. DnD-Kit Setup
+  // DnD-Kit sortable hook configuration
   const {
     attributes,
     listeners,
@@ -51,7 +35,9 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
     isDragging
   } = useSortable({ id: `item-${index}-${item.exercise_id}` });
 
-  // 4. Arithmetic Engine
+  /**
+   * Arithmetic Engine: Processes raw values into virtual results based on registry logic.
+   */
   const runMath = useCallback((type, values, multiplier) => {
     const nums = values.map(v => parseFloat(v) || 0);
     switch (type) {
@@ -65,13 +51,16 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
     }
   }, []);
 
-  // 5. Change Handler with Bulk Update
+  /**
+   * Value Change Handler: Triggered when a user edits a Raw parameter.
+   * Automatically re-calculates all Virtual parameters linked to this exercise.
+   */
   const handleValueChange = (pIdx, newValue) => {
     const updatedParams = item.params.map((p, i) => 
       i === pIdx ? { ...p, value: newValue } : { ...p }
     );
 
-    // Re-calculate all virtual parameters in the array
+    // Iteratively update all virtual dependencies in the set
     updatedParams.forEach((p, idx) => {
       const meta = metaMap.get(Number(p.parameter_id));
       if (meta?.is_virtual) {
@@ -88,46 +77,62 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
     onUpdateExerciseParams(index, updatedParams);
   };
 
-  const style = {
+  // DnD styling combined with Arctic Mirror aesthetics
+  const sortableStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 100 : 1,
-    opacity: isDragging ? 0.6 : 1,
-    backgroundColor: '#fff',
-    border: '1px solid #dee2e6',
-    borderRadius: '16px',
-    padding: '16px',
-    marginBottom: '15px',
-    boxShadow: isDragging ? '0 8px 25px rgba(0,0,0,0.15)' : '0 2px 4px rgba(0,0,0,0.02)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    direction: 'rtl'
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid #f8f9fa', paddingBottom: '10px' }}>
-        <div {...listeners} style={{ cursor: 'grab', color: '#adb5bd', fontSize: '20px' }}>⠿</div>
-        
-        <div style={{ flex: 1, fontWeight: '800', color: '#212529', fontSize: '1.1rem' }}>
-          {item.exercise_name}
+    <div 
+      ref={setNodeRef} 
+      style={sortableStyle} 
+      className={`relative bg-white/40 backdrop-blur-2xl border rounded-[2.5rem] p-8 flex flex-col gap-6 transition-all duration-300 ${
+        isDragging ? 'border-zinc-900/20 shadow-2xl scale-[1.02]' : 'border-white/60 shadow-sm'
+      }`}
+      dir="rtl"
+    >
+      {/* Header Section: Exercise Title & Set Management */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/40">
+        <div className="flex items-center gap-4">
+          <div 
+            {...attributes} 
+            {...listeners} 
+            className="cursor-grab text-zinc-300 hover:text-zinc-900 transition-colors p-2"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              <circle cx="9" cy="5" r="1" /> <circle cx="9" cy="12" r="1" /> <circle cx="9" cy="19" r="1" />
+              <circle cx="15" cy="5" r="1" /> <circle cx="15" cy="12" r="1" /> <circle cx="15" cy="19" r="1" />
+            </svg>
+          </div>
+          <h4 className="text-xl font-black text-zinc-900 tracking-tighter uppercase">
+            {item.exercise_name}
+          </h4>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#f1f3f5', padding: '5px 12px', borderRadius: '10px' }}>
-          <label style={{ fontSize: '12px', fontWeight: 'bold' }}>סטים:</label>
-          <input 
-            type="number"
-            value={item.num_of_sets}
-            onChange={(e) => onUpdateSets(index, parseInt(e.target.value) || 1)}
-            style={{ width: '40px', border: 'none', background: 'transparent', textAlign: 'center', fontWeight: 'bold' }}
-          />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 bg-white/50 backdrop-blur-md px-5 py-2 rounded-2xl border border-white/60 shadow-inner">
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Sets:</span>
+            <input 
+              type="number"
+              min="1"
+              value={item.num_of_sets}
+              onChange={(e) => onUpdateSets(index, parseInt(e.target.value) || 1)}
+              className="w-10 bg-transparent text-center font-black text-zinc-900 outline-none"
+            />
+          </div>
+          <button 
+            onClick={() => onRemove(index)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-50 text-rose-400 hover:bg-rose-500 hover:text-white transition-all duration-300"
+          >
+            ✕
+          </button>
         </div>
-
-        <button onClick={() => onRemove(index)} style={{ background: 'none', border: 'none', color: '#adb5bd', cursor: 'pointer', fontSize: '18px' }}>✕</button>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {/* Parameters Logic Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {item.params.map((param, pIdx) => {
           const meta = metaMap.get(Number(param.parameter_id));
           const isVirtual = meta?.is_virtual;
@@ -135,25 +140,27 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
           return (
             <div 
               key={`${param.parameter_id}-${pIdx}`}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'space-between', 
-                padding: '10px 14px', 
-                backgroundColor: isVirtual ? '#f0f7ff' : '#fafafa', 
-                borderRadius: '12px',
-                border: isVirtual ? '1px solid #d1dbff' : '1px solid #f1f3f5'
-              }}
+              className={`flex items-center justify-between p-5 rounded-[1.5rem] border transition-all duration-500 ${
+                isVirtual 
+                  ? 'bg-blue-600/5 border-blue-200/40 shadow-inner' 
+                  : 'bg-white/40 border-white/60'
+              }`}
             >
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '13px', color: isVirtual ? '#0050b3' : '#6c757d', fontWeight: '600' }}>
-                  {param.parameter_name} ({param.parameter_unit || 'ערך'}):
+              <div className="flex flex-col gap-0.5">
+                <span className={`text-[11px] font-black uppercase tracking-tight ${
+                  isVirtual ? 'text-blue-600' : 'text-zinc-500'
+                }`}>
+                  {param.parameter_name} ({param.parameter_unit || 'Value'})
                 </span>
-                {isVirtual && <span style={{ fontSize: '10px', color: '#69c0ff' }}>חישוב אוטומטי</span>}
+                {isVirtual && (
+                  <span className="text-[9px] font-bold text-blue-400/70 uppercase tracking-widest">
+                    Auto-Calculated
+                  </span>
+                )}
               </div>
               
               {isVirtual ? (
-                <div style={{ fontWeight: 'bold', color: '#0050b3', background: '#e6f7ff', padding: '4px 12px', borderRadius: '6px', minWidth: '60px', textAlign: 'center' }}>
+                <div className="text-lg font-black text-blue-600 bg-white/80 px-4 py-1.5 rounded-xl min-w-[70px] text-center shadow-sm">
                   {param.value || "0"}
                 </div>
               ) : (
@@ -161,7 +168,7 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
                   type="number"
                   value={param.value}
                   onChange={(e) => handleValueChange(pIdx, e.target.value)}
-                  style={{ width: '80px', padding: '6px', borderRadius: '8px', border: '1px solid #d9d9d9', textAlign: 'center' }}
+                  className="w-20 p-2.5 rounded-xl bg-white border border-zinc-100 text-center font-black text-zinc-900 outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all"
                 />
               )}
             </div>

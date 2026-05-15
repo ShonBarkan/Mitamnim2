@@ -3,6 +3,8 @@ import { AuthContext } from './AuthContext';
 
 export const SocketContext = createContext();
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 export const SocketProvider = ({ children }) => {
   const { token, user } = useContext(AuthContext);
   const [socket, setSocket] = useState(null);
@@ -13,6 +15,13 @@ export const SocketProvider = ({ children }) => {
   const isMounted = useRef(true); 
 
   const connect = useCallback(() => {
+    // Skip WebSocket connection in Dev mode to avoid errors without a local server
+    if (IS_DEV) {
+      console.log("SocketContext: Dev mode detected. WebSocket connection skipped.");
+      setIsConnected(true); // Mocking connection status for UI consistency
+      return;
+    }
+
     // Only attempt connection if we have a valid session
     if (!token || !user) return;
 
@@ -47,7 +56,7 @@ export const SocketProvider = ({ children }) => {
        * Reconnection Logic:
        * 1. Only reconnect if the user is still logged in.
        * 2. Do not reconnect if the closure was intentional (Code 1000).
-       * 3. Added a 3-second delay to prevent aggressive looping if the backend is crashing.
+       * 3. Added a 3-second delay to prevent aggressive looping.
        */
       if (token && user && e.code !== 1000) {
         reconnectTimeoutRef.current = setTimeout(() => {
@@ -58,7 +67,6 @@ export const SocketProvider = ({ children }) => {
 
     ws.onerror = (error) => {
       console.error("WebSocket error observed:", error);
-      // Let onclose handle the recovery logic
     };
 
   }, [token, user]);
@@ -69,7 +77,7 @@ export const SocketProvider = ({ children }) => {
     if (token && user) {
       connect();
     } else {
-      // Cleanup on logout
+      // Cleanup session data and connections on logout
       setIsConnected(false);
       setSocket(null);
       if (reconnectTimeoutRef.current) {
@@ -86,7 +94,7 @@ export const SocketProvider = ({ children }) => {
         clearTimeout(reconnectTimeoutRef.current);
       }
       if (socketRef.current) {
-        // Remove listener to prevent the cleanup-close from triggering a reconnect
+        // Prevent the cleanup-close from triggering a reconnect loop
         socketRef.current.onclose = null; 
         socketRef.current.close();
       }

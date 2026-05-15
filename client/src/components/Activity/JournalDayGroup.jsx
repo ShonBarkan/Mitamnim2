@@ -2,56 +2,69 @@ import React from 'react';
 import ActivityLogItem from './ActivityLogItem';
 
 /**
- * Groups activity logs for a specific day with a modern timeline aesthetic.
+ * JournalDayGroup Component - Groups logs by date in a high-end timeline layout.
+ * Optimized for the Arctic Mirror aesthetic with floating glass badges and blurs.
  */
 const JournalDayGroup = ({ dateLabel, logs, isTrainerView }) => {
   if (!logs || logs.length === 0) return null;
 
   return (
-    <div className="journal-day-group relative pb-10 font-sans" dir="rtl">
+    <div className="relative pb-12 font-sans" dir="rtl">
       
-      {/* Sticky Date Badge */}
-      <div className="sticky top-4 z-20 mb-8 mr-2">
-        <div className="inline-flex items-center gap-3 bg-zinc-900 text-white px-5 py-2.5 rounded-2xl shadow-xl shadow-zinc-200 border border-zinc-800">
-          <span className="text-[10px] opacity-50">📅</span>
-          <span className="text-xs font-black tracking-tight">{dateLabel}</span>
+      {/* Arctic Mirror Sticky Date Badge */}
+      <div className="sticky top-6 z-20 mb-10 mr-2 flex">
+        <div className="inline-flex items-center gap-4 bg-white/40 backdrop-blur-2xl px-6 py-3 rounded-[1.5rem] shadow-2xl shadow-zinc-200/50 border border-white/80 group transition-all">
+          <div className="w-8 h-8 rounded-xl bg-zinc-900 flex items-center justify-center text-[10px] shadow-lg">
+            📅
+          </div>
+          <span className="text-sm font-black tracking-tight text-zinc-900 uppercase">
+            {dateLabel}
+          </span>
         </div>
       </div>
 
-      {/* Timeline Vertical Line */}
-      <div className="absolute top-0 bottom-0 right-[26px] w-px bg-gradient-to-b from-zinc-200 via-zinc-100 to-transparent" />
+      {/* Glassmorphism Timeline Axis */}
+      <div className="absolute top-0 bottom-0 right-[34px] w-1 bg-gradient-to-b from-white/60 via-zinc-200/40 to-transparent backdrop-blur-sm" />
 
-      {/* Logs List Container */}
-      <div className="space-y-6 pr-12">
+      {/* Logs Collection */}
+      <div className="space-y-8 pr-16">
         {logs.map((log, index) => {
           const isNewGroup = index === 0 || logs[index - 1].workout_session_id !== log.workout_session_id;
 
           return (
             <React.Fragment key={log.id}>
+              {/* Session / Context Header */}
               {isNewGroup && (
-                <div className="relative flex items-center gap-4 mb-4 mt-8 animate-in fade-in slide-in-from-right-4 duration-500">
-                  {/* Timeline Indicator Point */}
-                  <div className="absolute -right-[24px] w-3 h-3 rounded-full bg-white border-2 border-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)] z-10" />
+                <div className="relative flex items-center gap-4 mb-6 mt-10 animate-in fade-in slide-in-from-right-6 duration-700">
+                  {/* Glowing Timeline Indicator Point */}
+                  <div className="absolute -right-[36px] w-5 h-5 rounded-full bg-white border-[3px] border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)] z-10 transition-transform hover:scale-125" />
                   
-                  <div className="flex items-center gap-2 bg-blue-50/50 border border-blue-100 px-3 py-1.5 rounded-xl">
-                    <span className="text-sm">
+                  <div className="flex items-center gap-3 bg-blue-500/5 backdrop-blur-md border border-blue-500/10 px-5 py-2.5 rounded-2xl shadow-inner">
+                    <span className="text-lg">
                       {log.workout_session_id ? "🏋️" : "📝"}
                     </span>
-                    <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
-                      {log.workout_session_id 
-                        ? `${log.workout_session_name ?? "אימון אישי"}` 
-                        : "תיעוד בודד"
-                      }
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">
+                        {log.workout_session_id ? "Workout Session" : "Single Log Entry"}
+                      </span>
+                      <span className="text-sm font-black text-zinc-900 tracking-tighter">
+                        {log.workout_session_id 
+                          ? `${log.workout_session_name ?? "Personal Workout"}` 
+                          : "Manual Log"
+                        }
+                      </span>
+                    </div>
                     {log.workout_session_id && (
-                      <span className="text-[9px] font-bold text-blue-300 mr-1">#{log.workout_session_id}</span>
+                      <span className="text-[9px] font-bold text-zinc-300 mr-2 bg-zinc-100 px-2 py-0.5 rounded-md">
+                        ID: {log.workout_session_id}
+                      </span>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Log Item with specific timeline spacing */}
-              <div className="relative animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {/* Individual Log Entry with Arctic Mirror Card (Inside ActivityLogItem) */}
+              <div className="relative animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
                  <ActivityLogItem 
                     log={log} 
                     isTrainerView={isTrainerView} 

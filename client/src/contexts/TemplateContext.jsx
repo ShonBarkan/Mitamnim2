@@ -1,42 +1,76 @@
 import React, { createContext, useState, useCallback } from 'react';
 import templateService from '../services/templateService';
+import { initialData } from '../mock/mockData';
 
 export const TemplateContext = createContext();
 
-/**
- * Provider for managing workout templates.
- * Coordinates with templateService to persist exercise configurations 
- * including manual and calculated parameter values.
- */
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 export const TemplateProvider = ({ children }) => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /**
-   * Fetches all workout templates for the current group.
-   * Handles role-based access logic via the backend.
+   * Helper to manage local storage for Dev mode
+   */
+  const getMockDb = useCallback(() => {
+    const data = localStorage.getItem('mitamnim2_db');
+    if (!data) {
+      localStorage.setItem('mitamnim2_db', JSON.stringify(initialData));
+      return initialData;
+    }
+    return JSON.parse(data);
+  }, []);
+
+  const saveMockDb = (db) => {
+    localStorage.setItem('mitamnim2_db', JSON.stringify(db));
+  };
+
+  /**
+   * Fetches all workout templates for the group.
    */
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await templateService.getAll();
-      setTemplates(response.data);
+      if (IS_DEV) {
+        await new Promise(resolve => setTimeout(resolve, 400));
+        const db = getMockDb();
+        setTemplates(db.workout_templates || []);
+      } else {
+        const response = await templateService.getAll();
+        const data = response.data || response;
+        setTemplates(data);
+      }
     } catch (err) {
       console.error("TemplateContext: Fetching templates failed", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getMockDb]);
 
   /**
    * Creates a new workout template.
-   * Expects templateData with simplified exercises_config (parameter_id and value only).
+   * Exercises_config is stored as a JSON object containing exercise names and params.
    */
   const addTemplate = async (templateData) => {
     try {
-      const response = await templateService.create(templateData);
-      setTemplates(prev => [...prev, response.data]);
-      return response.data;
+      if (IS_DEV) {
+        const db = getMockDb();
+        const newTemplate = { 
+          ...templateData, 
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString() 
+        };
+        db.workout_templates.push(newTemplate);
+        saveMockDb(db);
+        setTemplates(prev => [...prev, newTemplate]);
+        return newTemplate;
+      } else {
+        const response = await templateService.create(templateData);
+        const data = response.data || response;
+        setTemplates(prev => [...prev, data]);
+        return data;
+      }
     } catch (err) {
       console.error("TemplateContext: Creating template failed", err);
       throw err;
@@ -45,15 +79,27 @@ export const TemplateProvider = ({ children }) => {
 
   /**
    * Updates an existing template.
-   * Merges server response with local state to ensure UI consistency.
    */
   const editTemplate = async (templateId, updateData) => {
     try {
-      const response = await templateService.update(templateId, updateData);
+      let updated;
+      if (IS_DEV) {
+        const db = getMockDb();
+        const index = db.workout_templates.findIndex(t => t.id === templateId);
+        if (index === -1) throw new Error("Template not found in mock DB");
+        
+        db.workout_templates[index] = { ...db.workout_templates[index], ...updateData };
+        updated = db.workout_templates[index];
+        saveMockDb(db);
+      } else {
+        const response = await templateService.update(templateId, updateData);
+        updated = response.data || response;
+      }
+
       setTemplates(prev => 
-        prev.map(t => (t.id === templateId ? { ...t, ...response.data } : t))
+        prev.map(t => (t.id === templateId ? updated : t))
       );
-      return response.data;
+      return updated;
     } catch (err) {
       console.error("TemplateContext: Updating template failed", err);
       throw err;
@@ -61,11 +107,17 @@ export const TemplateProvider = ({ children }) => {
   };
 
   /**
-   * Deletes a template and synchronizes the local UI state.
+   * Deletes a template and synchronizes the local state.
    */
   const removeTemplate = async (templateId) => {
     try {
-      await templateService.delete(templateId);
+      if (IS_DEV) {
+        const db = getMockDb();
+        db.workout_templates = db.workout_templates.filter(t => t.id !== templateId);
+        saveMockDb(db);
+      } else {
+        await templateService.delete(templateId);
+      }
       setTemplates(prev => prev.filter(t => t.id !== templateId));
     } catch (err) {
       console.error("TemplateContext: Deleting template failed", err);

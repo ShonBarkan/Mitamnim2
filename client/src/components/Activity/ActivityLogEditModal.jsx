@@ -3,13 +3,16 @@ import { useActivity } from '../../hooks/useActivity';
 import { ParameterContext } from '../../contexts/ParameterContext';
 
 /**
- * Premium edit modal with real-time math recalculation.
+ * ActivityLogEditModal Component - High-end performance editor.
+ * Features real-time arithmetic recalculation for virtual parameters.
  */
 const ActivityLogEditModal = ({ log, onClose }) => {
   const { editLog } = useActivity();
   const { parameters } = useContext(ParameterContext);
   
-  // Format existing timestamp for datetime-local input
+  /**
+   * Helper: Formats timestamp for standard HTML datetime-local inputs.
+   */
   const formatForInput = (dateStr) => {
     const d = new Date(dateStr);
     const tzOffset = d.getTimezoneOffset() * 60000;
@@ -21,7 +24,7 @@ const ActivityLogEditModal = ({ log, onClose }) => {
   const [isSaving, setIsSaving] = useState(false);
 
   /**
-   * Internal math engine for virtual parameters
+   * Internal Arithmetic Engine: Synchronizes virtual metrics during live editing.
    */
   const runMath = useCallback((type, values, multiplier) => {
     const nums = values.map(v => parseFloat(v) || 0);
@@ -36,6 +39,10 @@ const ActivityLogEditModal = ({ log, onClose }) => {
     }
   }, []);
 
+  /**
+   * Change Handler: Updates raw values and triggers recursive recalculation 
+   * for any virtual dependencies in the set.
+   */
   const handleParamChange = (pId, newValue) => {
     const updatedData = [...performanceData];
     const targetIdx = updatedData.findIndex(p => p.parameter_id === pId);
@@ -65,6 +72,9 @@ const ActivityLogEditModal = ({ log, onClose }) => {
     setPerformanceData(fullyUpdatedData);
   };
 
+  /**
+   * Dispatches the updated record to the persistence layer.
+   */
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -86,59 +96,67 @@ const ActivityLogEditModal = ({ log, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-500">
       
-      <div className="relative w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden font-sans animate-in zoom-in-95 duration-300" dir="rtl">
+      <div className="relative w-full max-w-xl bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3rem] shadow-2xl overflow-hidden font-sans animate-in zoom-in-95 duration-500" dir="rtl">
         
-        {/* Header Area */}
-        <div className="p-8 border-b border-zinc-50">
-          <h3 className="text-2xl font-black text-zinc-900 tracking-tighter">עריכת תיעוד</h3>
-          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">Update performance record</p>
+        {/* Floating Header */}
+        <div className="p-10 border-b border-white/40">
+          <h3 className="text-3xl font-black text-zinc-900 tracking-tighter uppercase">עריכת תיעוד ביצוע</h3>
+          <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] mt-1">Live Performance Record Editor</p>
         </div>
 
-        {/* Form Body */}
-        <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto scrollbar-hide">
+        {/* Scrollable Form Content */}
+        <div className="p-10 space-y-10 max-h-[60vh] overflow-y-auto scrollbar-hide">
           
-          {/* Timestamp Field */}
+          {/* Timestamp Module */}
           <div className="space-y-3">
-            <label className="text-[11px] font-black uppercase tracking-widest text-zinc-400 mr-2">זמן הביצוע</label>
+            <label className="text-[11px] font-black uppercase tracking-widest text-zinc-400 mr-2">מועד הביצוע המעודכן</label>
             <input 
               type="datetime-local" 
               value={timestamp}
               onChange={(e) => setTimestamp(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-100 rounded-2xl px-5 py-4 text-sm font-bold text-zinc-900 outline-none focus:ring-4 focus:ring-blue-500/5 transition-all"
+              className="w-full bg-white/60 border border-white/80 rounded-2xl px-6 py-4 text-sm font-bold text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all shadow-sm"
             />
           </div>
 
-          {/* Parameters List */}
+          {/* Performance Parameters Grid */}
           <div className="space-y-4">
-            <label className="text-[11px] font-black uppercase tracking-widest text-zinc-400 mr-2">נתוני ביצוע</label>
-            <div className="grid gap-3">
+            <label className="text-[11px] font-black uppercase tracking-widest text-zinc-400 mr-2">נתוני המדידה</label>
+            <div className="grid gap-4">
               {performanceData.map((param) => {
                 const meta = parameters.find(m => m.id === param.parameter_id);
                 const isVirtual = meta?.is_virtual;
 
                 return (
-                  <div key={param.parameter_id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                    isVirtual ? 'bg-blue-50/50 border-blue-100' : 'bg-white border-zinc-100'
+                  <div key={param.parameter_id} className={`flex items-center justify-between p-6 rounded-[1.5rem] border transition-all duration-500 ${
+                    isVirtual 
+                      ? 'bg-blue-600/5 border-blue-200/40 shadow-inner' 
+                      : 'bg-white/80 border-white/40 shadow-sm'
                   }`}>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-black text-zinc-800">{param.parameter_name}</span>
-                      {isVirtual && <span className="text-[8px] font-black text-blue-500 uppercase tracking-tighter">Auto-Calculated</span>}
+                    <div className="flex flex-col gap-0.5">
+                      <span className={`text-xs font-black uppercase ${isVirtual ? 'text-blue-600' : 'text-zinc-500'}`}>
+                        {param.parameter_name}
+                      </span>
+                      {isVirtual && (
+                        <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">
+                          Auto-Recalculating
+                        </span>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       {isVirtual ? (
-                        <div className="text-lg font-black text-blue-600 tabular-nums px-3">{param.value}</div>
+                        <div className="text-xl font-black text-blue-600 tabular-nums px-4 tracking-tight">{param.value}</div>
                       ) : (
                         <input 
                           type="number" 
                           value={param.value}
                           onChange={(e) => handleParamChange(param.parameter_id, e.target.value)}
-                          className="w-20 bg-white border border-zinc-200 rounded-xl py-2 text-center text-sm font-black text-zinc-900 focus:border-zinc-900 transition-all outline-none"
+                          className="w-24 bg-white border border-zinc-100 rounded-xl py-3 text-center text-sm font-black text-zinc-900 focus:ring-4 focus:ring-zinc-900/5 transition-all outline-none"
                         />
                       )}
-                      <span className="text-[10px] font-bold text-zinc-400 w-8">{param.unit}</span>
+                      <span className="text-[10px] font-black text-zinc-300 uppercase w-10 text-right">{param.unit}</span>
                     </div>
                   </div>
                 );
@@ -147,21 +165,21 @@ const ActivityLogEditModal = ({ log, onClose }) => {
           </div>
         </div>
 
-        {/* Action Footer */}
-        <div className="p-8 bg-zinc-50/50 border-t border-zinc-50 flex gap-4">
+        {/* Footer Actions Suite */}
+        <div className="p-10 bg-white/40 border-t border-white/40 flex gap-4">
           <button 
             onClick={onClose} 
             disabled={isSaving} 
-            className="flex-1 py-4 rounded-2xl bg-white border border-zinc-200 text-zinc-500 font-black text-xs uppercase tracking-widest hover:text-zinc-900 hover:bg-white transition-all active:scale-95"
+            className="flex-1 py-5 rounded-[1.5rem] bg-white/60 text-zinc-400 hover:text-zinc-900 border border-white/80 font-black text-xs uppercase tracking-widest transition-all active:scale-95"
           >
             ביטול
           </button>
           <button 
             onClick={handleSave} 
             disabled={isSaving} 
-            className="flex-[2] py-4 rounded-2xl bg-zinc-900 text-white font-black text-sm uppercase tracking-widest hover:bg-zinc-800 shadow-xl shadow-zinc-200 transition-all active:scale-95 disabled:opacity-50"
+            className="flex-[2] py-5 rounded-[1.5rem] bg-zinc-900 text-white font-black text-xs uppercase tracking-[0.3em] shadow-2xl shadow-zinc-900/20 hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50"
           >
-            {isSaving ? 'מעדכן...' : 'שמור שינויים'}
+            {isSaving ? 'Synchronizing...' : 'שמור שינויים'}
           </button>
         </div>
       </div>

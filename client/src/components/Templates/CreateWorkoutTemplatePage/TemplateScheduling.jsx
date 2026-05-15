@@ -1,7 +1,8 @@
 import React from 'react';
 
 /**
- * Component for scheduling workout days, duration, and start hour.
+ * TemplateScheduling Component - Configures workout timing and frequency.
+ * Implements the "Arctic Mirror" aesthetic with high-end Glassmorphism.
  */
 const TemplateScheduling = ({ 
   scheduledDays, 
@@ -21,91 +22,84 @@ const TemplateScheduling = ({
     { label: 'ש', value: 6 }
   ];
 
+  /**
+   * Toggles the selection of a specific day and ensures the array remains sorted.
+   */
   const toggleDay = (dayValue) => {
     if (scheduledDays.includes(dayValue)) {
       onDaysChange(scheduledDays.filter(d => d !== dayValue));
     } else {
-      onDaysChange([...scheduledDays, dayValue].sort());
+      onDaysChange([...scheduledDays, dayValue].sort((a, b) => a - b));
     }
   };
 
   return (
-    <div style={{ direction: 'rtl', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="flex flex-col gap-10" dir="rtl">
       
-      {/* Selection of training days */}
-      <div>
-        <label style={labelStyle}>ימי אימון מיועדים:</label>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {days.map(day => (
-            <button
-              key={day.value}
-              type="button"
-              onClick={() => toggleDay(day.value)}
-              style={{
-                width: '35px',
-                height: '35px',
-                borderRadius: '50%',
-                border: `1px solid ${scheduledDays.includes(day.value) ? '#007bff' : '#ddd'}`,
-                backgroundColor: scheduledDays.includes(day.value) ? '#007bff' : '#fff',
-                color: scheduledDays.includes(day.value) ? '#fff' : '#333',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                transition: 'all 0.2s'
-              }}
-            >
-              {day.label}
-            </button>
-          ))}
+      {/* Day Selection Logic */}
+      <div className="space-y-4">
+        <label className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mr-2">
+          ימי אימון מיועדים:
+        </label>
+        <div className="flex gap-3">
+          {days.map(day => {
+            const isSelected = scheduledDays.includes(day.value);
+            return (
+              <button
+                key={day.value}
+                type="button"
+                onClick={() => toggleDay(day.value)}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm transition-all duration-300 shadow-sm active:scale-90 ${
+                  isSelected 
+                    ? 'bg-zinc-900 text-white shadow-xl shadow-zinc-900/20' 
+                    : 'bg-white/50 text-zinc-400 border border-white/60 hover:bg-white hover:text-zinc-600'
+                }`}
+              >
+                {day.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
-        {/* Estimated Duration Input */}
-        <div>
-          <label style={labelStyle}>זמן משוער (דקות):</label>
-          <input 
-            type="number" 
-            min="1"
-            value={expectedDurationTime} 
-            onChange={(e) => onDurationChange(e.target.value)}
-            style={inputStyle}
-          />
+        {/* Expected Duration Input */}
+        <div className="space-y-3">
+          <label className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mr-2">
+            זמן משוער (דקות):
+          </label>
+          <div className="relative group">
+            <input 
+              type="number" 
+              min="1"
+              value={expectedDurationTime} 
+              onChange={(e) => onDurationChange(e.target.value)}
+              className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-lg font-black text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all text-center"
+            />
+            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300 uppercase">Min</span>
+          </div>
         </div>
 
-        {/* Scheduled Start Hour Input */}
-        <div>
-          <label style={labelStyle}>שעת התחלת אימון:</label>
-          <input 
-            type="time" 
-            value={scheduledHour || ''} 
-            onChange={(e) => onHourChange(e.target.value)}
-            style={{ ...inputStyle, width: '130px' }}
-          />
+        {/* Start Hour Selection */}
+        <div className="space-y-3">
+          <label className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mr-2">
+            שעת התחלת אימון:
+          </label>
+          <div className="relative group">
+            <input 
+              type="time" 
+              value={scheduledHour || ''} 
+              onChange={(e) => onHourChange(e.target.value)}
+              className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-lg font-black text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all text-center appearance-none"
+            />
+            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300 uppercase">Hour</span>
+          </div>
         </div>
         
       </div>
     </div>
   );
-};
-
-// Internal styles
-const labelStyle = { 
-  display: 'block', 
-  marginBottom: '10px', 
-  fontSize: '14px', 
-  fontWeight: 'bold', 
-  color: '#495057' 
-};
-
-const inputStyle = { 
-  padding: '10px', 
-  borderRadius: '8px', 
-  border: '1px solid #ddd', 
-  width: '100px', 
-  fontSize: '15px', 
-  outline: 'none',
-  textAlign: 'center'
 };
 
 export default TemplateScheduling;

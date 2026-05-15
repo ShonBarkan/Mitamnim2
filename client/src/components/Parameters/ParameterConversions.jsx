@@ -1,179 +1,214 @@
-import React, { useState, useContext, useMemo } from 'react';
-import { useStats } from '../../contexts/StatsContext';
-import { ParameterContext } from '../../contexts/ParameterContext';
+import React, { useState, useMemo } from 'react';
+import { useParameter } from '../../contexts/ParameterContext';
 
+/**
+ * ParameterConversions Component - Manages Virtual Parameters (Conversions).
+ * Implements the "Arctic Mirror" (Glassmorphism) aesthetic.
+ */
 const ParameterConversions = () => {
-  const { conversions, addConversion, updateConversion, removeConversion } = useStats();
-  const { parameters } = useContext(ParameterContext);
+  // Accessing the updated ParameterContext which handles both raw and virtual params
+  const { parameters, addParameter, editParameter, removeParameter, loading } = useParameter();
 
-  // מצבי ניהול עבור טופס הוספה/עריכה
   const [filterText, setFilterText] = useState('');
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({
-    source_parameter_id: '',
-    target_name: '',
-    multiplier: 1,
+  
+  const initialFormState = {
+    name: '',
     unit: '',
+    is_virtual: true,
+    calculation_type: 'conversion',
+    source_parameter_ids: [],
+    multiplier: 1,
     aggregation_strategy: 'sum'
-  });
+  };
 
-  // סינון הרשימה לפי טקסט חופשי
-  const filteredConversions = useMemo(() => {
-    return conversions.filter(c => 
-      c.target_name.toLowerCase().includes(filterText.toLowerCase()) ||
-      parameters.find(p => p.id === c.source_parameter_id)?.name.toLowerCase().includes(filterText.toLowerCase())
+  const [formData, setFormData] = useState(initialFormState);
+
+  /**
+   * Filtered list of conversion-type virtual parameters.
+   */
+  const conversionParameters = useMemo(() => {
+    return parameters.filter(p => 
+      p.is_virtual && 
+      p.calculation_type === 'conversion' &&
+      (p.name.toLowerCase().includes(filterText.toLowerCase()) || 
+       p.unit.toLowerCase().includes(filterText.toLowerCase()))
     );
-  }, [conversions, filterText, parameters]);
+  }, [parameters, filterText]);
 
   const resetForm = () => {
-    setFormData({ source_parameter_id: '', target_name: '', multiplier: 1, unit: '', aggregation_strategy: 'sum' });
+    setFormData(initialFormState);
     setEditingId(null);
   };
 
+  /**
+   * Handles form submission to create or update a virtual parameter.
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingId) {
-      await updateConversion(editingId, formData);
-    } else {
-      await addConversion(formData);
+    try {
+      if (editingId) {
+        await editParameter(editingId, formData);
+      } else {
+        await addParameter(formData);
+      }
+      resetForm();
+    } catch (err) {
+      console.error("Failed to save parameter conversion:", err);
     }
-    resetForm();
   };
 
-  const startEdit = (conv) => {
-    setEditingId(conv.id);
+  const startEdit = (param) => {
+    setEditingId(param.id);
     setFormData({
-      source_parameter_id: conv.source_parameter_id,
-      target_name: conv.target_name,
-      multiplier: conv.multiplier,
-      unit: conv.unit,
-      aggregation_strategy: conv.aggregation_strategy
+      name: param.name,
+      unit: param.unit,
+      is_virtual: true,
+      calculation_type: 'conversion',
+      source_parameter_ids: param.source_parameter_ids || [],
+      multiplier: param.multiplier || 1,
+      aggregation_strategy: param.aggregation_strategy || 'sum'
     });
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100" dir="rtl">
-      <header className="mb-6">
-        <h2 className="text-xl font-black text-gray-800">המרת יחידות ופרמטרים</h2>
-        <p className="text-gray-500 text-sm">צור יחסים בין פרמטרים (לדוגמה: בריכות למטרים)</p>
+    <div className="bg-white/40 backdrop-blur-3xl p-8 rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] border border-white/60 h-full flex flex-col" dir="rtl">
+      <header className="mb-8 space-y-1">
+        <h2 className="text-2xl font-black text-zinc-900 tracking-tighter">המרת יחידות ופרמטרים</h2>
+        <p className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.3em]">Unit Logic & Virtual Definitions</p>
       </header>
 
-      {/* טופס הוספה / עריכה */}
-      <form onSubmit={handleSubmit} className={`p-4 rounded-xl mb-8 border transition-all ${editingId ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'}`}>
-        <h3 className="text-sm font-bold mb-3 text-gray-700">{editingId ? 'עריכת המרה' : 'המרה חדשה'}</h3>
+      {/* Arctic Mirror Editor Form */}
+      <form 
+        onSubmit={handleSubmit} 
+        className={`p-6 rounded-[2.5rem] mb-10 border transition-all duration-500 ${
+          editingId ? 'bg-blue-600/5 border-blue-200/50' : 'bg-white/40 border-white/60'
+        }`}
+      >
+        <div className="flex items-center gap-3 mb-6">
+           <div className={`w-2 h-2 rounded-full ${editingId ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+           <h3 className="text-sm font-black text-zinc-900 uppercase tracking-tighter">
+             {editingId ? 'עריכת המרה' : 'הגדרה חדשה'}
+           </h3>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-gray-500 mr-1">פרמטר מקור</label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Source Parameter Selection */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">פרמטר מקור</label>
             <select 
-              className="p-2.5 rounded-lg border-none shadow-sm text-sm bg-white outline-none focus:ring-2 focus:ring-green-500"
-              value={formData.source_parameter_id}
-              onChange={(e) => setFormData({...formData, source_parameter_id: parseInt(e.target.value)})}
+              className="w-full p-4 rounded-2xl bg-white/50 border border-white/40 text-sm font-bold outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
+              value={formData.source_parameter_ids[0] || ''}
+              onChange={(e) => setFormData({...formData, source_parameter_ids: [parseInt(e.target.value)]})}
               required
             >
-              <option value="">בחר פרמטר מקור...</option>
-              {parameters.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              <option value="">בחר פרמטר...</option>
+              {parameters.filter(p => !p.is_virtual).map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
+              ))}
             </select>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-gray-500 mr-1">שם פרמטר היעד (החדש)</label>
+          {/* Target Display Name */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שם תצוגה (יעד)</label>
             <input 
-              placeholder="לדוגמה: מרחק כולל" 
-              className="p-2.5 rounded-lg border-none shadow-sm text-sm outline-none focus:ring-2 focus:ring-green-500"
-              value={formData.target_name}
-              onChange={(e) => setFormData({...formData, target_name: e.target.value})}
+              placeholder="e.g., מרחק כולל" 
+              className="w-full p-4 rounded-2xl bg-white/50 border border-white/40 text-sm font-bold outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
               required
             />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-gray-500 mr-1">יחס המרה (מכפיל)</label>
+          {/* Multiplier / Ratio */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">מכפיל יחס</label>
             <input 
               type="number" step="0.0001"
-              placeholder="כמה שווה יחידה אחת?" 
-              className="p-2.5 rounded-lg border-none shadow-sm text-sm outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="1 unit equals..." 
+              className="w-full p-4 rounded-2xl bg-white/50 border border-white/40 text-sm font-bold outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
               value={formData.multiplier}
               onChange={(e) => setFormData({...formData, multiplier: parseFloat(e.target.value)})}
               required
             />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold text-gray-500 mr-1">יחידת מידה חדשה</label>
+          {/* New Display Unit */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">יחידת מידה</label>
             <input 
-              placeholder="לדוגמה: מטרים" 
-              className="p-2.5 rounded-lg border-none shadow-sm text-sm outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="e.g., קילומטרים" 
+              className="w-full p-4 rounded-2xl bg-white/50 border border-white/40 text-sm font-bold outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
               value={formData.unit}
               onChange={(e) => setFormData({...formData, unit: e.target.value})}
+              required
             />
-          </div>
-
-          <div className="flex flex-col gap-1 md:col-span-2">
-            <label className="text-xs font-bold text-gray-500 mr-1">אסטרטגיית צבירה</label>
-            <select 
-              className="p-2.5 rounded-lg border-none shadow-sm text-sm bg-white outline-none focus:ring-2 focus:ring-green-500"
-              value={formData.aggregation_strategy}
-              onChange={(e) => setFormData({...formData, aggregation_strategy: e.target.value})}
-            >
-              <option value="sum">סכימה (Sum)</option>
-              <option value="max">שיא אישי (Max)</option>
-              <option value="latest">ערך אחרון (Latest)</option>
-              <option value="avg">ממוצע (Avg)</option>
-            </select>
           </div>
         </div>
 
-        <div className="flex gap-2 mt-4">
-          <button type="submit" className={`flex-1 font-bold py-2.5 rounded-lg transition-all shadow-md active:scale-95 text-sm ${editingId ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`}>
-            {editingId ? 'עדכן המרה' : 'צור המרה חדשה'}
+        {/* Action Buttons */}
+        <div className="flex gap-4 mt-8">
+          <button 
+            type="submit" 
+            className={`flex-1 font-black py-4 rounded-2xl transition-all shadow-2xl active:scale-95 text-xs uppercase tracking-widest ${
+              editingId ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-zinc-900 text-white shadow-zinc-200'
+            }`}
+          >
+            {editingId ? 'עדכון לוגיקה' : 'שמירת המרה'}
           </button>
           {editingId && (
-            <button type="button" onClick={resetForm} className="bg-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-300 text-sm">
+            <button 
+              type="button" 
+              onClick={resetForm} 
+              className="bg-white/60 text-zinc-500 font-black py-4 px-8 rounded-2xl hover:bg-white/80 text-xs uppercase tracking-widest transition-all"
+            >
               ביטול
             </button>
           )}
         </div>
       </form>
 
-      {/* רשימה וסינון */}
-      <div className="space-y-4">
-        <div className="relative">
+      {/* Directory Search & List */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="relative mb-6">
           <input 
             type="text"
-            placeholder="חיפוש המרה לפי שם או פרמטר..."
-            className="w-full p-2.5 pr-10 rounded-xl border border-gray-100 bg-gray-50 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="חיפוש לפי שם או יחידה..."
+            className="w-full p-5 pr-14 rounded-3xl border border-white bg-white/50 text-sm font-bold outline-none focus:ring-8 focus:ring-zinc-900/5"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
           />
-          <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+          <span className="absolute right-6 top-5 text-xl opacity-20">🔍</span>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto pr-1">
-          {filteredConversions.map(c => {
-            const sourceParam = parameters.find(p => p.id === c.source_parameter_id);
+        <div className="grid grid-cols-1 gap-4 overflow-y-auto pr-2 scrollbar-hide">
+          {conversionParameters.map(p => {
+            const sourceParamName = parameters.find(sp => sp.id === p.source_parameter_ids[0])?.name;
             return (
-              <div key={c.id} className="group flex justify-between items-center p-4 border border-gray-100 rounded-xl bg-white hover:border-purple-200 hover:shadow-md transition-all">
-                <div className="flex flex-col">
-                  <span className="font-black text-gray-800">{c.target_name}</span>
-                  <span className="text-xs text-gray-500">
-                    מבוסס על <span className="font-bold text-purple-600">{sourceParam?.name || 'פרמטר הוסר'}</span> 
-                    (יחס: {c.multiplier} {c.unit})
+              <div 
+                key={p.id} 
+                className="group flex justify-between items-center p-6 border border-white/60 rounded-[2rem] bg-white/30 hover:bg-white/60 hover:shadow-xl transition-all duration-500"
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="text-xl font-black text-zinc-900 tracking-tight">{p.name}</span>
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                    <span className="text-zinc-900">Source: {sourceParamName || 'N/A'}</span>
+                    <span className="opacity-30">•</span>
+                    <span className="text-blue-600">Ratio: x{p.multiplier} {p.unit}</span>
                   </span>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
-                    onClick={() => startEdit(c)}
-                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="עריכה"
+                    onClick={() => startEdit(p)}
+                    className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all"
                   >
                     ✏️
                   </button>
                   <button 
-                    onClick={() => removeConversion(c.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="מחיקה"
+                    onClick={() => removeParameter(p.id)}
+                    className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all"
                   >
                     ✕
                   </button>
@@ -182,9 +217,9 @@ const ParameterConversions = () => {
             );
           })}
           
-          {filteredConversions.length === 0 && (
-            <div className="text-center py-10 text-gray-400 text-sm border-2 border-dashed border-gray-50 rounded-2xl">
-              לא נמצאו המרות העונות לחיפוש
+          {conversionParameters.length === 0 && !loading && (
+            <div className="text-center py-16 text-zinc-300 font-bold uppercase tracking-[0.3em] text-[10px] border-2 border-dashed border-white/40 rounded-[3rem]">
+              No conversions defined
             </div>
           )}
         </div>

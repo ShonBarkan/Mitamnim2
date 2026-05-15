@@ -3,212 +3,215 @@ import { useParameter } from '../../contexts/ParameterContext';
 import { useToast } from '../../hooks/useToast';
 
 /**
- * Independent form component for creating various types of parameters.
- * Supports Raw, Conversion, and multi-operation Virtual parameters (Sum, Subtract, Multiply, Divide, Percentage).
+ * ParameterForm Component - Independent form for creating measuring parameters.
+ * Supports Raw, Conversion, and multi-operation Virtual parameters.
+ * Implements the Arctic Mirror (Glassmorphism) design language.
  */
 const ParameterForm = ({ onSuccess }) => {
-    const { parameters, addParameter } = useParameter();
-    const { showToast } = useToast();
+  const { parameters, addParameter } = useParameter();
+  const { showToast } = useToast();
 
-    // Initial state for the form
-    const initialState = {
-        name: '',
-        unit: '',
-        aggregation_strategy: 'sum',
-        is_virtual: false,
-        calculation_type: null,
-        source_parameter_ids: [],
-        multiplier: 1.0
-    };
+  const initialState = {
+    name: '',
+    unit: '',
+    aggregation_strategy: 'sum',
+    is_virtual: false,
+    calculation_type: null,
+    source_parameter_ids: [],
+    multiplier: 1.0
+  };
 
-    const [formData, setFormData] = useState(initialState);
+  const [formData, setFormData] = useState(initialState);
 
-    /**
-     * Resets form to initial state
-     */
-    const resetForm = () => {
-        setFormData(initialState);
-    };
+  /**
+   * Resets form to initial values.
+   */
+  const resetForm = () => {
+    setFormData(initialState);
+  };
 
-    /**
-     * Handles type selection and resets irrelevant virtual fields
-     */
-    const handleTypeChange = (type) => {
-        if (type === 'raw') {
-            setFormData(prev => ({ ...prev, is_virtual: false, calculation_type: null, source_parameter_ids: [] }));
-        } else {
-            setFormData(prev => ({ ...prev, is_virtual: true, calculation_type: type }));
+  /**
+   * Switches between raw and virtual parameter logic.
+   * Resets specific virtual fields when switching to 'raw'.
+   */
+  const handleTypeChange = (type) => {
+    if (type === 'raw') {
+      setFormData(prev => ({ ...prev, is_virtual: false, calculation_type: null, source_parameter_ids: [] }));
+    } else {
+      setFormData(prev => ({ ...prev, is_virtual: true, calculation_type: type }));
+    }
+  };
+
+  /**
+   * Manages the selection of source parameters.
+   * Ensures 'conversion' type only allows a single source.
+   */
+  const toggleSourceParam = (id) => {
+    setFormData(prev => {
+      const ids = [...prev.source_parameter_ids];
+      if (ids.includes(id)) {
+        return { ...prev, source_parameter_ids: ids.filter(paramId => paramId !== id) };
+      } else {
+        if (prev.calculation_type === 'conversion') {
+          return { ...prev, source_parameter_ids: [id] };
         }
-    };
+        return { ...prev, source_parameter_ids: [...ids, id] };
+      }
+    });
+  };
 
-    /**
-     * Toggles source parameter selection.
-     * For conversion, only one source is allowed. For others, multiple are possible.
-     */
-    const toggleSourceParam = (id) => {
-        setFormData(prev => {
-            const ids = [...prev.source_parameter_ids];
-            if (ids.includes(id)) {
-                return { ...prev, source_parameter_ids: ids.filter(paramId => paramId !== id) };
-            } else {
-                if (prev.calculation_type === 'conversion') {
-                    return { ...prev, source_parameter_ids: [id] };
-                }
-                return { ...prev, source_parameter_ids: [...ids, id] };
-            }
-        });
-    };
+  /**
+   * Form submission logic.
+   * Validates virtual dependencies before calling the context.
+   */
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (formData.is_virtual && formData.source_parameter_ids.length === 0) {
+      showToast("Please select at least one source parameter", "error");
+      return;
+    }
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    try {
+      await addParameter(formData);
+      showToast("הפרמטר נוצר בהצלחה", "success");
+      resetForm();
+      if (onSuccess) onSuccess();
+    } catch (error) {
+      showToast("כשל ביצירת פרמטר", "error");
+    }
+  };
+
+  return (
+    <div className="w-full max-w-[600px] bg-white/40 backdrop-blur-3xl p-10 rounded-[3rem] border border-white/60 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] font-sans" dir="rtl">
+      
+      {/* Header Branding */}
+      <header className="mb-10 space-y-1">
+        <h3 className="text-3xl font-black tracking-tighter text-zinc-900 uppercase">
+          🆕 יצירת פרמטר חדש
+        </h3>
+        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em]">Unit Registry Engine</p>
+      </header>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
         
-        // Basic validation for virtual parameters
-        if (formData.is_virtual && formData.source_parameter_ids.length === 0) {
-            showToast("Please select at least one source parameter", "error");
-            return;
-        }
-
-        try {
-            await addParameter(formData);
-            showToast("הפרמטר נוצר בהצלחה", "success");
-            resetForm();
-            if (onSuccess) onSuccess();
-        } catch (error) {
-            showToast("כשל ביצירת פרמטר", "error");
-        }
-    };
-
-    return (
-        <div style={{ 
-            direction: 'rtl', 
-            padding: '20px', 
-            background: 'white', 
-            borderRadius: '12px', 
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            maxWidth: '550px',
-            margin: '0 auto'
-        }}>
-            <h3 style={{ marginBottom: '20px', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>
-                🆕 יצירת פרמטר חדש
-            </h3>
-
-            <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '15px' }}>
-                {/* General Info */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                        <label style={{ fontSize: '14px', fontWeight: 'bold' }}>שם הפרמטר:</label>
-                        <input 
-                            required
-                            style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
-                            value={formData.name}
-                            onChange={(e) => setFormData({...formData, name: e.target.value})}
-                        />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                        <label style={{ fontSize: '14px', fontWeight: 'bold' }}>יחידת מידה:</label>
-                        <input 
-                            required
-                            style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
-                            value={formData.unit}
-                            onChange={(e) => setFormData({...formData, unit: e.target.value})}
-                        />
-                    </div>
-                </div>
-
-                {/* Parameter Logic Type */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <label style={{ fontSize: '14px', fontWeight: 'bold' }}>סוג פרמטר:</label>
-                    <select 
-                        style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ddd' }}
-                        value={!formData.is_virtual ? 'raw' : formData.calculation_type}
-                        onChange={(e) => handleTypeChange(e.target.value)}
-                    >
-                        <option value="raw">רגיל (Raw)</option>
-                        <option value="conversion">המרה (Conversion - יחס קבוע)</option>
-                        <option value="sum">חיבור (Sum)</option>
-                        <option value="subtract">חיסור (Subtract)</option>
-                        <option value="multiply">מכפלה (Multiply)</option>
-                        <option value="divide">חילוק (Divide)</option>
-                        <option value="percentage">אחוזים (Percentage)</option>
-                    </select>
-                </div>
-
-                {/* Virtual Configuration Section */}
-                {formData.is_virtual && (
-                    <div style={{ padding: '15px', background: '#f8f9fa', borderRadius: '10px', border: '1px solid #eee' }}>
-                        {formData.calculation_type === 'conversion' && (
-                            <div style={{ marginBottom: '15px' }}>
-                                <label style={{ fontSize: '13px', fontWeight: 'bold' }}>מקדם הכפלה:</label>
-                                <input 
-                                    type="number" step="0.0001"
-                                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
-                                    value={formData.multiplier}
-                                    onChange={(e) => setFormData({...formData, multiplier: parseFloat(e.target.value)})}
-                                />
-                                <small style={{ color: '#666' }}>לדוגמה: 1 בריכה = 25 מטרים, המקדם הוא 25.</small>
-                            </div>
-                        )}
-
-                        <label style={{ fontSize: '13px', fontWeight: 'bold' }}>
-                            בחר פרמטרי מקור 
-                            { (formData.calculation_type === 'subtract' || formData.calculation_type === 'divide' || formData.calculation_type === 'percentage') && " (בחר 2 פרמטרים לפי הסדר)" }
-                        </label>
-                        
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
-                            {parameters.filter(p => !p.is_virtual).map(p => (
-                                <div 
-                                    key={p.id}
-                                    onClick={() => toggleSourceParam(p.id)}
-                                    style={{
-                                        padding: '5px 12px', borderRadius: '20px', fontSize: '12px', cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        backgroundColor: formData.source_parameter_ids.includes(p.id) ? '#007bff' : '#eee',
-                                        color: formData.source_parameter_ids.includes(p.id) ? '#fff' : '#333',
-                                        border: '1px solid transparent'
-                                    }}>
-                                    {formData.source_parameter_ids.indexOf(p.id) !== -1 && (
-                                        <span style={{ marginLeft: '5px', fontWeight: 'bold' }}>
-                                            {formData.source_parameter_ids.indexOf(p.id) + 1}.
-                                        </span>
-                                    )}
-                                    {p.name}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Stats Strategy */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <label style={{ fontSize: '14px', fontWeight: 'bold' }}>שיטת אגרגציה (לסטטיסטיקה):</label>
-                    <select 
-                        style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ddd' }}
-                        value={formData.aggregation_strategy}
-                        onChange={(e) => setFormData({...formData, aggregation_strategy: e.target.value})}
-                    >
-                        <option value="sum">סיכום (Sum)</option>
-                        <option value="max">שיא / מקסימום (Max)</option>
-                        <option value="min">מינימום (Min)</option>
-                        <option value="avg">ממוצע (Avg)</option>
-                        <option value="latest">ערך אחרון (Latest)</option>
-                    </select>
-                </div>
-
-                <button 
-                    type="submit"
-                    style={{
-                        marginTop: '10px', padding: '12px', borderRadius: '8px', border: 'none',
-                        backgroundColor: '#007bff', color: 'white', fontWeight: 'bold', cursor: 'pointer',
-                        transition: 'background-color 0.2s'
-                    }}
-                    onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-                    onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
-                >
-                    שמור פרמטר במערכת
-                </button>
-            </form>
+        {/* Core Metadata Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mr-4">שם הפרמטר</label>
+            <input 
+              required
+              placeholder="e.g., משקל"
+              className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mr-4">יחידת מידה</label>
+            <input 
+              required
+              placeholder="e.g., קילוגרם"
+              className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
+              value={formData.unit}
+              onChange={(e) => setFormData({...formData, unit: e.target.value})}
+            />
+          </div>
         </div>
-    );
+
+        {/* Logical Type Selection */}
+        <div className="space-y-2">
+          <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mr-4">סוג פרמטר (Logic)</label>
+          <select 
+            className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold text-zinc-900 outline-none appearance-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
+            value={!formData.is_virtual ? 'raw' : formData.calculation_type}
+            onChange={(e) => handleTypeChange(e.target.value)}
+          >
+            <option value="raw">רגיל (Raw)</option>
+            <option value="conversion">המרה (Conversion - יחס קבוע)</option>
+            <option value="sum">חיבור (Sum)</option>
+            <option value="subtract">חיסור (Subtract)</option>
+            <option value="multiply">מכפלה (Multiply)</option>
+            <option value="divide">חילוק (Divide)</option>
+            <option value="percentage">אחוזים (Percentage)</option>
+          </select>
+        </div>
+
+        {/* Virtual Configuration (Conditional) */}
+        {formData.is_virtual && (
+          <div className="p-8 rounded-[2rem] bg-white/40 border border-white/60 space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+            
+            {formData.calculation_type === 'conversion' && (
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">מקדם הכפלה</label>
+                <input 
+                  type="number" step="0.0001"
+                  className="w-full bg-white/60 border border-white/40 rounded-xl px-6 py-3 text-sm font-black outline-none"
+                  value={formData.multiplier}
+                  onChange={(e) => setFormData({...formData, multiplier: parseFloat(e.target.value)})}
+                />
+                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-tight italic">Example: 1 pool = 25 meters, multiplier is 25.</p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                בחר פרמטרי מקור 
+                {['subtract', 'divide', 'percentage'].includes(formData.calculation_type) && " (סדר הבחירה קובע)"}
+              </label>
+              
+              <div className="flex flex-wrap gap-2">
+                {parameters.filter(p => !p.is_virtual).map(p => {
+                  const selectionIndex = formData.source_parameter_ids.indexOf(p.id);
+                  const isSelected = selectionIndex !== -1;
+                  
+                  return (
+                    <button 
+                      key={p.id}
+                      type="button"
+                      onClick={() => toggleSourceParam(p.id)}
+                      className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-tighter transition-all active:scale-95 ${
+                        isSelected 
+                        ? 'bg-zinc-900 text-white shadow-lg' 
+                        : 'bg-white/50 text-zinc-400 hover:bg-white/80'
+                      }`}
+                    >
+                      {isSelected && <span className="ml-2 text-blue-400">{selectionIndex + 1}.</span>}
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Aggregation Selection */}
+        <div className="space-y-2">
+          <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mr-4">שיטת אגרגציה (Stats)</label>
+          <select 
+            className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold text-zinc-900 outline-none appearance-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
+            value={formData.aggregation_strategy}
+            onChange={(e) => setFormData({...formData, aggregation_strategy: e.target.value})}
+          >
+            <option value="sum">סיכום (Sum)</option>
+            <option value="max">שיא / מקסימום (Max)</option>
+            <option value="min">מינימום (Min)</option>
+            <option value="avg">ממוצע (Avg)</option>
+            <option value="latest">ערך אחרון (Latest)</option>
+          </select>
+        </div>
+
+        {/* Form Submission */}
+        <button 
+          type="submit"
+          className="w-full bg-zinc-900 text-white rounded-3xl py-6 font-black text-xs uppercase tracking-[0.3em] transition-all shadow-2xl shadow-zinc-900/20 active:scale-[0.98] hover:bg-zinc-800"
+        >
+          שמור פרמטר במערכת
+        </button>
+      </form>
+    </div>
+  );
 };
 
 export default ParameterForm;

@@ -4,8 +4,8 @@ import { formatTime } from '../../utils/activityDateUtils';
 import ActivityLogEditModal from './ActivityLogEditModal';
 
 /**
- * Represents a single performance record in the journal.
- * High-contrast, minimalist design following the Arctic Mirror aesthetic.
+ * ActivityLogItem Component - Displays a single historical performance node.
+ * Rewritten to adhere to the high-end Arctic Mirror design parameters.
  */
 const ActivityLogItem = ({ log, isTrainerView }) => {
   const { removeLog } = useActivity();
@@ -18,72 +18,72 @@ const ActivityLogItem = ({ log, isTrainerView }) => {
   };
 
   return (
-    <div className="group relative bg-white border border-zinc-100 rounded-[1.5rem] p-5 transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/40 hover:border-zinc-200 font-sans">
+    <div className="group relative bg-white/40 backdrop-blur-2xl border border-white/60 rounded-[2rem] p-6 transition-all duration-500 hover:shadow-2xl hover:shadow-zinc-200/50 hover:bg-white/60 font-sans" dir="rtl">
       
-      {/* Upper Section: Time, Name and Actions */}
-      <div className="flex justify-between items-start mb-4">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider">
+      {/* Upper Section: Timestamp, Title, User Context and Action Suite */}
+      <div className="flex justify-between items-start mb-6">
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-widest shadow-inner">
               {formatTime(log.timestamp)}
             </span>
-            <h5 className="text-sm font-black text-zinc-900 tracking-tight">
+            <h5 className="text-lg font-black text-zinc-900 tracking-tighter uppercase">
               {log.exercise_name}
             </h5>
           </div>
           
           {isTrainerView && log.user_full_name && (
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-[10px] text-zinc-400">👤</span>
-              <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-tight">
+            <div className="flex items-center gap-2 mt-1 px-1">
+              <span className="text-xs opacity-40">👤</span>
+              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
                 {log.user_full_name}
               </span>
             </div>
           )}
         </div>
 
-        {/* Action Buttons - Visible on hover for clean UI */}
+        {/* Premium Floating Actions Bundle - Revealed cleanly on hover */}
         {!isTrainerView && (
-          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-1 group-hover:translate-y-0">
             <button 
               onClick={() => setIsEditModalOpen(true)}
-              className="w-8 h-8 flex items-center justify-center rounded-xl bg-zinc-50 text-zinc-400 hover:bg-zinc-900 hover:text-white transition-all"
-              title="Edit"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/80 border border-white shadow-sm text-zinc-400 hover:text-zinc-900 hover:scale-105 transition-all"
+              title="Edit Log"
             >
-              <span className="text-xs">✎</span>
+              <span className="text-sm">✎</span>
             </button>
             <button 
               onClick={handleDelete}
-              className="w-8 h-8 flex items-center justify-center rounded-xl bg-rose-50 text-rose-300 hover:bg-rose-500 hover:text-white transition-all"
-              title="Delete"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-50 border border-rose-100 text-rose-400 hover:bg-rose-500 hover:text-white hover:scale-105 transition-all shadow-sm"
+              title="Delete Log"
             >
-              <span className="text-xs">🗑</span>
+              <span className="text-sm">🗑</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* Performance Data Grid */}
-      <div className="flex flex-wrap gap-2">
+      {/* Performance Parameters Data Grid */}
+      <div className="flex flex-wrap gap-2.5">
         {log.performance_data.map((param, index) => (
           <div 
             key={index}
-            className="flex items-baseline gap-1.5 bg-slate-50/50 border border-zinc-100 px-3 py-1.5 rounded-xl transition-colors hover:bg-white hover:border-zinc-200"
+            className="flex items-baseline gap-2 bg-white/70 backdrop-blur-md border border-white/90 px-4 py-2 rounded-xl shadow-sm hover:bg-white hover:scale-[1.02] transition-all duration-300"
           >
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">
+            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-wider">
               {param.parameter_name}
             </span>
-            <span className="text-sm font-black text-zinc-900">
+            <span className="text-base font-black text-zinc-900 tracking-tight">
               {param.value}
             </span>
-            <span className="text-[9px] font-black text-blue-500/70 uppercase">
+            <span className="text-[9px] font-black text-blue-500 uppercase tracking-tight">
               {param.unit}
             </span>
           </div>
         ))}
       </div>
 
-      {/* Edit Modal Injection */}
+      {/* Edit Modal Lifecycle Injection */}
       {isEditModalOpen && (
         <ActivityLogEditModal 
           log={log} 

@@ -2,6 +2,11 @@ import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
+/**
+ * Navbar Component - Global navigation suite.
+ * Updated to reflect the shift from Exercise Management to Activity Dashboard.
+ * Features Arctic Mirror Glassmorphism and responsive design.
+ */
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -17,44 +22,52 @@ const Navbar = () => {
   const isAdmin = user.role === 'admin';
   const isTrainer = user.role === 'trainer' || isAdmin;
 
-  // Helper to check active route for styling
+  // Sync active route for stateful styling
   const isActive = (path) => location.pathname === path;
 
   return (
-    <nav className="sticky top-0 z-[100] w-full bg-white/80 backdrop-blur-md border-b border-zinc-100 px-6 py-3 font-sans" dir="rtl">
-      <div className="max-w-[1600px] mx-auto flex items-center justify-between">
+    <nav className="sticky top-0 z-[100] w-full bg-white/60 backdrop-blur-2xl border-b border-white/60 px-8 py-4 font-sans" dir="rtl">
+      <div className="max-w-[1800px] mx-auto flex items-center justify-between">
         
-        {/* Brand & Navigation Links */}
-        <div className="flex items-center gap-8">
-          {/* Logo / Brand Indicator */}
-          <div className="flex items-center gap-2 ml-4">
-            <div className="w-6 h-6 bg-zinc-900 rounded-lg flex items-center justify-center text-[10px] text-white font-black">M</div>
-            <span className="text-xs font-black tracking-widest uppercase text-zinc-900 hidden md:block">מתאמנים2</span>
+        {/* Brand Identity & Core Navigation */}
+        <div className="flex items-center gap-10">
+          {/* Arctic Mirror Logo Mark */}
+          <div className="flex items-center gap-3 ml-6">
+            <div className="w-8 h-8 bg-zinc-900 rounded-2xl flex items-center justify-center text-xs text-white font-black shadow-2xl shadow-zinc-900/20 transition-transform hover:scale-110">
+              M
+            </div>
+            <span className="text-[10px] font-black tracking-[0.3em] uppercase text-zinc-900 hidden lg:block">
+              Mitamnim v2
+            </span>
           </div>
 
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-1">
+          {/* Navigation Links Collection */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
             <NavLink to="/" active={isActive("/")}>דף הבית</NavLink>
-            <NavLink to="/exercises" active={isActive("/exercises")}>תרגילים</NavLink>
-            <NavLink to="/workout-templates" active={isActive("/workout-templates")}>אימונים</NavLink>
+            
+            {/* UPDATED: Navigating to Activity Dashboard instead of Exercises */}
+            <NavLink to="/activity" active={isActive("/activity")}>יומן פעילות</NavLink>
+            
+            <NavLink to="/workout-templates" active={isActive("/workout-templates")}>תוכניות אימון</NavLink>
             <NavLink to="/chats" active={isActive("/chats")}>צ'אטים</NavLink>
-            <NavLink to="/stats-page" active={isActive("/stats-page")}>סטטיסטיקה</NavLink>
+            <NavLink to="/stats-page" active={isActive("/stats-page")}>ניתוח נתונים</NavLink>
 
-            {/* Privileged Links Group */}
+            {/* Specialized Privileged Tools Divider */}
             {isTrainer && (
-              <div className="flex items-center gap-1 mr-4 pr-4 border-r border-zinc-100">
+              <div className="flex items-center gap-1.5 mr-6 pr-6 border-r border-white/80">
                 <NavLink 
                   to="/users" 
                   active={isActive("/users")} 
                   subtle 
                 >
-                  ניהול משתמשים
+                  מתאמנים
                 </NavLink>
                 <NavLink 
                   to="/coach-messages" 
                   active={isActive("/coach-messages")} 
                   subtle
                 >
-                  הודעות מאמן
+                  הודעות
                 </NavLink>
                 <NavLink 
                   to="/settings" 
@@ -64,26 +77,33 @@ const Navbar = () => {
                   הגדרות
                 </NavLink>
                 {isAdmin && (
-                  <NavLink to="/groups" active={isActive("/groups")} subtle>ניהול קבוצות</NavLink>
+                  <NavLink to="/groups" active={isActive("/groups")} subtle>קבוצות</NavLink>
                 )}
               </div>
             )}
           </div>
         </div>
 
-        {/* User Profile & Logout */}
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-[10px] font-black text-zinc-900 leading-none">{user.username}</span>
-            <span className="text-[8px] font-bold text-blue-500 uppercase tracking-tighter mt-0.5">{user.role}</span>
+        {/* User Context & System Actions */}
+        <div className="flex items-center gap-6">
+          <div className="hidden md:flex flex-col items-end">
+            <span className="text-[10px] font-black text-zinc-900 leading-none tracking-tight uppercase">
+              {user.username}
+            </span>
+            <div className="flex items-center gap-1.5 mt-1.5">
+               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
+               <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest leading-none">
+                 {user.role} Status
+               </span>
+            </div>
           </div>
           
           <button 
             onClick={handleLogout}
-            className="group flex items-center justify-center w-9 h-9 rounded-xl bg-zinc-50 border border-zinc-100 text-zinc-400 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-100 transition-all active:scale-95"
-            title="התנתק"
+            className="group flex items-center justify-center w-11 h-11 rounded-2xl bg-white/60 border border-white/80 text-zinc-400 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all active:scale-90 shadow-sm"
+            title="Disconnect"
           >
-            <span className="text-xs leading-none transition-transform group-hover:rotate-12">🚪</span>
+            <span className="text-sm transition-transform duration-500 group-hover:rotate-[-12deg]">🚪</span>
           </button>
         </div>
       </div>
@@ -91,16 +111,18 @@ const Navbar = () => {
   );
 };
 
-// Internal reusable link component
+/**
+ * Reusable NavLink Component for consistent glassmorphism style.
+ */
 const NavLink = ({ to, children, active, subtle }) => (
   <Link 
     to={to} 
-    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all whitespace-nowrap ${
+    className={`px-5 py-2.5 rounded-[1.2rem] text-[11px] font-black uppercase tracking-tight transition-all duration-300 whitespace-nowrap active:scale-95 ${
       active 
-        ? 'bg-zinc-900 text-white shadow-lg shadow-zinc-200' 
+        ? 'bg-zinc-900 text-white shadow-2xl shadow-zinc-900/20' 
         : subtle 
-          ? 'text-zinc-400 hover:text-blue-600 hover:bg-blue-50/50'
-          : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50'
+          ? 'text-zinc-400 hover:text-zinc-900 hover:bg-white/80'
+          : 'text-zinc-500 hover:text-zinc-900 hover:bg-white/80 border border-transparent hover:border-white'
     }`}
   >
     {children}

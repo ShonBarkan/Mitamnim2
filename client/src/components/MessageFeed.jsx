@@ -4,8 +4,9 @@ import { useToast } from '../hooks/useToast';
 import { useSocket } from '../hooks/useSocket';
 
 /**
- * MessageFeed Component
- * Handles real-time messaging using WebSockets and provides CRUD operations.
+ * MessageFeed Component - Core messaging thread layer.
+ * Powered by WebSockets for real-time CRUD operational state syncing.
+ * Styled completely with premium Arctic Mirror glassmorphic design configurations.
  */
 const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
   const [newMsg, setNewMsg] = useState('');
@@ -15,11 +16,11 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
   const { showToast } = useToast();
   const { socket } = useSocket();
   
-  // Assuming useMessages returns setMessages to update state in real-time
+  // Real-time hook synchronization bindings
   const { messages, setMessages, sendMessage, deleteMessage, updateMessage, loading } = useMessages(targetId);
 
   /**
-   * Real-time listener for WebSocket events
+   * WebSocket Lifecycle: Synchronizes global messaging operations seamlessly.
    */
   useEffect(() => {
     if (!socket) return;
@@ -28,7 +29,7 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
       const payload = JSON.parse(event.data);
       const { action, data } = payload;
 
-      // Filter: Only handle messages related to the current chat
+      // Gateway Filter: Only trap packets belonging strictly to this operational chat scope
       const isRelevant = 
         (type === 'general' && data.group_id === targetId) || 
         (type === 'personal' && (data.sender_id === targetId || data.recipient_id === targetId));
@@ -37,7 +38,6 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
 
       switch (action) {
         case 'MESSAGE_CREATED':
-          // Add new message if it doesn't already exist in state
           setMessages((prev) => {
             if (prev.find(m => m.id === data.id)) return prev;
             return [...prev, data];
@@ -128,16 +128,25 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
   };
 
   return (
-    <section style={styles.container}>
-      <div style={styles.header}>
-        <h3 style={styles.headerTitle}>{title}</h3>
-      </div>
+    <section className="flex flex-col h-full bg-white/30 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] shadow-2xl overflow-hidden relative" dir="rtl">
       
-      <div style={styles.messagesArea}>
+      {/* Feed Dynamic Header */}
+      <header className="p-6 border-b border-white/40 bg-white/20 flex items-center justify-between">
+        <div className="space-y-0.5">
+          <h3 className="m-0 text-xl font-black text-zinc-900 tracking-tighter uppercase">{title || "צ'אט קבוצתי"}</h3>
+          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Secure Chat Thread</p>
+        </div>
+      </header>
+      
+      {/* Messaging Stream Arena */}
+      <div className="flex-1 overflow-y-auto flex flex-col gap-4 p-6 scrollbar-hide">
         {loading ? (
-          <p style={styles.statusText}>טוען...</p>
+          <div className="flex flex-col flex-1 justify-center items-center gap-2 py-10">
+            <div className="w-6 h-6 border-2 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
+            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Loading Sync...</p>
+          </div>
         ) : messages.length === 0 ? (
-          <p style={styles.statusText}>אין הודעות בשיחה זו</p>
+          <p className="text-center text-xs font-bold text-zinc-400 italic py-12">אין הודעות בשיחה זו</p>
         ) : (
           messages.map((msg, index) => {
             const msgDate = new Date(msg.created_at).toDateString();
@@ -148,49 +157,65 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
             const canEdit = isMine;
             const canDelete = isMine || userRole === 'trainer' || userRole === 'admin';
 
-            let alignment = isMine ? 'flex-start' : 'flex-end';
-            let bgColor = isMine ? '#e3f2fd' : '#f1f1f1';
+            // Establish responsive fluid layouts based on message configuration types
+            let alignment = isMine ? 'self-start' : 'self-end';
+            let bubbleStyle = isMine 
+              ? 'bg-blue-500/10 border border-blue-200/30 rounded-tr-none' 
+              : 'bg-white/80 border border-white rounded-tl-none';
 
             if (type === 'general') {
-              alignment = 'center';
-              bgColor = '#fff3cd';
+              alignment = 'self-center w-[96%]';
+              bubbleStyle = 'bg-amber-500/5 border border-amber-200/30 shadow-inner text-center';
             }
 
             return (
               <React.Fragment key={msg.id}>
+                {/* Timeline Axis Date Badges */}
                 {isNewDay && (
-                  <div style={styles.daySeparator}>
-                    <span style={styles.dayLabel}>{formatDateLabel(msg.created_at)}</span>
+                  <div className="flex justify-center my-4">
+                    <span className="bg-white/80 backdrop-blur-md border border-white/80 text-zinc-400 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">
+                      {formatDateLabel(msg.created_at)}
+                    </span>
                   </div>
                 )}
                 
-                <div 
-                  style={{
-                    ...styles.messageBubble,
-                    alignSelf: alignment,
-                    backgroundColor: bgColor,
-                    borderColor: type === 'general' ? '#ffeeba' : (isMine ? '#bbdefb' : '#ddd'),
-                    width: type === 'general' ? '95%' : 'auto',
-                  }}
-                >
-                  <div style={styles.messageMeta}>
-                    <span>{isMine ? 'אני' : msg.sender_name}</span>
-                    <div style={styles.actions}>
-                      <span>{formatTime(msg.created_at)}</span>
-                      {canEdit && <button onClick={() => handleEdit(msg)} style={styles.actionBtn}>✎</button>}
+                {/* Message Item Module Container */}
+                <div className={`max-w-[85%] p-4 rounded-[1.5rem] shadow-sm flex flex-col transition-all duration-300 hover:shadow-md ${alignment} ${bubbleStyle}`}>
+                  
+                  {/* Metadata Row: Sender Context and Meta Control Utilities */}
+                  <div className="flex justify-between items-center gap-6 text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2">
+                    <span className={isMine ? 'text-blue-600' : 'text-zinc-500'}>
+                      {isMine ? 'אני' : msg.sender_name}
+                    </span>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="tabular-nums font-bold">{formatTime(msg.created_at)}</span>
+                      {canEdit && (
+                        <button 
+                          onClick={() => handleEdit(msg)} 
+                          className="border-none bg-transparent cursor-pointer text-xs p-1 text-zinc-300 hover:text-zinc-900 transition-colors"
+                          title="Edit message"
+                        >
+                          ✎
+                        </button>
+                      )}
                       {canDelete && (
                         <button 
                           onClick={() => setDeleteModal({ open: true, msgId: msg.id })} 
-                          style={{ ...styles.actionBtn, color: '#ff4d4f' }}
+                          className="border-none bg-transparent cursor-pointer text-xs p-1 text-rose-300 hover:text-rose-500 transition-colors"
+                          title="Delete message"
                         >
-                          🗑
+                          ⨉
                         </button>
                       )}
                     </div>
                   </div>
-                  <div style={styles.messageContent}>
+
+                  {/* Operational Message Content Frame */}
+                  <div className="break-words text-zinc-800 font-bold text-sm leading-relaxed text-right">
                     {msg.content}
                   </div>
+
                 </div>
               </React.Fragment>
             );
@@ -199,176 +224,49 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div style={styles.inputArea}>
+      {/* Input Action Panel */}
+      <div className="flex gap-3 border-t border-white/40 p-5 bg-white/30 backdrop-blur-xl items-center">
         <input 
           type="text" 
           value={newMsg} 
           onChange={(e) => setNewMsg(e.target.value)} 
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="הקלד הודעה..."
-          style={styles.input}
+          placeholder="הקלד הודעה משהו..."
+          className="flex-1 bg-white border border-zinc-100 rounded-full px-6 py-4 text-sm font-bold text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all shadow-inner placeholder:text-zinc-300"
         />
         <button 
           onClick={handleSend} 
           disabled={!newMsg.trim()}
-          style={styles.sendBtn}
+          className="px-6 py-4 bg-zinc-900 text-white rounded-full font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-zinc-900/10 transition-all active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed hover:bg-zinc-800"
         >
           שלח
         </button>
       </div>
 
+      {/* Confirmation Guard Overlay Modal */}
       {deleteModal.open && (
-        <div style={styles.overlay}>
-          <div style={styles.modal}>
-            <p style={{ marginBottom: '15px', fontWeight: 'bold' }}>למחוק הודעה זו?</p>
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button onClick={executeDelete} style={styles.confirmDeleteBtn}>מחק</button>
-              <button onClick={() => setDeleteModal({ open: false, msgId: null })} style={styles.cancelBtn}>ביטול</button>
+        <div className="absolute inset-0 z-[120] flex items-center justify-center p-6 bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white/90 backdrop-blur-3xl border border-white/80 rounded-[2.5rem] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 duration-300 space-y-6">
+            <p className="text-base font-black text-zinc-900 tracking-tight">האם ברצונך למחוק הודעה זו?</p>
+            <div className="flex gap-3 justify-center">
+              <button 
+                onClick={executeDelete} 
+                className="px-6 py-3 bg-rose-500 text-white font-black text-xs uppercase tracking-wider rounded-xl hover:bg-rose-600 transition-all active:scale-95"
+              >
+                מחק
+              </button>
+              <button 
+                onClick={() => setDeleteModal({ open: false, msgId: null })} 
+                className="px-6 py-3 bg-zinc-100 text-zinc-500 font-black text-xs uppercase tracking-wider rounded-xl hover:bg-zinc-200 transition-all active:scale-95"
+              >
+                ביטול
+              </button>
             </div>
           </div>
         </div>
       )}
     </section>
   );
-};
-
-// --- STYLES ---
-
-const styles = {
-  container: { 
-    display: 'flex', 
-    flexDirection: 'column', 
-    height: '100%', 
-    backgroundColor: '#ffffff', 
-    position: 'relative', 
-    direction: 'rtl' 
-  },
-  header: { 
-    borderBottom: '2px solid #f0f0f0', 
-    padding: '15px 20px', 
-    backgroundColor: '#fff' 
-  },
-  headerTitle: { 
-    margin: 0, 
-    color: '#333', 
-    fontSize: '1.1rem' 
-  },
-  messagesArea: { 
-    flex: 1, 
-    overflowY: 'auto', 
-    display: 'flex', 
-    flexDirection: 'column', 
-    gap: '12px', 
-    padding: '20px' 
-  },
-  statusText: { 
-    textAlign: 'center', 
-    color: '#999', 
-    marginTop: '20px' 
-  },
-  daySeparator: {
-    display: 'flex',
-    justifyContent: 'center',
-    margin: '20px 0 10px 0',
-    position: 'relative'
-  },
-  dayLabel: {
-    backgroundColor: '#f1f3f5',
-    color: '#6c757d',
-    padding: '4px 12px',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: 'bold',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-  },
-  messageBubble: {
-    maxWidth: '85%', 
-    padding: '10px 14px', 
-    borderRadius: '10px',
-    border: '1px solid',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-  },
-  messageMeta: { 
-    display: 'flex', 
-    justifyContent: 'space-between', 
-    gap: '20px', 
-    fontSize: '11px', 
-    fontWeight: 'bold', 
-    color: '#666', 
-    marginBottom: '5px' 
-  },
-  actions: { 
-    display: 'flex', 
-    gap: '8px', 
-    alignItems: 'center' 
-  },
-  actionBtn: { 
-    border: 'none', 
-    background: 'none', 
-    cursor: 'pointer', 
-    fontSize: '12px' 
-  },
-  messageContent: { 
-    wordBreak: 'break-word', 
-    color: '#2c3e50', 
-    lineHeight: '1.5',
-    fontSize: '14px' 
-  },
-  inputArea: { 
-    display: 'flex', 
-    gap: '10px', 
-    borderTop: '1px solid #eee', 
-    padding: '15px 20px',
-    backgroundColor: '#fff'
-  },
-  input: { 
-    flex: 1, 
-    padding: '12px 18px', 
-    borderRadius: '25px', 
-    border: '1px solid #ddd', 
-    outline: 'none', 
-    fontSize: '14px' 
-  },
-  sendBtn: { 
-    padding: '10px 25px', 
-    backgroundColor: '#007bff', 
-    color: 'white', 
-    border: 'none', 
-    borderRadius: '25px', 
-    cursor: 'pointer', 
-    fontWeight: 'bold' 
-  },
-  overlay: { 
-    position: 'absolute', 
-    top: 0, left: 0, right: 0, bottom: 0, 
-    backgroundColor: 'rgba(0,0,0,0.4)', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    zIndex: 100 
-  },
-  modal: { 
-    backgroundColor: 'white', 
-    padding: '20px', 
-    borderRadius: '8px', 
-    textAlign: 'center',
-    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
-  },
-  confirmDeleteBtn: { 
-    padding: '8px 15px', 
-    backgroundColor: '#ff4d4f', 
-    color: 'white', 
-    border: 'none', 
-    borderRadius: '4px', 
-    cursor: 'pointer' 
-  },
-  cancelBtn: { 
-    padding: '8px 15px', 
-    backgroundColor: '#ccc', 
-    border: 'none', 
-    borderRadius: '4px', 
-    cursor: 'pointer' 
-  }
 };
 
 export default MessageFeed;

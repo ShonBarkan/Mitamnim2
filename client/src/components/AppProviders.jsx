@@ -7,21 +7,18 @@ import { SocketProvider } from '../contexts/SocketContext';
 import { MessageProvider } from '../contexts/MessageContext';
 import { ParameterProvider } from '../contexts/ParameterContext';
 import { ExerciseProvider } from '../contexts/ExerciseContext';
-import { ActiveParamProvider } from '../contexts/ActiveParamContext';
 import { ActivityProvider } from '../contexts/ActivityContext';
 import { TemplateProvider } from '../contexts/TemplateContext';
 import { WorkoutProvider } from '../contexts/WorkoutContext';
-import { WorkoutSessionProvider } from '../contexts/WorkoutSessionContext';
 import { StatsProvider } from '../contexts/StatsContext';
 
 /**
  * AppProviders Component
- * 
- * Centralizes all Context Providers for the Gingilla project.
- * Maintains a strict hierarchy:
- * 1. Infrastructure (Toast, Auth, User, Group)
- * 2. Real-time Communication (Socket -> Message)
- * 3. Domain Logic (Parameters, Exercises, Stats, etc.)
+ * * Centralizes all Context Providers for the Mitamnim2 project.
+ * Order of nesting follows dependency logic:
+ * 1. Infrastructure & Auth (Toast, Auth)
+ * 2. Identity & Connectivity (User, Group, Socket, Message)
+ * 3. Domain Logic & Performance Data (Parameter, Exercise, Activity, Template, Workout, Stats)
  */
 const AppProviders = ({ children }) => {
   return (
@@ -33,19 +30,15 @@ const AppProviders = ({ children }) => {
               <MessageProvider>
                 <ParameterProvider>
                   <ExerciseProvider>
-                    <StatsProvider>
-                      <ActiveParamProvider>
-                        <ActivityProvider>
-                          <TemplateProvider>
-                            <WorkoutProvider>
-                              <WorkoutSessionProvider>
-                                {children}
-                              </WorkoutSessionProvider>
-                            </WorkoutProvider>
-                          </TemplateProvider>
-                        </ActivityProvider>
-                      </ActiveParamProvider>
-                    </StatsProvider>
+                    <ActivityProvider>
+                      <TemplateProvider>
+                        <WorkoutProvider>
+                          <StatsProvider>
+                            {children}
+                          </StatsProvider>
+                        </WorkoutProvider>
+                      </TemplateProvider>
+                    </ActivityProvider>
                   </ExerciseProvider>
                 </ParameterProvider>
               </MessageProvider>

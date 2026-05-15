@@ -6,200 +6,259 @@ import StatsSettingsGroup from './StatsSettingsGroup';
 import ParameterForm from './ParameterForm';
 
 /**
- * Manages the definitions of measurement parameters.
- * Supports CRUD operations for both Raw and Virtual (calculated) parameters.
+ * ParameterManager Component - Administrative interface for measurement logic.
+ * Implements the "Arctic Mirror" aesthetic with Glassmorphism and modern UI patterns.
  */
 const ParameterManager = () => {
-    const { user } = useAuth();
-    const { 
-        parameters, 
-        fetchParameters, 
-        removeParameter, 
-        editParameter, 
-        loading 
-    } = useContext(ParameterContext);
-    const { refreshAllConfigs } = useStats(); 
+  const { user } = useAuth();
+  const { 
+    parameters, 
+    fetchParameters, 
+    removeParameter, 
+    editParameter, 
+    loading 
+  } = useContext(ParameterContext);
+  const { refreshAllConfigs } = useStats(); 
+  
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+
+  const isTrainer = user?.role === 'trainer' || user?.role === 'admin';
+
+  const strategies = [
+    { id: 'sum', label: 'Sum' },
+    { id: 'max', label: 'Personal Best (Max)' },
+    { id: 'min', label: 'Minimum / Time (Min)' },
+    { id: 'avg', label: 'Average (Avg)' },
+    { id: 'latest', label: 'Latest Entry' },
+  ];
+
+  // Initial data synchronization
+  useEffect(() => {
+    fetchParameters();
+    refreshAllConfigs(); 
+  }, [fetchParameters, refreshAllConfigs]);
+
+  /**
+   * Prepares the editing state for a specific parameter.
+   */
+  const handleStartEdit = (param) => {
+    setEditingId(param.id);
+    setEditData({ 
+      name: param.name, 
+      unit: param.unit, 
+      aggregation_strategy: param.aggregation_strategy || 'sum',
+      multiplier: param.multiplier || 1.0,
+      source_parameter_ids: param.source_parameter_ids || []
+    });
+  };
+
+  /**
+   * Saves updated metadata back to the registry.
+   */
+  const handleSaveEdit = async (id) => {
+    try {
+      await editParameter(id, { 
+        ...editData, 
+        group_id: user.group_id 
+      });
+      setEditingId(null);
+    } catch (err) {
+      console.error("ParameterManager: Update failed", err);
+    }
+  };
+
+  /**
+   * Renders the underlying calculation logic in a readable code format.
+   */
+  const renderLogic = (param) => {
+    if (!param.is_virtual) return <span className="opacity-20">—</span>;
     
-    const [isAdding, setIsAdding] = useState(false);
-    const [editingId, setEditingId] = useState(null);
-    const [editData, setEditData] = useState({});
+    const sourceNames = param.source_parameter_ids
+      ?.map(id => parameters.find(p => p.id === id)?.name || `ID:${id}`);
 
-    const isTrainer = user?.role === 'trainer' || user?.role === 'admin';
+    if (!sourceNames || sourceNames.length === 0) {
+      return <code className="text-red-400 font-bold bg-red-50 px-2 py-1 rounded-md text-[10px]">LOGIC_ERROR</code>;
+    }
 
-    const strategies = [
-        { id: 'sum', label: 'סכימה (Sum)' },
-        { id: 'max', label: 'שיא / PR (Max)' },
-        { id: 'min', label: 'מינימום / זמן (Min)' },
-        { id: 'avg', label: 'ממוצע (Avg)' },
-        { id: 'latest', label: 'ערך אחרון (Latest)' },
-    ];
-
-    useEffect(() => {
-        fetchParameters();
-        refreshAllConfigs(); 
-    }, [fetchParameters, refreshAllConfigs]);
-
-    /**
-     * Prepares the edit state with all parameter metadata
-     */
-    const handleStartEdit = (param) => {
-        setEditingId(param.id);
-        setEditData({ 
-            name: param.name, 
-            unit: param.unit, 
-            aggregation_strategy: param.aggregation_strategy || 'sum',
-            multiplier: param.multiplier || 1.0,
-            source_parameter_ids: param.source_parameter_ids || []
-        });
+    const logicColors = {
+      conversion: "text-emerald-500",
+      sum: "text-blue-500",
+      subtract: "text-rose-500",
+      multiply: "text-amber-500",
+      divide: "text-purple-500",
+      percentage: "text-orange-500"
     };
 
-    const handleSaveEdit = async (id) => {
-        try {
-            await editParameter(id, { 
-                ...editData, 
-                group_id: user.group_id 
-            });
-            setEditingId(null);
-        } catch (err) {
-            console.error("Update failed:", err);
-        }
-    };
+    const colorClass = logicColors[param.calculation_type] || "text-zinc-400";
 
-    /**
-     * Renders the source parameters or calculation logic as a mathematical string
-     */
-    const renderLogic = (param) => {
-        if (!param.is_virtual) return <span style={{ color: '#888' }}>—</span>;
-        
-        const sourceNames = param.source_parameter_ids
-            ?.map(id => parameters.find(p => p.id === id)?.name || `ID:${id}`);
-
-        if (!sourceNames || sourceNames.length === 0) return <code style={{ color: 'red' }}>Error: No sources</code>;
-
-        switch (param.calculation_type) {
-            case 'conversion':
-                return <code style={{ color: '#28a745' }}>{sourceNames[0]} * {param.multiplier}</code>;
-            case 'sum':
-                return <code style={{ color: '#17a2b8' }}>{sourceNames.join(' + ')}</code>;
-            case 'subtract':
-                return <code style={{ color: '#dc3545' }}>{sourceNames.join(' - ')}</code>;
-            case 'multiply':
-                return <code style={{ color: '#ffc107' }}>{sourceNames.join(' * ')}</code>;
-            case 'divide':
-                return <code style={{ color: '#6f42c1' }}>{sourceNames.join(' / ')}</code>;
-            case 'percentage':
-                return <code style={{ color: '#fd7e14' }}>({sourceNames.join(' / ')}) * 100</code>;
-            default:
-                return <code style={{ color: '#888' }}>{sourceNames.join(' , ')}</code>;
-        }
+    const content = {
+      conversion: `${sourceNames[0]} * ${param.multiplier}`,
+      sum: sourceNames.join(' + '),
+      subtract: sourceNames.join(' - '),
+      multiply: sourceNames.join(' * '),
+      divide: sourceNames.join(' / '),
+      percentage: `(${sourceNames.join(' / ')}) * 100`
     };
 
     return (
-        <div style={{ padding: '20px', direction: 'rtl', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #ddd' }}>
-            <h2 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>פרמטרים למדידה</h2>
-
-            {isTrainer && (
-                <div style={{ marginBottom: '20px' }}>
-                    {!isAdding ? (
-                        <button 
-                            onClick={() => setIsAdding(true)} 
-                            style={{ padding: '10px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
-                        >
-                            + הוסף פרמטר חדש
-                        </button>
-                    ) : (
-                        <div style={{ position: 'relative', border: '1px solid #28a745', borderRadius: '12px', padding: '10px' }}>
-                            <button 
-                                onClick={() => setIsAdding(false)}
-                                style={{ position: 'absolute', left: '10px', top: '10px', cursor: 'pointer', border: 'none', background: 'none', fontSize: '18px', zIndex: 1 }}
-                            >
-                                ✕
-                            </button>
-                            <ParameterForm onSuccess={() => setIsAdding(false)} />
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {loading ? <p>טוען נתונים...</p> : (
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '2px solid #eee', color: '#666' }}>
-                                <th style={{ padding: '12px' }}>סוג</th>
-                                <th style={{ padding: '12px' }}>שם הפרמטר</th>
-                                <th style={{ padding: '12px' }}>יחידה</th>
-                                <th style={{ padding: '12px' }}>לוגיקת חישוב</th>
-                                <th style={{ padding: '12px' }}>אגרגציה</th>
-                                {isTrainer && <th style={{ padding: '12px' }}>פעולות</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {parameters.map(param => (
-                                <tr key={param.id} style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: editingId === param.id ? '#fff9e6' : 'transparent' }}>
-                                    <td style={{ padding: '12px' }}>
-                                        <span style={{ 
-                                            fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold',
-                                            backgroundColor: param.is_virtual ? '#e7f1ff' : '#eee',
-                                            color: param.is_virtual ? '#007bff' : '#666'
-                                        }}>
-                                            {param.is_virtual ? 'VIRTUAL' : 'RAW'}
-                                        </span>
-                                    </td>
-
-                                    {editingId === param.id ? (
-                                        <>
-                                            <td style={{ padding: '10px' }}>
-                                                <input value={editData.name} onChange={e => setEditData({...editData, name: e.target.value})} style={{ padding: '5px', width: '90%' }} />
-                                            </td>
-                                            <td style={{ padding: '10px' }}>
-                                                <input value={editData.unit} onChange={e => setEditData({...editData, unit: e.target.value})} style={{ padding: '5px', width: '60px' }} />
-                                            </td>
-                                            <td style={{ padding: '10px' }}>
-                                                {param.is_virtual && param.calculation_type === 'conversion' && (
-                                                    <input 
-                                                        type="number" step="0.0001" value={editData.multiplier} 
-                                                        onChange={e => setEditData({...editData, multiplier: parseFloat(e.target.value)})}
-                                                        style={{ padding: '5px', width: '80px' }}
-                                                    />
-                                                )}
-                                            </td>
-                                            <td style={{ padding: '10px' }}>
-                                                <select value={editData.aggregation_strategy} onChange={e => setEditData({...editData, aggregation_strategy: e.target.value})} style={{ padding: '5px' }}>
-                                                    {strategies.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                                                </select>
-                                            </td>
-                                            <td style={{ padding: '10px' }}>
-                                                <button onClick={() => handleSaveEdit(param.id)} style={{ color: 'green', marginLeft: '10px', cursor: 'pointer', border: 'none', background: 'none' }}>💾 שמור</button>
-                                                <button onClick={() => setEditingId(null)} style={{ color: '#666', cursor: 'pointer', border: 'none', background: 'none' }}>ביטול</button>
-                                            </td>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <td style={{ padding: '12px', fontWeight: 'bold' }}>{param.name}</td>
-                                            <td style={{ padding: '12px' }}>{param.unit}</td>
-                                            <td style={{ padding: '12px', fontSize: '13px' }}>{renderLogic(param)}</td>
-                                            <td style={{ padding: '12px', fontSize: '0.9em', color: '#555' }}>
-                                                {strategies.find(s => s.id === param.aggregation_strategy)?.label || param.aggregation_strategy}
-                                            </td>
-                                            {isTrainer && (
-                                                <td style={{ padding: '12px' }}>
-                                                    <button onClick={() => handleStartEdit(param)} style={{ color: '#007bff', border: 'none', background: 'none', cursor: 'pointer', marginLeft: '15px' }}>ערוך ✎</button>
-                                                    <button onClick={() => { if(window.confirm('למחוק את הפרמטר?')) removeParameter(param.id) }} style={{ color: '#dc3545', border: 'none', background: 'none', cursor: 'pointer' }}>מחק 🗑</button>
-                                                </td>
-                                            )}
-                                        </>
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {isTrainer && <StatsSettingsGroup />}
-        </div>
+      <code className={`font-mono font-bold bg-white/50 px-3 py-1.5 rounded-xl text-xs ${colorClass}`}>
+        {content[param.calculation_type] || sourceNames.join(' , ')}
+      </code>
     );
+  };
+
+  return (
+    <div className="w-full bg-white/40 backdrop-blur-3xl rounded-[3rem] p-10 border border-white/60 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] font-sans" dir="rtl">
+      
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 pb-8 border-b border-white/40">
+        <div className="space-y-1">
+          <h2 className="text-4xl font-black tracking-tighter text-zinc-900 uppercase">פרמטרים למדידה</h2>
+          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em]">Global Measurement Registry</p>
+        </div>
+
+        {isTrainer && !isAdding && (
+          <button 
+            onClick={() => setIsAdding(true)} 
+            className="px-8 py-4 bg-zinc-900 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-2xl shadow-zinc-900/20 active:scale-95 transition-all hover:bg-zinc-800"
+          >
+            ＋ הוסף פרמטר
+          </button>
+        )}
+      </header>
+
+      {/* --- ADD PARAMETER VIEW --- */}
+      {isAdding && (
+        <div className="relative mb-12 animate-in fade-in zoom-in-95 duration-500">
+          <div className="bg-white/60 backdrop-blur-2xl border border-white/80 rounded-[3rem] p-4 shadow-xl">
+            <button 
+              onClick={() => setIsAdding(false)}
+              className="absolute left-8 top-8 w-12 h-12 flex items-center justify-center bg-zinc-100/50 hover:bg-zinc-200/50 rounded-2xl text-zinc-400 hover:text-zinc-900 transition-all z-10"
+            >
+              ✕
+            </button>
+            <ParameterForm onSuccess={() => setIsAdding(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* --- REGISTRY TABLE --- */}
+      <div className="overflow-hidden rounded-[2.5rem] border border-white/40 bg-white/20">
+        {loading ? (
+          <div className="p-20 text-center text-zinc-400 font-bold uppercase tracking-widest text-xs">
+            Synchronizing Registry...
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-right">
+              <thead>
+                <tr className="bg-white/40 text-[11px] font-black uppercase tracking-widest text-zinc-400 border-b border-white/40">
+                  <th className="px-8 py-6">Type</th>
+                  <th className="px-8 py-6">Parameter Name</th>
+                  <th className="px-8 py-6">Unit</th>
+                  <th className="px-8 py-6">Calculation Logic</th>
+                  <th className="px-8 py-6">Strategy</th>
+                  {isTrainer && <th className="px-8 py-6 text-left">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/20">
+                {parameters.map(param => (
+                  <tr 
+                    key={param.id} 
+                    className={`transition-colors group ${editingId === param.id ? 'bg-blue-600/5' : 'hover:bg-white/40'}`}
+                  >
+                    <td className="px-8 py-6">
+                      <span className={`text-[9px] px-3 py-1.5 rounded-full font-black uppercase tracking-tighter ${
+                        param.is_virtual ? 'bg-blue-600/10 text-blue-600' : 'bg-zinc-100 text-zinc-400'
+                      }`}>
+                        {param.is_virtual ? 'Virtual' : 'Raw'}
+                      </span>
+                    </td>
+
+                    {editingId === param.id ? (
+                      // Inline Editing UI
+                      <>
+                        <td className="px-8 py-4">
+                          <input 
+                            value={editData.name} 
+                            onChange={e => setEditData({...editData, name: e.target.value})} 
+                            className="w-full bg-white/80 border border-zinc-200 rounded-xl px-4 py-2 text-sm font-bold outline-none" 
+                          />
+                        </td>
+                        <td className="px-8 py-4">
+                          <input 
+                            value={editData.unit} 
+                            onChange={e => setEditData({...editData, unit: e.target.value})} 
+                            className="w-16 bg-white/80 border border-zinc-200 rounded-xl px-4 py-2 text-sm font-bold outline-none" 
+                          />
+                        </td>
+                        <td className="px-8 py-4">
+                          {param.is_virtual && param.calculation_type === 'conversion' && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black text-zinc-300">Ratio:</span>
+                              <input 
+                                type="number" step="0.0001" 
+                                value={editData.multiplier} 
+                                onChange={e => setEditData({...editData, multiplier: parseFloat(e.target.value)})}
+                                className="w-24 bg-white/80 border border-zinc-200 rounded-xl px-4 py-2 text-sm font-bold outline-none" 
+                              />
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-8 py-4">
+                          <select 
+                            value={editData.aggregation_strategy} 
+                            onChange={e => setEditData({...editData, aggregation_strategy: e.target.value})} 
+                            className="w-full bg-white/80 border border-zinc-200 rounded-xl px-4 py-2 text-sm font-bold outline-none"
+                          >
+                            {strategies.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                          </select>
+                        </td>
+                        <td className="px-8 py-4 text-left">
+                          <div className="flex justify-end gap-3">
+                            <button onClick={() => handleSaveEdit(param.id)} className="text-emerald-500 font-black text-xs uppercase">Save</button>
+                            <button onClick={() => setEditingId(null)} className="text-zinc-400 font-black text-xs uppercase">Cancel</button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      // Standard Display UI
+                      <>
+                        <td className="px-8 py-6 font-black text-zinc-900 text-lg tracking-tight">{param.name}</td>
+                        <td className="px-8 py-6 font-bold text-zinc-500">{param.unit}</td>
+                        <td className="px-8 py-6">{renderLogic(param)}</td>
+                        <td className="px-8 py-6">
+                          <span className="text-[11px] font-bold text-zinc-400 bg-zinc-100/50 px-3 py-1 rounded-lg">
+                            {strategies.find(s => s.id === param.aggregation_strategy)?.label || param.aggregation_strategy}
+                          </span>
+                        </td>
+                        {isTrainer && (
+                          <td className="px-8 py-6 text-left">
+                            <div className="flex items-center justify-end gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => handleStartEdit(param)} className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-colors">✏️</button>
+                              <button onClick={() => { if(window.confirm('Delete this parameter?')) removeParameter(param.id) }} className="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-colors">🗑</button>
+                            </div>
+                          </td>
+                        )}
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* --- ADDITIONAL CONFIGS --- */}
+      {isTrainer && (
+        <div className="mt-12 pt-12 border-t border-white/40">
+           <StatsSettingsGroup />
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default ParameterManager;

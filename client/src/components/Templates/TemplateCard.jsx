@@ -1,96 +1,68 @@
 import React from 'react';
 
 /**
- * Individual Card representing a workout template.
- * Displays summary info and action buttons.
+ * TemplateCard Component - Displays a summary of a workout template.
+ * Features the "Arctic Mirror" aesthetic with high-end Glassmorphism.
  */
 const TemplateCard = ({ template, onEdit, onDelete, onStart, isTrainer }) => {
   const { name, description, expected_duration_time, exercises_config, scheduled_days } = template;
-
   const daysOfWeek = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
   return (
-    <div style={{
-      backgroundColor: '#fff',
-      borderRadius: '12px',
-      border: '1px solid #eee',
-      padding: '20px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '12px',
-      transition: 'transform 0.2s',
-      direction: 'rtl'
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <h3 style={{ margin: 0, color: '#333', fontSize: '1.2rem' }}>{name}</h3>
-        <span style={{ fontSize: '0.8rem', color: '#007bff', fontWeight: 'bold' }}>
-          {expected_duration_time || '--'} דקות
-        </span>
+    <div className="bg-white/40 backdrop-blur-2xl rounded-[2.5rem] border border-white/60 p-8 shadow-xl shadow-zinc-200/50 flex flex-col gap-6 transition-all duration-300 hover:scale-[1.02] hover:bg-white/60 group" dir="rtl">
+      
+      {/* Header: Title and Duration */}
+      <div className="flex justify-between items-start gap-4">
+        <h3 className="text-xl font-black text-zinc-900 tracking-tighter uppercase leading-tight">
+          {name}
+        </h3>
+        <div className="bg-zinc-900 text-white px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest flex-shrink-0">
+          {expected_duration_time || '--'} MIN
+        </div>
       </div>
 
-      <p style={{ margin: 0, color: '#666', fontSize: '0.9rem', minHeight: '40px' }}>
-        {description || 'אין תיאור זמין'}
+      {/* Description Body */}
+      <p className="text-zinc-500 font-medium text-sm leading-relaxed line-clamp-2 min-h-[40px]">
+        {description || 'No description provided for this template.'}
       </p>
 
-      {/* Info chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        <div style={{ background: '#f8f9fa', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', border: '1px solid #ddd' }}>
-          {exercises_config.length} תרגילים
+      {/* Meta Chips: Exercises count and Schedule */}
+      <div className="flex flex-wrap gap-2 mt-auto">
+        <div className="bg-white/50 border border-white px-4 py-1.5 rounded-full text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+          {exercises_config.length} Exercises
         </div>
+        
         {scheduled_days?.length > 0 && (
-          <div style={{ background: '#fff3cd', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', border: '1px solid #ffeeba', color: '#856404' }}>
-            ימי פעילות: {scheduled_days.map(d => daysOfWeek[d]).join(', ')}
+          <div className="bg-blue-600/10 border border-blue-200 px-4 py-1.5 rounded-full text-[10px] font-black text-blue-600 uppercase tracking-widest">
+            Days: {scheduled_days.map(d => daysOfWeek[d]).join(', ')}
           </div>
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+      {/* Action Suite */}
+      <div className="flex gap-3 pt-4 border-t border-white/40">
         <button 
           onClick={() => onStart(template)}
-          style={{
-            flex: 2,
-            backgroundColor: '#28a745',
-            color: '#fff',
-            border: 'none',
-            padding: '10px',
-            borderRadius: '8px',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}
+          className="flex-[2] bg-emerald-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95"
         >
-          🚀 התחל אימון
+          🚀 Start Workout
         </button>
 
         {isTrainer && (
           <>
             <button 
               onClick={() => onEdit(template)}
-              style={{
-                flex: 1,
-                backgroundColor: '#fff',
-                color: '#495057',
-                border: '1px solid #ced4da',
-                padding: '10px',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
+              className="flex-1 bg-white/60 text-zinc-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-white/80 hover:bg-white transition-all active:scale-95"
             >
-              ערוך
+              Edit
             </button>
             <button 
               onClick={() => onDelete(template.id)}
-              style={{
-                padding: '10px',
-                backgroundColor: '#fff',
-                color: '#dc3545',
-                border: '1px solid #dc3545',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
+              className="w-14 h-14 flex items-center justify-center bg-rose-50 text-rose-500 rounded-2xl border border-rose-100 hover:bg-rose-500 hover:text-white transition-all active:scale-95 shadow-sm"
             >
-              🗑️
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6" />
+              </svg>
             </button>
           </>
         )}
