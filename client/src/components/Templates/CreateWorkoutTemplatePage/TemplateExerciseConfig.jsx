@@ -8,13 +8,12 @@ const TemplateExerciseConfig = ({
   sensors, 
   handleDragEnd, 
   updateSets, 
-  onUpdateExerciseParams, // Ensure this name matches
-  removeExercise, 
-  styles 
+  onUpdateExerciseParams, 
+  removeExercise
 }) => {
   return (
     <>
-      <h4 style={styles.bankHeader}>סדר תרגילים באימון (גרור לשינוי סדר):</h4>
+      <h4 className="text-sm font-bold text-zinc-600 mb-3 mt-6">סדר תרגילים באימון (גרור לשינוי סדר):</h4>
       
       <DndContext 
         sensors={sensors} 
@@ -25,21 +24,20 @@ const TemplateExerciseConfig = ({
           items={exercisesConfig.map((_, i) => `item-${i}-${exercisesConfig[i].exercise_id}`)} 
           strategy={verticalListSortingStrategy}
         >
-          <div style={{ minHeight: '50px' }}>
+          <div className="min-h-[50px] space-y-4">
             {exercisesConfig.map((item, index) => (
               <TemplateExerciseItem 
                 key={`item-${index}-${item.exercise_id}`}
                 item={item} 
                 index={index}
                 onUpdateSets={updateSets}
-                // Pass the function with the NEW name
                 onUpdateExerciseParams={onUpdateExerciseParams} 
                 onRemove={removeExercise}
               />
             ))}
             
             {exercisesConfig.length === 0 && (
-              <div style={styles.emptyConfig}>
+              <div className="text-center py-10 border-2 border-dashed border-zinc-200 rounded-2xl text-zinc-400 font-medium">
                 יש להוסיף תרגילים מהבנק למעלה כדי לבנות את האימון
               </div>
             )}

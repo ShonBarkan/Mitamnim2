@@ -203,88 +203,103 @@ const styles = {
     maxWidth: '1000px',
     margin: '0 auto',
     direction: 'rtl',
-    fontFamily: 'Arial, sans-serif'
+    fontFamily: 'Arial, sans-serif',
+    backgroundColor: 'rgba(248, 250, 252, 0.8)',
+    backdropFilter: 'blur(20px)',
+    borderRadius: '20px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
   },
   header: {
     marginBottom: '30px',
-    borderBottom: '2px solid #007bff',
+    borderBottom: '2px solid rgba(0,123,255,0.5)',
     paddingBottom: '15px'
   },
-  title: { margin: 0, color: '#2c3e50', fontSize: '1.8rem' },
-  subtitle: { margin: '5px 0 0 0', color: '#6c757d' },
+  title: { margin: 0, color: '#1e293b', fontSize: '1.8rem' },
+  subtitle: { margin: '5px 0 0 0', color: '#64748b' },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: '20px',
     padding: '25px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
     marginBottom: '30px',
-    border: '1px solid #eee'
+    backdropFilter: 'blur(15px)',
+    border: '1px solid rgba(255,255,255,0.2)'
   },
-  cardTitle: { margin: '0 0 10px 0', fontSize: '1.3rem', color: '#333' },
-  description: { fontSize: '14px', color: '#666', marginBottom: '15px' },
+  cardTitle: { margin: '0 0 10px 0', fontSize: '1.3rem', color: '#1e293b' },
+  description: { fontSize: '14px', color: '#64748b', marginBottom: '15px' },
   currentMessageBadge: {
-    backgroundColor: '#fff3cd',
-    border: '1px solid #ffeeba',
+    backgroundColor: 'rgba(255,243,205,0.8)',
+    border: '1px solid rgba(255,238,186,0.5)',
     padding: '10px 15px',
     borderRadius: '8px',
-    marginBottom: '15px'
+    marginBottom: '15px',
+    backdropFilter: 'blur(5px)'
   },
-  currentMessageText: { margin: '5px 0 0 0', fontWeight: 'bold', color: '#856404' },
+  currentMessageText: { margin: '5px 0 0 0', fontWeight: 'bold', color: '#92400e' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '15px' },
   textarea: {
     width: '100%',
     height: '100px',
     padding: '12px',
     borderRadius: '8px',
-    border: '1px solid #ddd',
+    border: '1px solid rgba(203,213,225,0.5)',
     fontSize: '15px',
     outline: 'none',
     resize: 'none',
-    fontFamily: 'inherit'
+    fontFamily: 'inherit',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    backdropFilter: 'blur(5px)'
   },
   mainButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#007bff',
+    backgroundColor: 'rgba(0,123,255,0.8)',
     color: 'white',
     border: 'none',
     padding: '10px 25px',
     borderRadius: '25px',
     fontWeight: 'bold',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    backdropFilter: 'blur(5px)',
+    boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
   },
   traineeList: { display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' },
   traineeRow: {
     display: 'flex',
     flexDirection: 'column',
     padding: '15px',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'rgba(248,249,250,0.8)',
     borderRadius: '8px',
-    border: '1px solid #eee',
-    gap: '12px'
+    border: '1px solid rgba(203,213,225,0.5)',
+    gap: '12px',
+    backdropFilter: 'blur(10px)'
   },
   traineeInfo: { display: 'flex', flexDirection: 'column', gap: '4px' },
-  traineeName: { fontWeight: 'bold', fontSize: '15px', color: '#333' },
-  traineeCurrentMsg: { fontSize: '12px', color: '#28a745', fontStyle: 'italic' },
+  traineeName: { fontWeight: 'bold', fontSize: '15px', color: '#1e293b' },
+  traineeCurrentMsg: { fontSize: '12px', color: '#059669', fontStyle: 'italic' },
   traineeActionGroup: { display: 'flex', gap: '10px' },
   smallInput: {
     flex: 1,
     padding: '10px 15px',
     borderRadius: '20px',
-    border: '1px solid #ddd',
+    border: '1px solid rgba(203,213,225,0.5)',
     fontSize: '14px',
-    outline: 'none'
+    outline: 'none',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    backdropFilter: 'blur(5px)'
   },
   secondaryButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: 'rgba(40,167,69,0.8)',
     color: 'white',
     border: 'none',
     padding: '8px 20px',
     borderRadius: '20px',
     cursor: 'pointer',
     fontSize: '13px',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    backdropFilter: 'blur(5px)',
+    boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
   },
-  noData: { textAlign: 'center', color: '#999', padding: '20px' }
+  noData: { textAlign: 'center', color: '#94a3b8', padding: '20px' }
 };
 
 export default CoachMessageManager;

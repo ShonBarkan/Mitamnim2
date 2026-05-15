@@ -45,6 +45,7 @@ class UserBase(BaseModel):
     second_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    profile_picture: Optional[str] = None
     role: str
     group_id: Optional[uuid.UUID] = None
 

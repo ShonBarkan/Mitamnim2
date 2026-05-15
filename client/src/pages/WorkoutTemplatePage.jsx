@@ -42,10 +42,6 @@ const WorkoutTemplatePage = () => {
     }
   };
 
-  /**
-   * Navigates to the separate workout route.
-   * Passes the template object (containing the ID) via router state.
-   */
   const handleStartWorkout = (template) => {
     navigate('/active-workouts', { state: { template } });
   };
@@ -56,7 +52,6 @@ const WorkoutTemplatePage = () => {
     fetchTemplates();
   };
 
-  // Render Editor View
   if (view === 'editor') {
     return (
       <CreateWorkoutTemplatePage 
@@ -70,69 +65,54 @@ const WorkoutTemplatePage = () => {
     );
   }
 
-  // Render Main List View
   return (
-    <div style={{ direction: 'rtl', padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
-      
-      <header style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '30px',
-        borderBottom: '2px solid #f0f0f0',
-        paddingBottom: '20px'
-      }}>
-        <div>
-          <h1 style={{ margin: 0, color: '#333' }}>שבלונות אימון</h1>
-          <p style={{ margin: '5px 0 0', color: '#666' }}>בחר תוכנית אימון והתחל לעבוד</p>
-        </div>
+    <div className="min-h-screen bg-slate-50 font-sans pb-20" dir="rtl">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-zinc-200">
+          <div>
+            <h1 className="text-2xl font-black text-zinc-900 tracking-tight">שבלונות אימון</h1>
+            <p className="text-sm text-zinc-500 font-medium mt-1">בחר תוכנית אימון והתחל לעבוד</p>
+          </div>
 
-        {isTrainer && (
-          <button 
-            onClick={handleCreateNewTemplate}
-            style={{
-              backgroundColor: '#28a745',
-              color: '#fff',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '10px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(40, 167, 69, 0.2)'
-            }}
-          >
-            ➕ יצירת שבלונה חדשה
-          </button>
-        )}
-      </header>
-
-      {templatesLoading ? (
-        <p style={{ textAlign: 'center', marginTop: '50px' }}>טוען שבלונות...</p>
-      ) : (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-          gap: '20px' 
-        }}>
-          {templates.length > 0 ? (
-            templates.map(tmpl => (
-              <TemplateCard 
-                key={tmpl.id} 
-                template={tmpl}
-                onEdit={handleEditTemplate}
-                onDelete={handleDeleteTemplate}
-                onStart={handleStartWorkout}
-                isTrainer={isTrainer}
-              />
-            ))
-          ) : (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '100px', color: '#999' }}>
-              <h2>אין שבלונות זמינות</h2>
-              <p>צור שבלונה חדשה כדי להתחיל</p>
-            </div>
+          {isTrainer && (
+            <button 
+              onClick={handleCreateNewTemplate}
+              className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-colors shadow-sm active:scale-95"
+            >
+              <span className="text-lg leading-none">+</span>
+              יצירת שבלונה חדשה
+            </button>
           )}
-        </div>
-      )}
+        </header>
+
+        {templatesLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-10 h-10 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin mb-4"></div>
+            <p className="text-sm font-bold text-zinc-500">טוען שבלונות...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {templates.length > 0 ? (
+              templates.map(tmpl => (
+                <TemplateCard 
+                  key={tmpl.id} 
+                  template={tmpl}
+                  onEdit={handleEditTemplate}
+                  onDelete={handleDeleteTemplate}
+                  onStart={handleStartWorkout}
+                  isTrainer={isTrainer}
+                />
+              ))
+            ) : (
+              <div className="col-span-full flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-zinc-100 shadow-sm">
+                <span className="text-4xl mb-4 opacity-50">📋</span>
+                <h2 className="text-xl font-bold text-zinc-800 mb-2">אין שבלונות זמינות</h2>
+                <p className="text-zinc-500 text-sm">צור שבלונה חדשה כדי להתחיל</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

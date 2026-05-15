@@ -50,21 +50,24 @@ const styles = {
     direction: 'rtl',
     fontFamily: 'Arial, sans-serif',
     minHeight: '100vh',
-    backgroundColor: '#f8f9fa'
+    backgroundColor: 'rgba(248, 250, 252, 0.8)',
+    backdropFilter: 'blur(20px)',
+    borderRadius: '20px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
   },
   header: {
     marginBottom: '40px',
-    borderBottom: '2px solid #007bff',
+    borderBottom: '2px solid rgba(0,123,255,0.5)',
     paddingBottom: '20px'
   },
   title: {
     margin: 0,
-    color: '#2c3e50',
+    color: '#1e293b',
     fontSize: '2rem'
   },
   subtitle: {
     margin: '10px 0 0 0',
-    color: '#6c757d',
+    color: '#64748b',
     fontSize: '1.1rem'
   },
   grid: {
@@ -74,10 +77,12 @@ const styles = {
     alignItems: 'start'
   },
   section: {
-    backgroundColor: '#fff',
-    borderRadius: '15px',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-    overflow: 'hidden'
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: '20px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+    overflow: 'hidden',
+    backdropFilter: 'blur(15px)',
+    border: '1px solid rgba(255,255,255,0.2)'
   }
 };
 

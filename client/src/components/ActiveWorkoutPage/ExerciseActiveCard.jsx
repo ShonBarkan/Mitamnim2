@@ -56,7 +56,7 @@ const SortableSetRow = ({
 
           return (
             <div key={p.parameter_id} className="flex items-center gap-2 min-w-fit">
-              <span className={`text-[10px] font-black uppercase tracking-widest ${isVirtual ? 'text-blue-500' : 'text-zinc-500'} shrink-0`}>
+              <span className={`text-sm font-black uppercase tracking-widest ${isVirtual ? 'text-blue-500' : 'text-zinc-500'} shrink-0`}>
                 {p.parameter_name}
               </span>
               
