@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../hooks/useToast';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import FrontendLogger from '../utils/logger';
 
 /**
  * LoginPage Component - Implements the Arctic Mirror (Glassmorphism) theme.
@@ -18,17 +19,20 @@ const LoginPage = () => {
 
   // Redirect to home if user is already authenticated
   useEffect(() => {
+    FrontendLogger.info('LOGIN_PAGE', 'Mounting authentication gateway view');
     if (user) {
+      FrontendLogger.info('LOGIN_PAGE', 'Authenticated active footprint discovered, rerouting to index anchor');
       navigate('/');
     }
   }, [user, navigate]);
 
   /**
-   * Handles the login form submission.
-   * Leverages the AuthContext which internally handles both Dev (Mock) and Prod (API) logic.
+   * Handles the login form submission pipeline.
    */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    FrontendLogger.info('LOGIN_PAGE', 'Intercepted credential submission event trigger');
+
     if (!username || !password) {
       showToast("אנא מלא את כל השדות", "error");
       return;
@@ -40,7 +44,6 @@ const LoginPage = () => {
       showToast("ברוך הבא ל-Mitamnim2", "success");
       navigate('/');
     } catch (error) {
-      // Handles both Axios errors and Mock logic errors
       const errMsg = error.response?.data?.detail || error.message || "שם משתמש או סיסמה שגויים";
       showToast(errMsg, "error");
     } finally {
@@ -112,8 +115,8 @@ const LoginPage = () => {
         {/* Access Footer */}
         <div className="mt-12 text-center border-t border-zinc-900/5 pt-10">
            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.5em] leading-loose">
-             Official Athlete Access Only<br/>
-             <span className="opacity-40 italic">Unauthorized access is logged</span>
+              Official Athlete Access Only<br/>
+              <span className="opacity-40 italic">Unauthorized access is logged</span>
            </p>
         </div>
       </div>
