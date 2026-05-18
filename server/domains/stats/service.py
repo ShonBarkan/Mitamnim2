@@ -1,316 +1,166 @@
 import uuid
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Dict, Any
-
-from sqlalchemy import and_, func, Integer
+from datetime import datetime
+from typing import List, Dict, Any
 from sqlalchemy.orm import Session
-
-from .models import StatsOutput, PRRecord, TrainingDayDist, UserOverviewStats, LeaderboardEntry, GroupLeaderboardOutput
-from ..activities.models import ActivityLog
-from ..workout_sessions.models import WorkoutSession
-from ..stats_dashboard_config.models import StatsDashboardConfig
-from ..exercises.models import ExerciseTree
-from ..parameters.models import Parameter
-from ..users.models import User
+from sqlalchemy import func, cast, Float
+from domains.workout_sessions.models import WorkoutSession, PerformedSet, PerformedSetValue
+from domains.exercises.models import GroupExerciseRegistry
+from domains.parameters.models import Parameter
+from domains.users.models import User
+from core.logger import logger
 
 
-# --- StatisticsEngineService ---
+class StatsService:
+    @staticmethod
+    def compute_user_stats(db: Session, user_id: uuid.UUID, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
+        """Compiles clean chronological stats metrics for a trainee using relational aggregations."""
+        logger.info(f"Computing database performance matrices for user: {user_id} between {start_date} and {end_date}")
 
-class StatisticsEngineService:
-    """
-    Core engine for calculating real-time rankings and personal metrics.
-    Uses Pandas for high-performance data aggregation and manipulation.
-    """
+        # 1. Capture user profile context metadata
+        user = db.query(User).filter(User.id == user_id).first()
+        full_name = f"{user.first_name} {user.second_name}" if user else "Unknown User"
 
-    def __init__(self, db: Session):
-        self.db = db
+        # 2. Count distinct completed workout sessions inside temporal range bounds
+        total_workouts = db.query(func.count(WorkoutSession.id)).filter(
+            WorkoutSession.user_id == user_id,
+            WorkoutSession.end_time >= start_date,
+            WorkoutSession.end_time <= end_date
+        ).scalar() or 0
 
-    def _get_all_descendants(self, parent_id: int, exercise_list: List[tuple]) -> List[int]:
-        """Helper to resolve exercise hierarchy recursively."""
-        descendants = [parent_id]
-        for ex_id, p_id in exercise_list:
-            if p_id == parent_id:
-                descendants.extend(self._get_all_descendants(ex_id, exercise_list))
-        return descendants
-
-    def _extract_param_value(self, perf_data: Any, param_id: int) -> Optional[float]:
-        """Parses parameter values from JSON list structures."""
-        if isinstance(perf_data, list):
-            for item in perf_data:
-                if isinstance(item, dict) and item.get('parameter_id') == param_id:
-                    try:
-                        return float(item.get('value'))
-                    except (ValueError, TypeError):
-                        return None
-        return None
-
-    def _parse_duration(self, duration_str: Optional[str]) -> int:
-        """Parses strings like '50 min' or '1 hour' into minutes."""
-        if not duration_str:
-            return 0
-        try:
-            return int(''.join(filter(str.isdigit, duration_str)))
-        except (ValueError, TypeError):
-            return 0
-
-    def get_user_consolidated_overview(self, user_id: uuid.UUID, group_id: uuid.UUID) -> UserOverviewStats:
-        """Calculates a comprehensive summary of user performance and behavior."""
-
-        # 1. Fetch Session Data
-        sessions = self.db.query(WorkoutSession).filter(WorkoutSession.user_id == user_id).all()
-        df_sessions = pd.DataFrame([{
-            "date": s.start_time,
-            "duration": self._parse_duration(s.actual_duration),
-            "day": s.start_time.strftime('%A')
-        } for s in sessions]) if sessions else pd.DataFrame()
-
-        total_workouts = len(sessions)
-        total_duration = int(df_sessions['duration'].sum()) if not df_sessions.empty else 0
-
-        # 2. Training Day Distribution
-        days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        if not df_sessions.empty:
-            dist = df_sessions['day'].value_counts().reindex(days_order, fill_value=0)
-            day_dist = [TrainingDayDist(day_name=day, count=int(count)) for day, count in dist.items()]
-        else:
-            day_dist = [TrainingDayDist(day_name=day, count=0) for day in days_order]
-
-        # 3. Relative Ranking (Percentile based on workouts current month)
-        start_of_month = datetime.now().replace(day=1, hour=0, minute=0, second=0)
-        group_counts = self.db.query(
-            WorkoutSession.user_id, func.count(WorkoutSession.id).label('count')
-        ).join(User, WorkoutSession.user_id == User.id).filter(
-            User.group_id == group_id,
-            WorkoutSession.start_time >= start_of_month
-        ).group_by(WorkoutSession.user_id).all()
-
-        df_ranks = pd.DataFrame(group_counts, columns=['uid', 'count'])
-        if not df_ranks.empty:
-            df_ranks['percentile'] = df_ranks['count'].rank(pct=True) * 100
-            user_row = df_ranks[df_ranks['uid'] == user_id]
-            # Lower rank number (Top X%) is better
-            relative_rank = 100 - user_row['percentile'].iloc[0] if not user_row.empty else 100.0
-        else:
-            relative_rank = 100.0
-
-        # 4. PR Hall of Fame & Velocity (Optimized Python-based enrichment)
-        logs = self.db.query(ActivityLog, ExerciseTree.name.label('ex_name')).join(
-            ExerciseTree, ActivityLog.exercise_id == ExerciseTree.id
-        ).filter(ActivityLog.user_id == user_id).all()
-
-        # Pre-fetch parameters to avoid N+1 queries during processing
-        params_meta = {p.id: p for p in self.db.query(Parameter).filter(Parameter.group_id == group_id).all()}
-
-        pr_list = []
-        velocity_map = {}
-
-        if logs:
-            raw_perf = []
-            for log, ex_name in logs:
-                for entry in (log.performance_data or []):
-                    p_id = entry.get('parameter_id')
-                    meta = params_meta.get(p_id)
-                    if meta:
-                        raw_perf.append({
-                            "exercise": ex_name,
-                            "p_id": p_id,
-                            "value": float(entry.get('value', 0)),
-                            "date": log.timestamp,
-                            "unit": meta.unit
-                        })
-
-            df_perf = pd.DataFrame(raw_perf)
-
-            if not df_perf.empty:
-                # PR Hall of Fame: Get highest value recorded for each exercise
-                pr_idx = df_perf.groupby('exercise')['value'].idxmax()
-                df_prs = df_perf.loc[pr_idx].sort_values('date', ascending=False)
-
-                for _, row in df_prs.head(10).iterrows():
-                    pr_list.append(PRRecord(
-                        exercise_name=row['exercise'],
-                        value=row['value'],
-                        unit=row['unit'],
-                        date=row['date']
-                    ))
-
-                # Velocity: Comparison between current 30d window and the 30d window before it
-                now = datetime.now(timezone.utc) if df_perf['date'].dt.tz else datetime.now()
-                last_month = df_perf[df_perf['date'] >= (now - timedelta(days=30))]
-                prev_month = df_perf[
-                    (df_perf['date'] >= (now - timedelta(days=60))) & (df_perf['date'] < (now - timedelta(days=30)))]
-
-                for ex in df_perf['exercise'].unique():
-                    m1 = last_month[last_month['exercise'] == ex]['value'].mean()
-                    m2 = prev_month[prev_month['exercise'] == ex]['value'].mean()
-                    if m1 and m2 and m2 > 0:
-                        velocity_map[ex] = round(((m1 - m2) / m2) * 100, 2)
-
-        return UserOverviewStats(
-            total_workouts=total_workouts,
-            total_duration_minutes=total_duration,
-            relative_rank_percentile=round(relative_rank, 1),
-            day_distribution=day_dist,
-            pr_hall_of_fame=pr_list,
-            velocity_of_progress=velocity_map
-        )
-
-    def calculate_realtime_stats(self, user_id: uuid.UUID, exercise_id: int, group_id: uuid.UUID) -> List[
-        Dict[str, Any]]:
-        """Calculates personal progress for a specific exercise and its sub-categories."""
-        all_exercises = self.db.query(ExerciseTree.id, ExerciseTree.parent_id).filter(
-            ExerciseTree.group_id == group_id).all()
-        relevant_exercise_ids = self._get_all_descendants(exercise_id, all_exercises)
-
-        logs = self.db.query(ActivityLog).filter(
-            ActivityLog.user_id == user_id,
-            ActivityLog.exercise_id.in_(relevant_exercise_ids)
-        ).order_by(ActivityLog.timestamp.asc()).all()
-
-        if not logs:
-            return []
-
-        all_params = self.db.query(Parameter).all()
-        param_map = {p.id: p for p in all_params}
-
-        raw_data = []
-        for log in logs:
-            perf = log.performance_data or []
-            p_ids = [item.get('parameter_id') for item in perf if isinstance(item, dict)]
-
-            for pid in set(p_ids):
-                val = self._extract_param_value(perf, pid)
-                if val is not None:
-                    param_meta = param_map.get(pid)
-                    raw_data.append({
-                        "timestamp": log.timestamp,
-                        "value": float(val),
-                        "label": param_meta.name if param_meta else f"Param {pid}",
-                        "unit": param_meta.unit if param_meta else None,
-                        "strategy": param_meta.aggregation_strategy if param_meta else "sum",
-                        "date": log.timestamp.date()
-                    })
-
-        df = pd.DataFrame(raw_data)
-        if df.empty:
-            return []
-
-        final_results = []
-        for label, group in df.groupby('label'):
-            strategy = group['strategy'].iloc[0]
-            unit = group['unit'].iloc[0]
-
-            if strategy == "max":
-                daily = group.groupby('date').agg({'value': 'max', 'timestamp': 'first'}).reset_index()
-            elif strategy == "min":
-                daily = group.groupby('date').agg({'value': 'min', 'timestamp': 'first'}).reset_index()
-            elif strategy == "avg":
-                daily = group.groupby('date').agg({'value': 'mean', 'timestamp': 'first'}).reset_index()
-            elif strategy == "latest":
-                daily = group.sort_values('timestamp').groupby('date').tail(1)
-            else:
-                daily = group.groupby('date').agg({'value': 'sum', 'timestamp': 'first'}).reset_index()
-
-            daily = daily.sort_values('timestamp')
-            daily['label'] = label
-            daily['unit'] = unit
-            daily['trend_percentage'] = daily['value'].pct_change() * 100
-
-            final_results.extend(daily.fillna(0).to_dict('records'))
-
-        return final_results
-
-    def get_group_leaderboards(self, group_id: uuid.UUID, start_date: datetime, end_date: datetime) -> List[
-        Dict[str, Any]]:
-        """Calculates group-wide rankings based on coach dashboard configurations."""
-        group_users = self.db.query(User.first_name, User.second_name).filter(User.group_id == group_id).all()
-        all_user_names = [f"{u.first_name or ''} {u.second_name or ''}".strip() or "Trainee" for u in group_users]
-        df_all_users = pd.DataFrame({"full_name": all_user_names})
-
-        configs = self.db.query(
-            StatsDashboardConfig,
-            ExerciseTree.name.label("exercise_name"),
+        # 3. Pull raw transactional metric logs joining tables together flatly
+        raw_values = db.query(
+            GroupExerciseRegistry.id.label("exercise_id"),
+            GroupExerciseRegistry.name.label("exercise_name"),
+            Parameter.id.label("parameter_id"),
             Parameter.name.label("parameter_name"),
             Parameter.unit.label("unit"),
-            Parameter.aggregation_strategy.label("strategy")
-        ).join(ExerciseTree, StatsDashboardConfig.exercise_id == ExerciseTree.id) \
-            .join(Parameter, StatsDashboardConfig.parameter_id == Parameter.id) \
-            .filter(StatsDashboardConfig.group_id == group_id, StatsDashboardConfig.is_public == True) \
-            .order_by(StatsDashboardConfig.display_order.asc()) \
-            .all()
+            Parameter.aggregation_strategy.label("strategy"),
+            WorkoutSession.end_time.label("timestamp"),
+            cast(PerformedSetValue.value, Float).label("numeric_val")
+        ).join(PerformedSet, PerformedSet.workout_session_id == WorkoutSession.id) \
+            .join(GroupExerciseRegistry, GroupExerciseRegistry.id == PerformedSet.exercise_id) \
+            .join(PerformedSetValue, PerformedSetValue.performed_set_id == PerformedSet.id) \
+            .join(Parameter, Parameter.id == PerformedSetValue.parameter_id) \
+            .filter(
+            WorkoutSession.user_id == user_id,
+            WorkoutSession.end_time >= start_date,
+            WorkoutSession.end_time <= end_date
+        ).order_by(WorkoutSession.end_time.asc()).all()
 
-        if not configs:
-            return []
+        return StatsService._package_aggregation_tree(raw_values, user_id, full_name, total_workouts, start_date,
+                                                      end_date)
 
-        all_exercises = self.db.query(ExerciseTree.id, ExerciseTree.parent_id).filter(
-            ExerciseTree.group_id == group_id).all()
+    @staticmethod
+    def compute_group_panoramic_stats(db: Session, group_id: uuid.UUID, start_date: datetime, end_date: datetime) -> \
+    Dict[str, Any]:
+        """Builds collective bird's-eye visibility matrices alongside individual members breakdown."""
+        logger.info(f"Generating global group aggregation statistics overview for group_id: {group_id}")
 
-        exercise_mapping = {c[0].exercise_id: self._get_all_descendants(c[0].exercise_id, all_exercises) for c in
-                            configs}
-        all_relevant_ids = list(set([item for sublist in exercise_mapping.values() for item in sublist]))
+        # 1. Total sessions run by all members inside target perimeter boundaries
+        total_group_workouts = db.query(func.count(WorkoutSession.id)).join(User,
+                                                                            User.id == WorkoutSession.user_id).filter(
+            User.group_id == group_id,
+            WorkoutSession.end_time >= start_date,
+            WorkoutSession.end_time <= end_date
+        ).scalar() or 0
 
-        logs = self.db.query(ActivityLog, User.first_name, User.second_name) \
-            .join(User, ActivityLog.user_id == User.id) \
+        # 2. Extract macro raw records pool intersecting the collective community
+        collective_raw = db.query(
+            GroupExerciseRegistry.id.label("exercise_id"),
+            GroupExerciseRegistry.name.label("exercise_name"),
+            Parameter.id.label("parameter_id"),
+            Parameter.name.label("parameter_name"),
+            Parameter.unit.label("unit"),
+            Parameter.aggregation_strategy.label("strategy"),
+            WorkoutSession.end_time.label("timestamp"),
+            cast(PerformedSetValue.value, Float).label("numeric_val")
+        ).join(User, User.id == WorkoutSession.user_id) \
+            .join(PerformedSet, PerformedSet.workout_session_id == WorkoutSession.id) \
+            .join(GroupExerciseRegistry, GroupExerciseRegistry.id == PerformedSet.exercise_id) \
+            .join(PerformedSetValue, PerformedSetValue.performed_set_id == PerformedSet.id) \
+            .join(Parameter, Parameter.id == PerformedSetValue.parameter_id) \
             .filter(
             User.group_id == group_id,
-            ActivityLog.exercise_id.in_(all_relevant_ids),
-            ActivityLog.timestamp >= start_date,
-            ActivityLog.timestamp <= end_date
-        ).all()
+            WorkoutSession.end_time >= start_date,
+            WorkoutSession.end_time <= end_date
+        ).order_by(WorkoutSession.end_time.asc()).all()
 
-        raw_rows = []
-        for log, f_name, s_name in logs:
-            full_name = f"{f_name or ''} {s_name or ''}".strip() or "Trainee"
-            raw_rows.append({
-                "full_name": full_name,
-                "exercise_id": log.exercise_id,
-                "perf_data": log.performance_data,
-                "timestamp": log.timestamp
+        packaged_collective = StatsService._package_aggregation_tree(
+            collective_raw, group_id, "Collective Group View", total_group_workouts, start_date, end_date
+        )
+
+        # 3. Compile standalone reports across each active group trainee node recursively
+        group_members = db.query(User).filter(User.group_id == group_id).all()
+        member_breakdown = []
+        for member in group_members:
+            member_breakdown.append(StatsService.compute_user_stats(db, member.id, start_date, end_date))
+
+        return {
+            "group_id": group_id,
+            "total_group_workouts": total_group_workouts,
+            "start_date": start_date,
+            "end_date": end_date,
+            "collective_exercises": packaged_collective["exercises"],
+            "member_breakdown": member_breakdown
+        }
+
+    @staticmethod
+    def _package_aggregation_tree(raw_rows, owner_id, label, workout_count, start, end) -> Dict[str, Any]:
+        """Internal helper processing relational logs streams into structured graph schemas arrays."""
+        tree: Dict[int, Dict[str, Any]] = {}
+
+        for row in raw_rows:
+            if row.exercise_id not in tree:
+                tree[row.exercise_id] = {"exercise_id": row.exercise_id, "exercise_name": row.exercise_name,
+                                         "metrics": {}}
+
+            ex_node = tree[row.exercise_id]["metrics"]
+            if row.parameter_id not in ex_node:
+                ex_node[row.parameter_id] = {
+                    "parameter_id": row.parameter_id,
+                    "parameter_name": row.parameter_name,
+                    "unit": row.unit,
+                    "strategy_applied": row.strategy,
+                    "raw_points": []
+                }
+
+            ex_node[row.parameter_id]["raw_points"].append({"timestamp": row.timestamp, "value": row.numeric_val})
+
+        processed_exercises = []
+        for ex_id, ex_data in tree.items():
+            metrics_list = []
+            for p_id, p_data in ex_data["metrics"].items():
+                points = p_data["raw_points"]
+                values_array = [pt["value"] for pt in points]
+
+                # Dynamic strategy execution driven directly by parameter configurations
+                if p_data["strategy_applied"] == "max":
+                    computed = max(values_array) if values_array else 0.0
+                elif p_data["strategy_applied"] == "avg":
+                    computed = (sum(values_array) / len(values_array)) if values_array else 0.0
+                else:  # Default fallback 'sum' mapping rule
+                    computed = sum(values_array) if values_array else 0.0
+
+                metrics_list.append({
+                    "parameter_id": p_id,
+                    "parameter_name": p_data["parameter_name"],
+                    "unit": p_data["unit"],
+                    "strategy_applied": p_data["strategy_applied"],
+                    "computed_value": round(computed, 2),
+                    "graph_data": points  # Raw timestamps + values pairing directly loaded for charts
+                })
+
+            processed_exercises.append({
+                "exercise_id": ex_id,
+                "exercise_name": ex_data["exercise_name"],
+                "metrics": metrics_list
             })
 
-        df_logs = pd.DataFrame(raw_rows) if raw_rows else pd.DataFrame(
-            columns=["full_name", "exercise_id", "perf_data", "timestamp"])
-
-        leaderboards = []
-        for cfg_row in configs:
-            cfg = cfg_row[0]
-            relevant_child_ids = exercise_mapping[cfg.exercise_id]
-            param_id = int(cfg.parameter_id)
-            strategy = cfg_row.strategy or "sum"
-
-            ex_df = df_logs[
-                df_logs['exercise_id'].isin(relevant_child_ids)].copy() if not df_logs.empty else pd.DataFrame()
-
-            if not ex_df.empty:
-                ex_df['val'] = ex_df['perf_data'].apply(lambda x: self._extract_param_value(x, param_id))
-                ex_df = ex_df.dropna(subset=['val'])
-
-                if strategy == "max":
-                    user_best = ex_df.groupby('full_name')['val'].max().reset_index()
-                elif strategy == "min":
-                    user_best = ex_df.groupby('full_name')['val'].min().reset_index()
-                elif strategy == "avg":
-                    user_best = ex_df.groupby('full_name')['val'].mean().reset_index()
-                elif strategy == "latest":
-                    user_best = ex_df.sort_values('timestamp').groupby('full_name').tail(1)[['full_name', 'val']]
-                else:
-                    user_best = ex_df.groupby('full_name')['val'].sum().reset_index()
-            else:
-                user_best = pd.DataFrame(columns=["full_name", "val"])
-
-            final_df = pd.merge(df_all_users, user_best, on="full_name", how="left").fillna(0)
-            final_df = final_df.sort_values(by='val', ascending=(cfg.ranking_direction != "desc"))
-
-            leaderboards.append({
-                "exercise_id": cfg.exercise_id,
-                "exercise_name": cfg_row.exercise_name,
-                "parameter_name": cfg_row.parameter_name,
-                "unit": cfg_row.unit,
-                "ranking_direction": cfg.ranking_direction,
-                "entries": [{"full_name": r['full_name'], "value": float(r['val']), "rank": i}
-                            for i, r in enumerate(final_df.to_dict('records'), 1)]
-            })
-
-        return leaderboards
+        return {
+            "user_id": owner_id,
+            "full_name": label,
+            "total_workouts": workout_count,
+            "start_date": start,
+            "end_date": end,
+            "exercises": processed_exercises
+        }

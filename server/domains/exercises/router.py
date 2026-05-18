@@ -1,28 +1,40 @@
+import uuid
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
 
 from db.database import get_db
 from middlewares.auth import get_current_user
+from domains.users.models import User
+from domains.parameters.models import ParameterOut
 
-from .models import ExerciseOut, ExerciseCreate, ExerciseUpdate, ExerciseBatchRequest
+from .models import ExerciseCreate, ExerciseOut, ExerciseUpdate, ExerciseBatchRequest
 from .service import ExerciseService
-from ..users.models import User
+
+router = APIRouter(prefix="/exercises", tags=["Exercises Registry Pipeline"])
 
 
-# --- Router Setup ---
-
-router = APIRouter(prefix="/exercises", tags=["Exercise Tree"])
-
-
-@router.get("/", response_model=List[ExerciseOut])
+@router.get("", response_model=List[ExerciseOut])
 async def get_exercises(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Retrieves the full group hierarchy."""
-    service = ExerciseService(db)
-    return service.get_group_exercises(current_user.group_id)
+    """Fetches all exercise records allocated inside the current authenticated group perimeter."""
+    if not current_user.group_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not assigned to a group context.")
+
+    raw_exercises = ExerciseService.get_group_exercises(db, current_user.group_id)
+
+    return [
+        ExerciseOut(
+            id=ex.id,
+            group_id=ex.group_id,
+            name=ex.name,
+            category=ex.category,
+            active_parameter_ids=[p.id for p in ex.parameters]
+        )
+        for ex in raw_exercises
+    ]
 
 
 @router.post("/batch", response_model=List[ExerciseOut])
@@ -31,26 +43,48 @@ async def get_exercises_batch(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Retrieves multiple exercises by IDs with group validation."""
-    service = ExerciseService(db)
-    return service.get_exercises_by_ids(batch_data.exercise_ids, current_user.group_id)
+    """Retrieves multiple exercises by IDs validating group perimeter ownership boundaries."""
+    if not current_user.group_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User group scope validation missing.")
+
+    raw_exercises = ExerciseService.get_exercises_by_ids(db, batch_data.exercise_ids, current_user.group_id)
+
+    return [
+        ExerciseOut(
+            id=ex.id,
+            group_id=ex.group_id,
+            name=ex.name,
+            category=ex.category,
+            active_parameter_ids=[p.id for p in ex.parameters]
+        )
+        for ex in raw_exercises
+    ]
 
 
-@router.post("/", response_model=ExerciseOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ExerciseOut, status_code=status.HTTP_201_CREATED)
 async def create_exercise(
-        exercise_data: ExerciseCreate,
+        payload: ExerciseCreate,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Creates a new exercise node (Admins/Trainers only)."""
-    if current_user.role not in ["admin", "trainer"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    """Registers a clean, un-nested flat exercise token configuration inside the user group pool."""
+    if not current_user.group_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User group scope validation missing.")
+    if current_user.role not in ['trainer', 'admin']:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Access denied: Restricted to trainers or administrators.")
 
-    service = ExerciseService(db)
     try:
-        return service.create_exercise(exercise_data, current_user.group_id)
+        created = ExerciseService.create_group_exercise(db, current_user.group_id, payload.model_dump())
+        return ExerciseOut(
+            id=created.id,
+            group_id=created.group_id,
+            name=created.name,
+            category=created.category,
+            active_parameter_ids=[p.id for p in created.parameters]
+        )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.patch("/{exercise_id}", response_model=ExerciseOut)
@@ -60,47 +94,56 @@ async def update_exercise(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Updates exercise details (Admins/Trainers only)."""
+    """Updates exercise structural attributes configuration rules (Admins/Trainers only)."""
     if current_user.role not in ["admin", "trainer"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to modify exercises.")
 
-    service = ExerciseService(db)
     update_data = exercise_update.model_dump(exclude_unset=True)
-    updated_node = service.update_exercise(exercise_id, current_user.group_id, update_data)
+    updated_node = ExerciseService.update_group_exercise(db, exercise_id, current_user.group_id, update_data)
 
     if not updated_node:
-        raise HTTPException(status_code=404, detail="Exercise not found or access denied")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found or access denied.")
 
-    return updated_node
+    return ExerciseOut(
+        id=updated_node.id,
+        group_id=updated_node.group_id,
+        name=updated_node.name,
+        category=updated_node.category,
+        active_parameter_ids=[p.id for p in updated_node.parameters]
+    )
 
 
-@router.delete("/{exercise_id}")
+@router.delete("/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_exercise(
         exercise_id: int,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Removes an exercise and all its descendants (Admins/Trainers only)."""
-    if current_user.role not in ["admin", "trainer"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    """Triggers secure out-of-bounds validation checks and deletes target exercise entries."""
+    if current_user.role not in ['trainer', 'admin']:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Insufficient operational permissions context.")
 
-    service = ExerciseService(db)
-    if not service.delete_exercise(exercise_id, current_user.group_id):
-        raise HTTPException(status_code=404, detail="Exercise not found or access denied")
+    success = ExerciseService.delete_exercise(db, exercise_id, current_user.group_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Exercise registry mapping target could not be verified.")
 
-    return {"message": "Exercise deleted successfully"}
 
-
-@router.get("/{exercise_id}/active-params")
+@router.get("/{exercise_id}/active-params", response_model=List[ParameterOut])
 async def get_exercise_active_params(
         exercise_id: int,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Fetches all parameters directly linked to a specific exercise node."""
-    service = ExerciseService(db)
-    try:
-        results = service.get_active_params_raw(exercise_id)
-        return list(results)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error fetching parameters")
+    """Fetches full parameter models linked to an exercise using optimized database relation preloads."""
+    if not current_user.group_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Missing valid group identity context scope.")
+
+    exercise = ExerciseService.get_exercise_by_id_and_group(db, exercise_id, current_user.group_id)
+    if not exercise:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Exercise registry record not found or access denied.")
+
+    return exercise.parameters

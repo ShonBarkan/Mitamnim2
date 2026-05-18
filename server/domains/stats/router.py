@@ -2,67 +2,43 @@ import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
-
 from db.database import get_db
 from middlewares.auth import get_current_user
+from domains.stats.models import SingleUserStatsReport, GroupOverviewStatsReport
+from domains.stats.service import StatsService
 
-from .models import UserOverviewStats, StatsOutput, GroupLeaderboardOutput
-from .service import StatisticsEngineService
-from ..users.models import User
+router = APIRouter(prefix="/stats", tags=["Analytical Statistics Dashboard"])
 
-
-# --- Router Setup ---
-
-router = APIRouter(prefix="/stats", tags=["Statistics Engine"])
-
-
-@router.get("/overview/", response_model=UserOverviewStats)
-async def get_user_overview(
-        target_user_id: Optional[uuid.UUID] = None,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+@router.get("/me", response_model=SingleUserStatsReport)
+async def get_my_historical_stats(
+    start_date: datetime,
+    end_date: datetime,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    """Fetches high-level consolidated stats for the user dashboard."""
-    if target_user_id and current_user.role in ["admin", "trainer"]:
-        target_user = db.query(User).filter(User.id == target_user_id).first()
-        if not target_user or (current_user.role == "trainer" and target_user.group_id != current_user.group_id):
-            raise HTTPException(status_code=403, detail="Access denied to user stats")
-        uid = target_user_id
-    else:
-        uid = current_user.id
-    service = StatisticsEngineService(db)
-    return service.get_user_consolidated_overview(uid, current_user.group_id)
+    """Fetches clean, chart-ready performance analytics bounded within a date range for the user."""
+    return StatsService.compute_user_stats(db, current_user.id, start_date, end_date)
 
-
-@router.get("/personal/{exercise_id}/", response_model=List[StatsOutput])
-async def get_personal_stats(
-        exercise_id: int,
-        target_user_id: Optional[uuid.UUID] = None,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+@router.get("/group/panoramic", response_model=GroupOverviewStatsReport)
+async def get_group_panoramic_metrics(
+    start_date: datetime,
+    end_date: datetime,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    """Fetches personal performance trends aggregated across the exercise hierarchy."""
-    if target_user_id and current_user.role in ["admin", "trainer"]:
-        target_user = db.query(User).filter(User.id == target_user_id).first()
-        if not target_user or (current_user.role == "trainer" and target_user.group_id != current_user.group_id):
-            raise HTTPException(status_code=403, detail="Access denied to user stats")
-        uid = target_user_id
-    else:
-        uid = current_user.id
-    service = StatisticsEngineService(db)
-    return service.calculate_realtime_stats(uid, exercise_id, current_user.group_id)
+    """
+    Provides trainers a multi-level stats view over the range.
+    Returns collective group trends alongside granular member-by-member breakdowns.
+    """
+    if current_user.role not in ["trainer", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: Elite metric dashboards restricted to managers and trainers."
+        )
+    if not current_user.group_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trainer missing a verified group boundary assignment link."
+        )
 
-
-@router.get("/group-leaderboard/", response_model=List[GroupLeaderboardOutput])
-async def get_group_leaderboard(
-        start_date: datetime,
-        end_date: datetime,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """Fetches group-wide rankings for the public dashboard within a timeframe."""
-    if start_date > end_date:
-        raise HTTPException(status_code=400, detail="Start date must be before end date")
-    service = StatisticsEngineService(db)
-    return service.get_group_leaderboards(current_user.group_id, start_date, end_date)
+    return StatsService.compute_group_panoramic_stats(db, current_user.group_id, start_date, end_date)

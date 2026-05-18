@@ -1,7 +1,7 @@
 import uuid
-from typing import List, Optional, Any
+from typing import List, Optional
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float
+from sqlalchemy import Column, Integer, ForeignKey, Boolean, Float, Text
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from pydantic import BaseModel, ConfigDict
 
@@ -13,21 +13,21 @@ from db.database import Base
 class Parameter(Base):
     """
     SQLAlchemy model representing a measurement parameter.
-    Now supports virtual/calculated parameters with various mathematical operations.
+    Supports virtual/calculated parameters with various mathematical operations.
     """
     __tablename__ = "parameters"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    unit = Column(String, nullable=False)
+    name = Column(Text, nullable=False)
+    unit = Column(Text, nullable=False)
     group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
-    aggregation_strategy = Column(String, default="sum", nullable=False)
+    aggregation_strategy = Column(Text, default="sum", nullable=False)
 
     # --- Virtual Parameter Configuration ---
     is_virtual = Column(Boolean, default=False, nullable=False)
 
     # Supported types: 'conversion', 'sum', 'subtract', 'multiply', 'divide', 'percentage'
-    calculation_type = Column(String, nullable=True)
+    calculation_type = Column(Text, nullable=True)
 
     # Ordered list of source parameter IDs used for the calculation logic
     source_parameter_ids = Column(ARRAY(Integer), nullable=True)

@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import Optional
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Integer, Text, ForeignKey, DateTime, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, ConfigDict
@@ -21,18 +21,18 @@ class StatsDashboardConfig(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
-    exercise_id = Column(Integer, ForeignKey("exercise_tree.id", ondelete="CASCADE"), nullable=False)
+    exercise_id = Column(Integer, ForeignKey("group_exercise_registry.id", ondelete="CASCADE"), nullable=False)
     parameter_id = Column(Integer, ForeignKey("parameters.id", ondelete="SET NULL"), nullable=True)
-    ranking_direction = Column(String, default="desc")  # 'desc' for high scores, 'asc' for speed/time
-    aggregation_override = Column(String, nullable=True)  # Optional: 'sum', 'max', 'avg'
-    time_frame = Column(String, nullable=True)  # Optional: 'all_time', 'monthly', 'weekly'
+    ranking_direction = Column(Text, default="desc")  # 'desc' for high scores, 'asc' for speed/time
+    aggregation_override = Column(Text, nullable=True)  # Optional: 'sum', 'max', 'avg'
+    time_frame = Column(Text, nullable=True)  # Optional: 'all_time', 'monthly', 'weekly'
     display_order = Column(Integer, default=0)
     is_public = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     # Relationships
     group = relationship("Group")
-    exercise = relationship("ExerciseTree")
+    exercise = relationship("GroupExerciseRegistry")
     parameter = relationship("Parameter")
 
 

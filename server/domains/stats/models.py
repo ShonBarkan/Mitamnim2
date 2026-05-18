@@ -1,58 +1,44 @@
 import uuid
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-
 from pydantic import BaseModel, ConfigDict
 
+# --- PYDANTIC SCHEMAS FOR GRAPHING & ANALYTICS ---
 
-# --- Pydantic Schemas ---
-
-class StatsOutput(BaseModel):
-    """Schema for historical performance data with trends."""
+class DataPointSchema(BaseModel):
+    """Raw timeline data element optimized for linear frontend charts plotting."""
     timestamp: datetime
     value: float
-    label: str
-    unit: Optional[str] = None
-    trend_percentage: float = 0.0
-    model_config = ConfigDict(from_attributes=True)
 
+class ParameterMetricOut(BaseModel):
+    """Aggregated calculation metrics representing structural parameters performance."""
+    parameter_id: int
+    parameter_name: str
+    unit: str
+    strategy_applied: str
+    computed_value: float
+    graph_data: List[DataPointSchema] = []
 
-class PRRecord(BaseModel):
-    """Entry for the Personal Record (PR) Hall of Fame."""
-    exercise_name: str
-    value: float
-    unit: Optional[str] = None
-    date: datetime
-
-
-class TrainingDayDist(BaseModel):
-    """Count of workouts per day of the week."""
-    day_name: str
-    count: int
-
-
-class UserOverviewStats(BaseModel):
-    """Consolidated high-level overview for the user dashboard."""
-    total_workouts: int
-    total_duration_minutes: int
-    relative_rank_percentile: float  # e.g., Top 10%
-    day_distribution: List[TrainingDayDist]
-    pr_hall_of_fame: List[PRRecord]
-    velocity_of_progress: Dict[str, float]  # Exercise name -> percentage change
-
-
-class LeaderboardEntry(BaseModel):
-    """Individual entry in the group leaderboard ranking."""
-    full_name: str
-    value: float
-    rank: int
-
-
-class GroupLeaderboardOutput(BaseModel):
-    """Container for a specific exercise/parameter ranking set."""
+class ExerciseStatsOut(BaseModel):
+    """Aggregated collection of parameter metrics computed for a target exercise profile."""
     exercise_id: int
     exercise_name: str
-    parameter_name: str
-    unit: Optional[str] = None
-    ranking_direction: str
-    entries: List[LeaderboardEntry]
+    metrics: List[ParameterMetricOut]
+
+class SingleUserStatsReport(BaseModel):
+    """Comprehensive performance tracking evaluation matrix for an isolated trainee."""
+    user_id: uuid.UUID
+    full_name: str
+    total_workouts: int
+    start_date: datetime
+    end_date: datetime
+    exercises: List[ExerciseStatsOut]
+
+class GroupOverviewStatsReport(BaseModel):
+    """Panoramic macro overview summarizing collective data metrics across an entire group."""
+    group_id: uuid.UUID
+    total_group_workouts: int
+    start_date: datetime
+    end_date: datetime
+    collective_exercises: List[ExerciseStatsOut]
+    member_breakdown: List[SingleUserStatsReport] = []

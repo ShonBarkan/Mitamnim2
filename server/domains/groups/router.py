@@ -1,24 +1,24 @@
+import uuid
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
 
 from db.database import get_db
 from middlewares.auth import get_current_user
+from core.logger import logger
 
 from .models import GroupOut, GroupCreate, GroupUpdate
 from .service import GroupService
 
-
 # --- Router Setup ---
-
 router = APIRouter(prefix="/groups", tags=["Groups"])
 
 
 @router.post("/", response_model=GroupOut, status_code=status.HTTP_201_CREATED)
 async def create_new_group(
-        group_data: GroupCreate,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
+    group_data: GroupCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     """
     Endpoint for creating a new training group.
@@ -32,7 +32,6 @@ async def create_new_group(
 
     service = GroupService(db)
 
-    # Validate that the group name is unique
     if service.get_group_by_name(group_data.name):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -44,8 +43,8 @@ async def create_new_group(
 
 @router.get("/", response_model=List[GroupOut])
 async def get_available_groups(
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     """
     Endpoint to retrieve group lists based on user context.
@@ -57,7 +56,6 @@ async def get_available_groups(
     if current_user.role == "admin":
         return service.get_all_groups()
 
-    # Ensure the user is actually assigned to a group before filtering
     if not current_user.group_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -70,14 +68,14 @@ async def get_available_groups(
 
 @router.patch("/{group_id}", response_model=GroupOut)
 async def update_existing_group(
-        group_id,
-        group_update: GroupUpdate,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
+    group_id: uuid.UUID,
+    group_update: GroupUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     """
     Endpoint to partially update group details.
-    Restriction: Authorized for Admins, or Trainers managing their own group.
+    Restriction: Authorized for Admins, or Trainers managing their own group context.
     """
     service = GroupService(db)
     db_group = service.get_group_by_id(group_id)
@@ -88,7 +86,6 @@ async def update_existing_group(
             detail="Group not found"
         )
 
-    # Authorization logic: Admins can update any; Trainers only their own
     is_admin = current_user.role == "admin"
     is_assigned_trainer = (current_user.role == "trainer" and current_user.group_id == group_id)
 
@@ -102,11 +99,11 @@ async def update_existing_group(
     return service.update_group(db_group, update_dict)
 
 
-@router.delete("/{group_id}")
+@router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_group(
-        group_id,
-        db: Session = Depends(get_db),
-        current_user=Depends(get_current_user)
+    group_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     """
     Endpoint for permanent group deletion.
@@ -128,4 +125,3 @@ async def remove_group(
         )
 
     service.delete_group(db_group)
-    return {"message": "Group deleted successfully"}

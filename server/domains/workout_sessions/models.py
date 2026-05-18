@@ -1,104 +1,87 @@
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional, Dict
-
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, func
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from typing import List, Optional
+from sqlalchemy import Column, Integer, Text, ForeignKey, DateTime
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, ConfigDict, field_validator
-
+from pydantic import BaseModel, ConfigDict
 from db.database import Base
 
-
-# --- Database Model ---
+# --- DATABASE MODELS ---
 
 class WorkoutSession(Base):
-    """
-    SQLAlchemy model representing a completed workout session.
-    Each session is linked to multiple ActivityLog entries, where each entry represents one set.
-    """
+    """Header record representing a fully executed and finalized workout session profile."""
     __tablename__ = "workout_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     template_id = Column(Integer, ForeignKey("workout_templates.id", ondelete="SET NULL"), nullable=True)
-
-    start_time = Column(DateTime(timezone=True), server_default=func.now())
-    end_time = Column(DateTime(timezone=True), server_default=func.now())
-
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     workout_summary = Column(Text, nullable=True)
-    actual_duration = Column(String, nullable=True)
-    notes = Column(Text, nullable=True)
+    actual_duration = Column(Text, nullable=True)
 
-    # Relationships
+    # Relational branches traversing nested performance tracking nodes
+    performed_sets = relationship("PerformedSet", back_populates="workout_session", cascade="all, delete-orphan")
     user = relationship("User")
     template = relationship("WorkoutTemplate")
-    # Links to individual sets (ActivityLogs)
-    logs = relationship("ActivityLog", back_populates="workout_session", cascade="all, delete-orphan")
 
 
-# --- Pydantic Schemas ---
+class PerformedSet(Base):
+    """Represents a single distinct set executed for an exercise during a session."""
+    __tablename__ = "performed_sets"
 
-class ParamValueSchema(BaseModel):
-    """Simplified parameter storage: only ID and Value."""
+    id = Column(Integer, primary_key=True, index=True)
+    workout_session_id = Column(Integer, ForeignKey("workout_sessions.id", ondelete="CASCADE"), nullable=False)
+    exercise_id = Column(Integer, ForeignKey("group_exercise_registry.id", ondelete="CASCADE"), nullable=False)
+    set_number = Column(Integer, nullable=False)
+
+    workout_session = relationship("WorkoutSession", back_populates="performed_sets")
+    exercise = relationship("GroupExerciseRegistry")
+    set_values = relationship("PerformedSetValue", back_populates="performed_set", cascade="all, delete-orphan")
+
+
+class PerformedSetValue(Base):
+    """Holds the specific, isolated metric log value produced during a single performed set."""
+    __tablename__ = "performed_set_values"
+
+    id = Column(Integer, primary_key=True, index=True)
+    performed_set_id = Column(Integer, ForeignKey("performed_sets.id", ondelete="CASCADE"), nullable=False)
+    parameter_id = Column(Integer, ForeignKey("parameters.id", ondelete="CASCADE"), nullable=False)
+    value = Column(Text, nullable=False)
+
+    performed_set = relationship("PerformedSet", back_populates="set_values")
+    parameter = relationship("Parameter")
+
+
+# --- PYDANTIC SCHEMAS ---
+
+class ParamValuePayload(BaseModel):
     parameter_id: int
     value: str
 
+class SetPerformancePayload(BaseModel):
+    set_number: int
+    metrics: List[ParamValuePayload]
 
-class PerformedExerciseSchema(BaseModel):
-    """Payload for an exercise containing multiple sets."""
+class ExercisePerformancePayload(BaseModel):
     exercise_id: int
-    # Each inner list represents one set: List[List[ParamValue]]
-    performance_data: List[List[ParamValueSchema]]
-
+    sets: List[SetPerformancePayload]
 
 class WorkoutSessionFinish(BaseModel):
-    """Payload to finalize a workout session."""
     template_id: Optional[int] = None
-    start_time: datetime  # ISO 8601 string from frontend (e.g., "2024-05-11T10:30:00Z")
+    start_time: datetime
     workout_summary: Optional[str] = None
     actual_duration: Optional[str] = None
-    performed_exercises: List[PerformedExerciseSchema]
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "template_id": 1,
-                "start_time": "2024-05-11T10:30:00Z",
-                "workout_summary": "Good session",
-                "actual_duration": "45 min",
-                "performed_exercises": []
-            }
-        }
-    )
-
-    @field_validator("start_time", mode="before")
-    @classmethod
-    def validate_start_time(cls, v):
-        """Ensure start_time is a proper datetime, converting from ISO string if needed."""
-        if isinstance(v, str):
-            # Parse ISO 8601 string
-            try:
-                dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
-                return dt
-            except ValueError:
-                raise ValueError(f"Invalid datetime format: {v}. Expected ISO 8601 format.")
-        elif isinstance(v, datetime):
-            return v
-        else:
-            raise ValueError(f"start_time must be a datetime or ISO string, got {type(v)}")
-
+    performed_exercises: List[ExercisePerformancePayload]
 
 class WorkoutSessionOut(BaseModel):
-    """Response schema for workout session metadata."""
     id: int
     user_id: uuid.UUID
     template_id: Optional[int]
-    template_name: Optional[str] = None
     start_time: datetime
-    end_time: Optional[datetime]
+    end_time: datetime
     workout_summary: Optional[str]
     actual_duration: Optional[str]
-    exercise_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
