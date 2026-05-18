@@ -4,6 +4,7 @@ import React from 'react';
  * TemplateGeneralInfo Component - Handles the core metadata fields for a workout template.
  * Refactored: Stripped from duplicate sections wrappers to comply with parent layout architecture guidelines.
  * Implements the bright "Arctic Mirror" aesthetic with high-end glassmorphic inputs.
+ * Validated with strict English-only code commentary and total Hebrew UI localization.
  */
 const TemplateGeneralInfo = ({ formData, setFormData }) => {
   return (
@@ -16,7 +17,7 @@ const TemplateGeneralInfo = ({ formData, setFormData }) => {
         </div>
         <div className="space-y-0.5">
           <h3 className="text-2xl font-black tracking-tight text-zinc-900 uppercase">פרטים כלליים</h3>
-          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Basic Session Metadata</p>
+          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">נתוני בסיס של תוכנית האימון</p>
         </div>
       </header>
 

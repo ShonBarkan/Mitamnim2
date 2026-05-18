@@ -5,41 +5,26 @@ import { ParameterContext } from '../../contexts/ParameterContext';
 import FrontendLogger from '../../utils/logger';
 
 /**
- * TemplateExerciseItem Component - The atomic exercise configuration node inside a workout program template.
- * Features an integrated real-time Arithmetic Engine to evaluate dynamic computed formula tracks.
+ * TemplateExerciseItem Component - Atomic ultra-compact exercise block node.
+ * Features inline parameter mapping arrays and automatic context dependency hydration updates.
+ * Enforces strict English-only code commentary and total Hebrew UI localization.
  */
 const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParams, onRemove }) => {
   const { parameters } = useContext(ParameterContext);
   const isInitialMount = useRef(true);
 
-  // O(1) high-speed lookup map context repository for parameters metadata rules
+  // O(1) caching map registry framework for structural parameter entities
   const metaMap = useMemo(() => {
     const map = new Map();
     parameters.forEach(p => map.set(Number(p.id), p));
     return map;
   }, [parameters]);
 
-  // Lifecycle trace engine listening on active exercise matrix alterations
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-    } else {
-      FrontendLogger.info('TEMPLATE_EXERCISE_ITEM', `Parameter matrix structural variations evaluated for index layout: ${index}`);
-    }
-  }, [item.params, index]);
-
-  // DnD-Kit sortable alignment tracking hook layout configuration
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({ id: `item-${index}-${item.exercise_id}` });
+  // Safe fallback to resolve the exercise name text string across variant schemas
+  const displayName = item.exercise_name || item.name || 'תרגיל ללא שם';
 
   /**
-   * Arithmetic Engine: Processes raw value streams into virtual evaluation scores on demand.
+   * Arithmetic Engine: Processes raw computation structures dynamically.
    */
   const runMath = useCallback((type, values, multiplier) => {
     const nums = values.map(v => parseFloat(v) || 0);
@@ -55,32 +40,77 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
   }, []);
 
   /**
-   * Value Change Handler: Triggered when an administrator alters a raw base input value.
-   * Automatically cascades computations row-by-row onto virtual target dependencies.
+   * Dynamic Pipeline Injector: Enforces fallback rules and verifies virtual parameters (e.g. Total Volume ID: 3)
    */
-  const handleValueChange = (pIdx, newValue) => {
-    const updatedParams = item.params.map((p, i) => 
-      i === pIdx ? { ...p, value: newValue } : { ...p }
-    );
+  const syncAndCalculateParameters = useCallback((currentParams) => {
+    let updated = [...currentParams];
+    const presentParamIds = updated.map(p => Number(p.parameter_id));
 
-    // Iteratively scan and re-evaluate each virtual parameter inside the block scope
-    updatedParams.forEach((p, idx) => {
-      const meta = metaMap.get(Number(p.parameter_id));
-      if (meta?.is_virtual) {
-        const sourceValues = (meta.source_parameter_ids || []).map(sId => {
-          const source = updatedParams.find(up => Number(up.parameter_id) === Number(sId));
-          return source ? source.value : 0;
-        });
+    // Ensure virtual parameters are forcefully appended if dependencies are verified (Reps 1 & Weight 2 -> Volume 3)
+    parameters.forEach(globalParam => {
+      if (globalParam.is_virtual && globalParam.depends_on_ids) {
+        const dependencyIds = globalParam.depends_on_ids.map(id => Number(id));
+        const hasAllDeps = dependencyIds.every(dId => presentParamIds.includes(dId));
+        const isAlreadyAppended = presentParamIds.includes(Number(globalParam.id));
 
-        const result = runMath(meta.calculation_type, sourceValues, meta.multiplier);
-        updatedParams[idx].value = result.toFixed(2).replace(/\.00$/, "");
+        if (hasAllDeps && !isAlreadyAppended) {
+          updated.push({
+            parameter_id: globalParam.id,
+            parameter_name: globalParam.name,
+            parameter_unit: globalParam.unit || '',
+            value: globalParam.default_value || '0',
+            is_virtual: true
+          });
+        }
       }
     });
 
-    onUpdateExerciseParams(index, updatedParams);
+    // Run cascade matrix recalculations across all active virtual models inside this list row scope
+    updated = updated.map((p, idx) => {
+      const meta = metaMap.get(Number(p.parameter_id));
+      if (meta?.is_virtual) {
+        const sourceValues = (meta.source_parameter_ids || []).map(sId => {
+          const source = updated.find(up => Number(up.parameter_id) === Number(sId));
+          return source ? source.value : 0;
+        });
+        const result = runMath(meta.calculation_type, sourceValues, meta.multiplier);
+        return { ...p, value: result.toFixed(2).replace(/\.00$/, "") };
+      }
+      return p;
+    });
+
+    return updated;
+  }, [parameters, metaMap, runMath]);
+
+  // Handle initialization hydration checks safely on initial layout mount triggers
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      const initialSyncedList = syncAndCalculateParameters(item.params);
+      
+      if (initialSyncedList.length !== item.params.length || initialSyncedList.some((p, i) => p.value != item.params[i]?.value)) {
+        onUpdateExerciseParams(index, initialSyncedList);
+      }
+    }
+  }, [item.params, index, syncAndCalculateParameters, onUpdateExerciseParams]);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: `item-${index}-${item.exercise_id}` });
+
+  const handleValueChange = (pIdx, newValue) => {
+    const rawUpdated = item.params.map((p, i) => 
+      i === pIdx ? { ...p, value: newValue } : { ...p }
+    );
+    const fullyCalculated = syncAndCalculateParameters(rawUpdated);
+    onUpdateExerciseParams(index, fullyCalculated);
   };
 
-  // Harmonize DnD physics matrices with premium transparent Arctic Mirror elements
   const sortableStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -91,97 +121,90 @@ const TemplateExerciseItem = ({ item, index, onUpdateSets, onUpdateExerciseParam
     <div 
       ref={setNodeRef} 
       style={sortableStyle} 
-      className={`relative bg-white/40 backdrop-blur-2xl border rounded-[2.5rem] p-8 flex flex-col gap-6 transition-all duration-300 ${
-        isDragging ? 'border-zinc-900/20 shadow-2xl scale-[1.02] bg-white/60' : 'border-white/60 shadow-sm'
+      className={`relative bg-white/40 backdrop-blur-xl border rounded-[1.5rem] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-300 ${
+        isDragging ? 'border-zinc-900/20 shadow-xl scale-[1.01] bg-white/60' : 'border-white/60 shadow-sm'
       }`}
       dir="rtl"
     >
-      
-      {/* Header Section: Exercise Drag Handle Title & Set Matrix Managers */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/40">
-        <div className="flex items-center gap-4">
-          <div 
-            {...attributes} 
-            {...listeners} 
-            className="cursor-grab text-zinc-300 hover:text-zinc-900 transition-colors p-2 active:cursor-grabbing"
-            title="גרור לשינוי סדר התרגילים"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-              <circle cx="9" cy="5" r="1" /> <circle cx="9" cy="12" r="1" /> <circle cx="9" cy="19" r="1" />
-              <circle cx="15" cy="5" r="1" /> <circle cx="15" cy="12" r="1" /> <circle cx="15" cy="19" r="1" />
-            </svg>
-          </div>
-          <h4 className="text-xl font-black text-zinc-900 tracking-tighter uppercase">
-            {item.exercise_name}
-          </h4>
+      {/* Right Grid Section: Drag Anchor + Exercise Identity + Set Allocator Input Box */}
+      <div className="flex items-center gap-3 shrink-0">
+        <div 
+          {...attributes} 
+          {...listeners} 
+          className="cursor-grab text-zinc-300 hover:text-zinc-900 p-1.5 active:cursor-grabbing"
+          title="גרור לשינוי סדר"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+            <circle cx="9" cy="5" r="1" /> <circle cx="9" cy="12" r="1" /> <circle cx="9" cy="19" r="1" />
+            <circle cx="15" cy="5" r="1" /> <circle cx="15" cy="12" r="1" /> <circle cx="15" cy="19" r="1" />
+          </svg>
         </div>
+        
+        {/* FIXED fallback validation parameters mapped cleanly here */}
+        <h4 className="text-sm font-black text-zinc-900 tracking-tight max-w-[180px] truncate" title={displayName}>
+          {displayName}
+        </h4>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 bg-white/50 backdrop-blur-md px-5 py-2 rounded-2xl border border-white/60 shadow-inner">
-            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">סטים:</span>
-            <input 
-              type="number"
-              min="1"
-              value={item.num_of_sets || 3}
-              onChange={(e) => onUpdateSets(index, parseInt(e.target.value) || 1)}
-              className="w-10 bg-transparent text-center font-black text-zinc-900 outline-none appearance-none"
-            />
-          </div>
-          <button 
-            type="button"
-            onClick={() => onRemove(index)}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all duration-300 active:scale-90"
-            title="הסר תרגיל מהתוכנית"
-          >
-            ✕
-          </button>
+        <div className="flex items-center gap-1.5 bg-white/60 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/80 shadow-inner mr-2">
+          <span className="text-[9px] font-black text-zinc-400 uppercase">סטים:</span>
+          <input 
+            type="number"
+            min="1"
+            value={item.num_of_sets || 3}
+            onChange={(e) => onUpdateSets(index, parseInt(e.target.value) || 1)}
+            className="w-7 bg-transparent text-center font-black text-xs text-zinc-900 outline-none"
+          />
         </div>
       </div>
 
-      {/* Parameters Logic Config Grid Area */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {item.params.map((param, pIdx) => {
-          const meta = metaMap.get(Number(param.parameter_id));
-          const isVirtual = meta?.is_virtual;
+      {/* Left Grid Section: Micro Rows for All Active Metrics + Delete Layout Action Triggers */}
+      <div className="flex items-center gap-4 flex-1 justify-end w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2 justify-end flex-1">
+          {item.params.map((param, pIdx) => {
+            const meta = metaMap.get(Number(param.parameter_id));
+            const isVirtual = meta?.is_virtual;
 
-          return (
-            <div 
-              key={`${param.parameter_id}-${pIdx}`}
-              className={`flex items-center justify-between p-5 rounded-[1.5rem] border transition-all duration-500 ${
-                isVirtual 
-                  ? 'bg-blue-600/5 border-blue-200/40 shadow-inner' 
-                  : 'bg-white/40 border-white/60'
-              }`}
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className={`text-[11px] font-black uppercase tracking-tight ${
-                  isVirtual ? 'text-blue-600' : 'text-zinc-500'
-                }`}>
-                  {param.parameter_name} ({param.parameter_unit || 'Value'})
+            return (
+              <div 
+                key={`${param.parameter_id}-${pIdx}`}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
+                  isVirtual 
+                    ? 'bg-blue-500/5 border-blue-200/30' 
+                    : 'bg-white/50 border-white/80 shadow-sm'
+                }`}
+              >
+                <span className={`text-[10px] font-black whitespace-nowrap ${isVirtual ? 'text-blue-600' : 'text-zinc-500'}`}>
+                  {param.parameter_name}:
                 </span>
-                {isVirtual && (
-                  <span className="text-[9px] font-bold text-blue-400/70 uppercase tracking-widest select-none">
-                    Calculated Matrix 🧬
+                
+                {isVirtual ? (
+                  <span className="text-xs font-black text-blue-600 font-mono select-none px-1 tabular-nums">
+                    {param.value || "0"} <span className="text-[8px] font-normal text-blue-400">{param.parameter_unit}</span>
                   </span>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <input 
+                      type="text"
+                      value={param.value}
+                      onChange={(e) => handleValueChange(pIdx, e.target.value)}
+                      className="w-12 p-0.5 text-center text-xs font-black text-zinc-900 bg-transparent border-b border-zinc-200 focus:border-zinc-900 outline-none font-mono"
+                    />
+                    <span className="text-[8px] font-bold text-zinc-400 select-none">{param.parameter_unit}</span>
+                  </div>
                 )}
               </div>
-              
-              {/* Virtual displays read-only targets; base parameters offer raw input boxes */}
-              {isVirtual ? (
-                <div className="text-lg font-black text-blue-600 bg-white/80 px-4 py-1.5 rounded-xl min-w-[70px] text-center shadow-sm font-mono">
-                  {param.value || "0"}
-                </div>
-              ) : (
-                <input 
-                  type="text"
-                  value={param.value}
-                  onChange={(e) => handleValueChange(pIdx, e.target.value)}
-                  className="w-20 p-2.5 rounded-xl bg-white border border-zinc-100 text-center font-black text-zinc-900 outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all shadow-sm font-mono"
-                />
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        <button 
+          type="button"
+          onClick={() => onRemove(index)}
+          className="w-7 h-7 shrink-0 flex items-center justify-center rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all duration-200 active:scale-90 text-xs"
+          title="הסר תרגיל"
+        >
+          ✕
+        </button>
       </div>
     </div>
   );

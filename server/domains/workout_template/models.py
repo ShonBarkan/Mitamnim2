@@ -50,12 +50,9 @@ class TemplateExerciseParameter(Base):
     """
     __tablename__ = "template_exercise_parameters"
 
-    # Adjusted to primary key layout to match physical schema without standalone auto-increment id column
     template_exercise_id = Column(Integer, ForeignKey("template_exercises.id", ondelete="CASCADE"), primary_key=True,
                                   nullable=False)
     parameter_id = Column(Integer, ForeignKey("parameters.id", ondelete="CASCADE"), primary_key=True, nullable=False)
-
-    # Mapped to physical column name 'value' found in your PostgreSQL schema while keeping code attribute names clean
     target_value = Column("value", Text, nullable=False)
 
     template_exercise = relationship("TemplateExercise", back_populates="parameter_values")
@@ -90,7 +87,9 @@ class ParamInExerciseSchema(BaseModel):
 
 
 class ExerciseInTemplateSchema(BaseModel):
-    exercise_id: int
+    # Field properties adjusted to Optional to allow clean processing of structural inline custom exercise assets
+    exercise_id: Optional[int] = None
+    exercise_name: Optional[str] = None
     num_of_sets: int
     params: List[ParamInExerciseSchema]
 

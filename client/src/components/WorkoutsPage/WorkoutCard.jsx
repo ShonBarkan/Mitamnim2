@@ -1,43 +1,53 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * WorkoutCard Component - Visualizes specific training routine layout summaries.
  * Styled with premium bright "Arctic Mirror" glassmorphism variables.
- * Allocated strictly within the components/WorkoutsPage scope boundary.
+ * Enforces strict English-only code commentary and total Hebrew UI localization.
  */
-const WorkoutCard = ({ template, onEdit, onDelete, onStart, isTrainer }) => {
-  const { name, description, expected_duration_time, exercises_config, scheduled_days } = template;
+const WorkoutCard = ({ template, onDelete, onStart, isTrainer }) => {
+  const navigate = useNavigate();
+  const { id, name, description, expected_duration_time, template_exercises, scheduled_days } = template;
   const daysOfWeek = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
-  const exercises = exercises_config || [];
+  const exercises = template_exercises || [];
+
+  /**
+   * Routes the user to the central architecture studio view, passing the complete 
+   * template record entity framework state down via the router state context metadata channel.
+   */
+  const handleEditRedirect = () => {
+    navigate('/create-workout-templates', { state: { template } });
+  };
 
   return (
     <div className="bg-white/40 backdrop-blur-2xl rounded-[2.5rem] border border-white/60 p-8 shadow-xl shadow-zinc-200/50 flex flex-col gap-6 transition-all duration-300 hover:scale-[1.02] hover:bg-white/60 group" dir="rtl">
       
       {/* Upper Information Layer Layout */}
-      <div className="flex justify-between items-start gap-4">
+      <div className="flex justify-between items-start gap-4 select-none">
         <h3 className="text-xl font-black text-zinc-900 tracking-tighter uppercase leading-tight">
           {name}
         </h3>
         <div className="bg-zinc-900 text-white px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest flex-shrink-0">
-          {expected_duration_time || '--'} MIN
+          {expected_duration_time || '--'} דקות
         </div>
       </div>
 
       {/* Description String Frame */}
       <p className="text-zinc-500 font-medium text-sm leading-relaxed line-clamp-2 min-h-[40px]">
-        {description || 'No routine definitions described for this athletic configuration profile.'}
+        {description || 'לא הוזנו דגשים או הגדרות מערכת עבור תוכנית אימון זו.'}
       </p>
 
       {/* Meta Structural Configuration Chips */}
-      <div className="flex flex-wrap gap-2 mt-auto">
+      <div className="flex flex-wrap gap-2 mt-auto select-none">
         <div className="bg-white/50 border border-white px-4 py-1.5 rounded-full text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-          {exercises.length} Exercises
+          {exercises.length} תרגילים
         </div>
         
         {scheduled_days?.length > 0 && (
           <div className="bg-blue-600/10 border border-blue-200 px-4 py-1.5 rounded-full text-[10px] font-black text-blue-600 uppercase tracking-widest">
-            Days: {scheduled_days.map(d => daysOfWeek[d]).join(', ')}
+            ימים: {scheduled_days.map(d => daysOfWeek[d]).join(', ')}
           </div>
         )}
       </div>
@@ -55,15 +65,15 @@ const WorkoutCard = ({ template, onEdit, onDelete, onStart, isTrainer }) => {
         {isTrainer && (
           <>
             <button 
-              type="button"
-              onClick={() => onEdit(template)}
+              type="button" 
+              onClick={handleEditRedirect}
               className="flex-1 bg-white/60 text-zinc-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-white/80 hover:bg-white transition-all active:scale-95"
             >
               ערוך
             </button>
             <button 
               type="button"
-              onClick={() => onDelete(template.id)}
+              onClick={() => onDelete(id)}
               className="w-14 h-14 flex items-center justify-center bg-rose-50 text-rose-500 rounded-2xl border border-rose-100 hover:bg-rose-500 hover:text-white transition-all active:scale-95 shadow-sm"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

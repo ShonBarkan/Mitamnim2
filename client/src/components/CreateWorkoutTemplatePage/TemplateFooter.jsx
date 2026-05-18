@@ -2,7 +2,8 @@ import React from 'react';
 
 /**
  * TemplateFooter Component - The administrative floating action bar for template management.
- * Implements a sticky bottom Glassmorphism bar with premium Arctic Mirror layout styling.
+ * Implements a sticky bottom Glassmorphic bar with premium Arctic Mirror layout styling.
+ * Enforces strict English-only code commentary and total Hebrew UI localization.
  */
 const TemplateFooter = ({ onCancel }) => {
   return (

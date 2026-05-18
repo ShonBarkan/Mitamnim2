@@ -14,7 +14,6 @@ from domains.groups.models import Group
 from domains.parameters.models import Parameter
 from domains.exercises.models import GroupExerciseRegistry
 from domains.workout_sessions.models import WorkoutSession, PerformedSet, PerformedSetValue
-# Explicitly import WorkoutTemplate to prevent SQLAlchemy mapper name resolution crashes
 from domains.workout_template.models import WorkoutTemplate
 from core.logger import logger
 
@@ -56,8 +55,8 @@ def seed_system_mock_data():
             username="admin",
             password=shared_password_hash,
             role="admin",
-            first_name="System",
-            second_name="Administrator",
+            first_name="מנהל",
+            second_name="מערכת",
             email="admin@mitamnim.com",
             profile_picture=f"https://picsum.photos/150/150?random={uuid.uuid4()}",
             group_id=None
@@ -68,7 +67,7 @@ def seed_system_mock_data():
         # 3. Spawn Core Training Group (Exactly 1 Group)
         mock_group = Group(
             id=uuid.uuid4(),
-            name="Iron Warriors Elite",
+            name="לוחמי ברזל עלית",
             group_image=f"https://picsum.photos/800/400?random={random.randint(100, 999)}"
         )
         db.add(mock_group)
@@ -77,14 +76,16 @@ def seed_system_mock_data():
 
         # 4. Spawn Trainers attached to the Group (Exactly 2 Trainers)
         trainers = []
+        trainer_names = [("מאמן", "ראשי"), ("עוזר", "מאמן")]
         for i in range(1, 3):
+            f_name, s_name = trainer_names[i - 1]
             trainer_node = User(
                 id=uuid.uuid4(),
                 username=f"t{i}",
                 password=shared_password_hash,
                 role="trainer",
-                first_name=f"Coach",
-                second_name=f"Alpha {i}",
+                first_name=f_name,
+                second_name=f"{s_name} {i}",
                 email=f"trainer{i}@mitamnim.com",
                 profile_picture=f"https://picsum.photos/150/150?random=trainer_{i}",
                 group_id=mock_group.id
@@ -96,14 +97,16 @@ def seed_system_mock_data():
 
         # 5. Spawn Trainees inside the Group (Exactly 3 Trainees distributed across the trainers)
         trainees = []
+        trainee_names = [("ספורטאי", "א"), ("ספורטאי", "ב"), ("ספורטאי", "ג")]
         for trainee_counter in range(1, 4):
+            f_name, s_name = trainee_names[trainee_counter - 1]
             trainee_node = User(
                 id=uuid.uuid4(),
                 username=f"{trainee_counter}",
                 password=shared_password_hash,
                 role="trainee",
-                first_name=f"Athlete",
-                second_name=f"Number-{trainee_counter}",
+                first_name=f_name,
+                second_name=s_name,
                 email=f"trainee{trainee_counter}@mitamnim.com",
                 profile_picture=f"https://picsum.photos/150/150?random=trainee_{trainee_counter}",
                 group_id=mock_group.id
@@ -115,15 +118,15 @@ def seed_system_mock_data():
 
         # 6. Spawn Base Logging Parameters (Reps and Weight)
         reps_param = Parameter(
-            name="Reps",
-            unit="reps",
+            name="חזרות",
+            unit="חזרות",
             group_id=mock_group.id,
             aggregation_strategy="sum",
             is_virtual=False
         )
         weight_param = Parameter(
-            name="Weight",
-            unit="kg",
+            name="משקל",
+            unit="ק\"ג",
             group_id=mock_group.id,
             aggregation_strategy="max",
             is_virtual=False
@@ -136,8 +139,8 @@ def seed_system_mock_data():
 
         # 7. Spawn Advanced Virtual Computed Parameter (Total Volume = Weight * Reps)
         total_volume_param = Parameter(
-            name="Total Volume",
-            unit="kg",
+            name="נפח כולל",
+            unit="ק\"ג",
             group_id=mock_group.id,
             aggregation_strategy="sum",
             is_virtual=True,

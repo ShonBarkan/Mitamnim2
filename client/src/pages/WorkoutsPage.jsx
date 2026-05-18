@@ -23,11 +23,12 @@ const WorkoutsPage = () => {
   }, [fetchTemplates]);
 
   /**
-   * Routes the user to a dedicated creation path.
+   * Routes the user to a dedicated creation path matching the current App configuration.
    */
   const handleCreateNewTemplate = () => {
     FrontendLogger.info('WORKOUTS_PAGE', 'Navigating to dedicated create workout template route path');
-    navigate('/workouts/create');
+    // FIXED: Router sync parameter mismatch resolved to target the original app state bounds
+    navigate('/create-workout-templates');
   };
 
   /**

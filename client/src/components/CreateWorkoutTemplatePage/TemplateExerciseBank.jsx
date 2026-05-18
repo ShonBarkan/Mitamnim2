@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { ParameterContext } from '../../contexts/ParameterContext'; 
 import { useToast } from '../../contexts/ToastContext';
 import FrontendLogger from '../../utils/logger';
@@ -7,6 +7,7 @@ import FrontendLogger from '../../utils/logger';
  * TemplateExerciseBank Component - Renders available flat registry exercises.
  * Modified: Custom exercises are injected locally with a temp ID and passed up via onAdd.
  * Persisting to global database happens only when the main template form is saved.
+ * Enforces strict English-only code commentary and total Hebrew UI localization.
  */
 const TemplateExerciseBank = ({ loading, availableExercises = [], onAdd }) => {
   const { parameters } = useContext(ParameterContext);
@@ -41,7 +42,7 @@ const TemplateExerciseBank = ({ loading, availableExercises = [], onAdd }) => {
       return;
     }
     if (selectedParamIds.length === 0) {
-      showToast("יש לבחור לפחות פרמטר מדידה אחד לרישום", "warning");
+      showToast("יש לבחור לפחות פרמטר מעקב אחד לרישום", "warning");
       return;
     }
 
@@ -56,7 +57,7 @@ const TemplateExerciseBank = ({ loading, availableExercises = [], onAdd }) => {
     // Forward the compiled custom structure to the parent builder config memory
     onAdd(customLocalExercise);
     
-    showToast(`${newExerciseName} נוסף זמנית למבנה האימון`, "success");
+    showToast(`${newExerciseName} נוסף זמנית למבנה האימונים`, "success");
     
     // Clear local tracking wizard controls
     setNewExerciseName('');
@@ -73,12 +74,12 @@ const TemplateExerciseBank = ({ loading, availableExercises = [], onAdd }) => {
     <div className="bg-white/30 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] p-8 shadow-inner space-y-6">
       
       {/* Dynamic Sub-header layout block with setup context toggles */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mr-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mr-2 select-none">
         <div className="space-y-0.5">
           <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-400">
             בנק תרגילים זמינים (לחץ להוספה):
           </h4>
-          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Global Flat Registry Stock Pool</p>
+          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">מאגר התרגילים הכללי של הקבוצה</p>
         </div>
         
         <button
@@ -90,21 +91,21 @@ const TemplateExerciseBank = ({ loading, availableExercises = [], onAdd }) => {
               : 'bg-white text-zinc-900 border border-zinc-100 hover:bg-zinc-50'
           }`}
         >
-          {isCreating ? '✕ סגור טופס' : '＋ תרגיל חדש באימון'}
+          {isCreating ? '✕ סגור טופס' : '＋ תרגיל מותאם אישית'}
         </button>
       </div>
 
       {/* --- EXPANDABLE INLINE CREATOR WORKSPACE PANEL --- */}
       {isCreating && (
         <div className="bg-white/50 backdrop-blur-2xl border border-white/80 rounded-3xl p-6 shadow-md animate-in fade-in slide-in-from-top-4 duration-500 space-y-6">
-          <div className="space-y-1">
+          <div className="space-y-1 select-none">
             <h5 className="text-base font-black text-zinc-900 tracking-tight">הגדרת תרגיל זמני לאימון זה</h5>
-            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Compile New Template-Specific Exercise</p>
+            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">יצירת תרגיל נקודתי שישמר במאגר בסיום בניית התוכנית</p>
           </div>
 
           <div className="grid grid-cols-1 gap-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שם התרגיל</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2 select-none">שם התרגיל</label>
               <input 
                 type="text"
                 placeholder="למשל: לחיצת כתפיים בישיבה עם משקולות"
@@ -115,9 +116,9 @@ const TemplateExerciseBank = ({ loading, availableExercises = [], onAdd }) => {
             </div>
 
             <div className="space-y-3">
-              <div className="space-y-0.5 mr-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">פרמטרי מדידה לרישום</label>
-                <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Assign Active Tracking Parameters (Non-Virtual Only)</p>
+              <div className="space-y-0.5 mr-2 select-none">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">פרמטרי מעקב ומדידה לרישום</label>
+                <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">בחר את מדדי הבסיס הגולמיים (מדדים מחושבים יתווספו אוטומטית במידת הצורך)</p>
               </div>
               
               <div className="flex flex-wrap gap-2.5 p-1">
@@ -159,9 +160,9 @@ const TemplateExerciseBank = ({ loading, availableExercises = [], onAdd }) => {
 
       {/* --- STANDARD HORIZONTAL EXERCISE CHIPS CAROUSEL --- */}
       {loading ? (
-        <div className="flex items-center gap-3 py-6 px-4">
+        <div className="flex items-center gap-3 py-6 px-4 select-none">
           <div className="w-5 h-5 border-2 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
-          <p className="text-zinc-400 font-black tracking-widest uppercase text-[10px]">Loading Global Registry Pool...</p>
+          <p className="text-zinc-400 font-black tracking-widest uppercase text-[10px]">טוען את מאגר התרגילים הגלובלי...</p>
         </div>
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-4 pt-1 pr-1 pl-2 scrollbar-hide snap-x min-h-[70px]">
@@ -182,8 +183,8 @@ const TemplateExerciseBank = ({ loading, availableExercises = [], onAdd }) => {
           ))}
 
           {availableExercises.length === 0 && !isCreating && (
-            <div className="w-full py-6 px-6 bg-white/10 rounded-2xl border-2 border-dashed border-white/40 text-center">
-              <p className="text-zinc-400 font-black text-xs tracking-wide uppercase italic">מאגר התרגילים הגלובלי ריק כעת. לחץ על הכפתור למעלה כדי ליצור תרגיל.</p>
+            <div className="w-full py-6 px-6 bg-white/10 rounded-2xl border-2 border-dashed border-white/40 text-center select-none">
+              <p className="text-zinc-400 font-black text-xs tracking-wide uppercase italic">מאגר התרגילים הכללי ריק כעת. לחץ על הכפתור למעלה כדי להגדיר תרגיל חדש.</p>
             </div>
           )}
         </div>

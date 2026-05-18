@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 /**
  * TemplateScheduling Component - Configures workout timing and weekly frequency.
+ * Features automated global defaults hydration and bulk selection utility toggles.
  * Implements the bright "Arctic Mirror" aesthetic with high-end glassmorphic fields.
+ * Validated with strict English-only code commentary and total Hebrew UI localization.
  */
 const TemplateScheduling = ({ 
   scheduledDays = [], 
@@ -22,6 +24,16 @@ const TemplateScheduling = ({
     { label: 'ש', value: 6 }
   ];
 
+  const isInitialSync = useRef(true);
+
+  // Automatically select all days by default during the initial creation lifecycle step
+  useEffect(() => {
+    if (scheduledDays.length === 0 && isInitialSync.current) {
+      onDaysChange(days.map(d => d.value));
+    }
+    isInitialSync.current = false;
+  }, [scheduledDays, onDaysChange]);
+
   /**
    * Toggles the selection of a specific day and ensures the array remains strictly sorted.
    */
@@ -33,14 +45,43 @@ const TemplateScheduling = ({
     }
   };
 
+  const handleSelectAll = () => {
+    onDaysChange(days.map(d => d.value));
+  };
+
+  const handleClearAll = () => {
+    onDaysChange([]);
+  };
+
   return (
     <div className="flex flex-col gap-10" dir="rtl">
       
       {/* Day Selection Logic Badge Matrix */}
       <div className="space-y-4">
-        <label className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mr-2">
-          ימי אימון מיועדים:
-        </label>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mr-2 select-none">
+          <label className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">
+            ימי אימון מיועדים:
+          </label>
+          
+          {/* Bulk Action Toggle Managers */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleSelectAll}
+              className="px-3 py-1.5 bg-zinc-900 text-white rounded-lg font-black text-[9px] uppercase tracking-wider active:scale-95 transition-all shadow-sm"
+            >
+              בחר הכל
+            </button>
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="px-3 py-1.5 bg-white/60 text-zinc-400 hover:text-zinc-900 border border-white/80 rounded-lg font-black text-[9px] uppercase tracking-wider active:scale-95 transition-all shadow-sm"
+            >
+              נקה הכל
+            </button>
+          </div>
+        </div>
+
         <div className="flex flex-wrap gap-3">
           {days.map(day => {
             const isSelected = scheduledDays.includes(day.value);
@@ -78,7 +119,7 @@ const TemplateScheduling = ({
               className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-lg font-black text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all text-center placeholder:text-zinc-300"
               placeholder="45"
             />
-            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300 uppercase select-none pointer-events-none">Min</span>
+            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300 uppercase select-none pointer-events-none">דקות</span>
           </div>
         </div>
 
@@ -94,7 +135,7 @@ const TemplateScheduling = ({
               onChange={(e) => onHourChange(e.target.value)}
               className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-lg font-black text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all text-center appearance-none"
             />
-            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300 uppercase select-none pointer-events-none">Hour</span>
+            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300 uppercase select-none pointer-events-none">שעה</span>
           </div>
         </div>
         
