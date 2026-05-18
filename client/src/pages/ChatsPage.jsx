@@ -3,6 +3,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import { MessageContext } from '../contexts/MessageContext';
 import { SocketContext } from '../contexts/SocketContext';
 import MessageFeed from '../components/MessageFeed';
+import FrontendLogger from '../utils/logger';
 
 /**
  * ChatsPage Component - The real-time messaging communications center.
@@ -13,7 +14,7 @@ const ChatsPage = () => {
   const { user } = useContext(AuthContext);
   const { isConnected } = useContext(SocketContext);
   const { 
-    contacts, 
+    contacts = [], 
     fetchContacts, 
     fetchHistory, 
     loadingStates 
@@ -23,12 +24,14 @@ const ChatsPage = () => {
 
   // Initial lookup execution to pull conversational group contacts
   useEffect(() => {
+    FrontendLogger.info('CHATS_PAGE', 'Initializing real-time communication channel networks and contacts sync');
     fetchContacts();
   }, [fetchContacts]);
 
   // Automated UX Guard: Auto-selects chat target if only one contact structure exists
   useEffect(() => {
     if (contacts.length === 1 && !selectedContact) {
+      FrontendLogger.info('CHATS_PAGE', `Automated single contact channel selection captured for user ID: ${contacts[0].id}`);
       setSelectedContact(contacts[0]);
     }
   }, [contacts, selectedContact]);
@@ -36,9 +39,16 @@ const ChatsPage = () => {
   // Side-effect handler to refresh historical message packet arrays upon contact switch
   useEffect(() => {
     if (selectedContact) {
+      FrontendLogger.info('CHATS_PAGE', `Shifting conversation thread vector pipeline focus to user ID: ${selectedContact.id}`);
       fetchHistory(selectedContact.id);
     }
   }, [selectedContact, fetchHistory]);
+
+  const handleContactClick = (contact) => {
+    if (selectedContact?.id !== contact.id) {
+      setSelectedContact(contact);
+    }
+  };
 
   return (
     <div className="flex h-[calc(100vh-140px)] font-sans gap-8 p-2 max-w-[1700px] mx-auto overflow-hidden" dir="rtl">
@@ -48,16 +58,16 @@ const ChatsPage = () => {
         
         {/* Sidebar Status Control Header */}
         <div className="p-6 border-b border-white/40 bg-white/10 flex flex-col gap-2">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mr-1">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mr-1 select-none">
             Conversations
           </h2>
           
           {/* Socket Lifecycle Connection Monitor */}
-          <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-xl border border-white w-fit shadow-sm">
+          <div className="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-xl border border-white w-fit shadow-sm select-none">
             <div className={`w-2 h-2 rounded-full shadow-sm ${
               isConnected 
                 ? 'bg-emerald-500 shadow-emerald-500/50 animate-pulse' 
-                : 'bg-rose-500 shadow-rose-500/50 animate-ping'
+                : 'bg-rose-500 shadow-rose-500/50'
             }`} />
             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-wider tabular-nums">
               {isConnected ? 'Connected Stream' : 'Connecting Engine...'}
@@ -65,30 +75,30 @@ const ChatsPage = () => {
           </div>
         </div>
 
-        {/* Scrollable Contacts Roster view */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide">
-          {loadingStates.contacts ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-2">
+        {/* Scrollable Contacts Roster View */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide pr-1">
+          {loadingStates?.contacts ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2 select-none">
               <div className="w-5 h-5 border-2 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
               <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Syncing Contacts...</p>
             </div>
           ) : contacts.length === 0 ? (
-            <p className="text-center text-xs font-bold text-zinc-400 italic py-12">No communication nodes allocated</p>
+            <p className="text-center text-xs font-black text-zinc-400 italic py-12 uppercase tracking-wide select-none">No active channels allocated</p>
           ) : (
             contacts.map((contact) => {
               const isSelected = selectedContact?.id === contact.id;
               return (
                 <div 
                   key={contact.id}
-                  onClick={() => setSelectedContact(contact)}
-                  className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-300 group ${
+                  onClick={() => handleContactClick(contact)}
+                  className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-300 active:scale-[0.98] group ${
                     isSelected 
                       ? 'bg-zinc-900 text-white shadow-xl shadow-zinc-900/20' 
                       : 'text-zinc-500 hover:bg-white/60 hover:text-zinc-900'
                   }`}
                 >
                   {/* Avatar Profile Context Node with fallback initials renderer */}
-                  <div className="relative shrink-0">
+                  <div className="relative shrink-0 select-none">
                     {contact.profile_picture ? (
                       <img 
                         src={contact.profile_picture} 
@@ -98,18 +108,18 @@ const ChatsPage = () => {
                         alt="" 
                       />
                     ) : (
-                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xs font-black uppercase shadow-sm border ${
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xs font-black uppercase shadow-sm border font-mono ${
                         isSelected 
                           ? 'bg-white/10 border-white/20 text-white' 
                           : 'bg-zinc-900 text-white border-zinc-900'
                       }`}>
-                        {contact.first_name?.[0]}{contact.second_name?.[0]}
+                        {(contact.first_name?.[0] || '') + (contact.second_name?.[0] || '')}
                       </div>
                     )}
                   </div>
 
                   {/* Structural Identity Metadata Labels */}
-                  <div className="flex flex-col overflow-hidden text-right">
+                  <div className="flex flex-col overflow-hidden text-right min-w-0">
                     <span className={`text-sm font-black tracking-tight truncate ${isSelected ? 'text-white' : 'text-zinc-900'}`}>
                       {contact.full_name || `${contact.first_name} ${contact.second_name}`}
                     </span>
@@ -137,8 +147,8 @@ const ChatsPage = () => {
             />
           </div>
         ) : (
-          <div className="flex flex-col flex-1 items-center justify-center text-center p-8 space-y-4 animate-in zoom-in-95 duration-700">
-            <div className="text-6xl p-6 bg-white/40 border border-white/80 rounded-[2rem] shadow-sm transform hover:scale-110 transition-transform duration-500">
+          <div className="flex flex-col flex-1 items-center justify-center text-center p-8 space-y-4 animate-in zoom-in-95 duration-700 select-none pointer-events-none">
+            <div className="text-6xl p-6 bg-white/40 border border-white/80 rounded-[2rem] shadow-sm transform hover:scale-105 transition-transform duration-500">
               💬
             </div>
             <div className="space-y-1">
