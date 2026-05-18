@@ -1,226 +1,143 @@
 import React, { createContext, useState, useCallback, useContext } from 'react';
-import statsEngineService from '../services/statsEngineService';
 import dashboardConfigService from '../services/dashboardConfigService';
-import { initialData } from '../mock/mockData';
+import statsService from '../services/statsService';
+import FrontendLogger from '../utils/logger';
 
 export const StatsContext = createContext();
 
-const IS_DEV = process.env.NODE_ENV === 'development';
-
 export const StatsProvider = ({ children }) => {
-    const [dashboardConfigs, setDashboardConfigs] = useState([]);
-    const [loading, setLoading] = useState(false);
+  const [dashboardConfigs, setDashboardConfigs] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-    /**
-     * Helper to manage local storage for Dev mode
-     */
-    const getMockDb = useCallback(() => {
-        const data = localStorage.getItem('mitamnim2_db');
-        if (!data) {
-            localStorage.setItem('mitamnim2_db', JSON.stringify(initialData));
-            return initialData;
-        }
-        return JSON.parse(data);
-    }, []);
+  /**
+   * Synchronizes group dashboard visualization configurations.
+   */
+  const refreshAllConfigs = useCallback(async () => {
+    setLoading(true);
+    try {
+      FrontendLogger.info('STATS_CONTEXT', 'Synchronizing leaderboard metrics dashboard configurations');
+      const data = await dashboardConfigService.getConfigs();
+      setDashboardConfigs(data);
+      FrontendLogger.info('STATS_CONTEXT', `Successfully loaded ${data.length} active layout config rules`);
+    } catch (error) {
+      FrontendLogger.error('STATS_CONTEXT', 'Failed to synchronize dashboard configuration matrix portfolio', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    const saveMockDb = (db) => {
-        localStorage.setItem('mitamnim2_db', JSON.stringify(db));
-    };
+  /**
+   * Registers a brand new dashboard visibility display rule.
+   */
+  const addDashboardConfig = useCallback(async (configData) => {
+    try {
+      FrontendLogger.info('STATS_CONTEXT', 'Registering new metric track rule blueprint on public board', configData);
+      const newConfig = await dashboardConfigService.createConfig(configData);
+      
+      setDashboardConfigs(prev => [...prev, newConfig]);
+      FrontendLogger.info('STATS_CONTEXT', 'Leaderboard tracking rule successfully allocated inside state layouts', newConfig);
+      return newConfig;
+    } catch (error) {
+      FrontendLogger.error('STATS_CONTEXT', 'Failed to append metric layout configuration boundary rule', error);
+      throw error;
+    }
+  }, []);
 
-    /**
-     * Synchronizes dashboard configurations.
-     */
-    const refreshAllConfigs = useCallback(async () => {
-        setLoading(true);
-        try {
-            if (IS_DEV) {
-                await new Promise(resolve => setTimeout(resolve, 300));
-                const db = getMockDb();
-                setDashboardConfigs(db.stats_dashboard_config || []);
-            } else {
-                const response = await dashboardConfigService.getConfigs();
-                setDashboardConfigs(response.data || response);
-            }
-        } catch (error) {
-            console.error("StatsContext: Sync failed", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [getMockDb]);
+  /**
+   * Updates display rules or priority sequences for an existing configuration item.
+   */
+  const updateDashboardConfig = useCallback(async (id, updateData) => {
+    try {
+      FrontendLogger.info('STATS_CONTEXT', `Mutating layout behavior attributes for configuration node id: ${id}`, updateData);
+      const updated = await dashboardConfigService.updateConfig(id, updateData);
 
-    /**
-     * Registers a new dashboard display rule.
-     */
-    const addDashboardConfig = useCallback(async (data) => {
-        try {
-            if (IS_DEV) {
-                const db = getMockDb();
-                const newConfig = { ...data, id: Math.floor(Math.random() * 1000) };
-                if (!db.stats_dashboard_config) db.stats_dashboard_config = [];
-                db.stats_dashboard_config.push(newConfig);
-                saveMockDb(db);
-                setDashboardConfigs(prev => [...prev, newConfig]);
-                return newConfig;
-            } else {
-                const response = await dashboardConfigService.createConfig(data);
-                const newConfig = response.data || response;
-                setDashboardConfigs(prev => [...prev, newConfig]);
-                return newConfig;
-            }
-        } catch (error) {
-            console.error("StatsContext: Add dashboard config failed", error);
-            throw error;
-        }
-    }, [getMockDb]);
+      setDashboardConfigs(prev => 
+        prev.map(config => config.id === id ? updated : config)
+      );
+      FrontendLogger.info('STATS_CONTEXT', `Configuration block id: ${id} successfully synced across UI frameworks`);
+      return updated;
+    } catch (error) {
+      FrontendLogger.error('STATS_CONTEXT', `Failed to mutate dashboard display config validation rule target id: ${id}`, error);
+      throw error;
+    }
+  }, []);
 
-    /**
-     * Updates an existing dashboard configuration.
-     */
-    const updateDashboardConfig = useCallback(async (id, data) => {
-        try {
-            let updated;
-            if (IS_DEV) {
-                const db = getMockDb();
-                const index = db.stats_dashboard_config.findIndex(c => c.id === id);
-                if (index !== -1) {
-                    db.stats_dashboard_config[index] = { ...db.stats_dashboard_config[index], ...data };
-                    updated = db.stats_dashboard_config[index];
-                    saveMockDb(db);
-                }
-            } else {
-                const response = await dashboardConfigService.updateConfig(id, data);
-                updated = response.data || response;
-            }
+  /**
+   * Removes a tracking metric configuration row from the leaderboard pool.
+   */
+  const removeDashboardConfig = useCallback(async (id) => {
+    try {
+      FrontendLogger.info('STATS_CONTEXT', `Evicting tracking rule blueprint node id: ${id} from layout array boundaries`);
+      await dashboardConfigService.removeConfig(id);
+      
+      setDashboardConfigs(prev => prev.filter(d => d.id !== id));
+      FrontendLogger.info('STATS_CONTEXT', `Layout rule id: ${id} completely dropped from tracking memory bounds`);
+    } catch (error) {
+      FrontendLogger.error('STATS_CONTEXT', `Failed to execute absolute destruction chain for dashboard rule id: ${id}`, error);
+      throw error;
+    }
+  }, []);
 
-            setDashboardConfigs(prev => 
-                prev.map(config => config.id === id ? updated : config)
-            );
-            return updated;
-        } catch (error) {
-            console.error("StatsContext: Update dashboard config failed", error);
-            throw error;
-        }
-    }, [getMockDb]);
+  /**
+   * Extends direct request streams to pull personal chronological analysis metrics blocks.
+   */
+  const fetchPersonalStats = useCallback(async (startDate, endDate) => {
+    setLoading(true);
+    try {
+      FrontendLogger.info('STATS_CONTEXT', 'Requesting personal dried analytics metrics streams timeline array', { startDate, endDate });
+      const data = await statsService.getPersonalStats(startDate, endDate);
+      return data;
+    } catch (error) {
+      FrontendLogger.error('STATS_CONTEXT', 'Failed to catch clean personal chronological data blocks', error);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    /**
-     * Removes an item from the dashboard configuration.
-     */
-    const removeDashboardConfig = useCallback(async (id) => {
-        try {
-            if (IS_DEV) {
-                const db = getMockDb();
-                db.stats_dashboard_config = db.stats_dashboard_config.filter(d => d.id !== id);
-                saveMockDb(db);
-            } else {
-                await dashboardConfigService.removeConfig(id);
-            }
-            setDashboardConfigs(prev => prev.filter(d => d.id !== id));
-        } catch (error) {
-            console.error("StatsContext: Remove dashboard config failed", error);
-            throw error;
-        }
-    }, [getMockDb]);
+  /**
+   * Extracts combined panoramic surveillance metrics matrices across the entire group roster.
+   */
+  const fetchGroupPanoramicStats = useCallback(async (startDate, endDate) => {
+    setLoading(true);
+    try {
+      FrontendLogger.info('STATS_CONTEXT', 'Requesting panoramic multi-user team visualization overview arrays', { startDate, endDate });
+      const data = await statsService.getGroupPanoramicStats(startDate, endDate);
+      return data;
+    } catch (error) {
+      FrontendLogger.error('STATS_CONTEXT', 'Failed to compute panoramic analytical data array frameworks', error);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    /**
-     * Fetches consolidated user performance overview.
-     * In Dev: Mocks data based on activity_logs.
-     */
-    const fetchUserOverview = useCallback(async (targetUserId = null) => {
-        setLoading(true);
-        try {
-            if (IS_DEV) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-                const db = getMockDb();
-                const userLogs = db.activity_logs.filter(log => !targetUserId || log.user_id === targetUserId);
-                
-                return {
-                    total_workouts: new Set(userLogs.map(l => l.session_id)).size,
-                    total_sets: userLogs.length,
-                    personal_records_count: 5, // Mocked value
-                    recent_activity: userLogs.slice(0, 10)
-                };
-            } else {
-                const response = await statsEngineService.getUserOverview(targetUserId);
-                return response.data || response;
-            }
-        } catch (error) {
-            console.error("StatsContext: Fetch user overview failed", error);
-            return null;
-        } finally {
-            setLoading(false);
-        }
-    }, [getMockDb]);
-
-    /**
-     * Fetches trends for a specific exercise name.
-     */
-    const fetchPersonalStats = useCallback(async (exerciseName, targetUserId = null) => {
-        try {
-            if (IS_DEV) {
-                const db = getMockDb();
-                return db.activity_logs.filter(log => 
-                    log.exercise_name === exerciseName && (!targetUserId || log.user_id === targetUserId)
-                );
-            } else {
-                const response = await statsEngineService.getPersonalHistory(exerciseName, targetUserId);
-                return response.data || response;
-            }
-        } catch (error) {
-            console.error("StatsContext: Fetch personal stats failed", error);
-            return [];
-        }
-    }, [getMockDb]);
-
-    /**
-     * Fetches group-wide rankings.
-     */
-    const fetchGroupLeaderboard = useCallback(async (exerciseName, startDate, endDate) => {
-        try {
-            if (IS_DEV) {
-                const db = getMockDb();
-                // Simple mock aggregation by user
-                const logs = db.activity_logs.filter(l => l.exercise_name === exerciseName);
-                const rankings = {};
-                logs.forEach(log => {
-                    const val = Object.values(log.performance_data)[0] || 0;
-                    if (!rankings[log.user_id] || val > rankings[log.user_id]) {
-                        rankings[log.user_id] = val;
-                    }
-                });
-                return Object.entries(rankings).map(([uid, score]) => ({ user_id: uid, score }));
-            } else {
-                const response = await statsEngineService.getGroupLeaderboard(exerciseName, startDate, endDate);
-                return response.data || response;
-            }
-        } catch (error) {
-            console.error("StatsContext: Fetch group leaderboard failed", error);
-            return [];
-        }
-    }, [getMockDb]);
-
-    return (
-        <StatsContext.Provider value={{
-            dashboardConfigs,
-            loading,
-            refreshAllConfigs,
-            addDashboardConfig,
-            updateDashboardConfig,
-            removeDashboardConfig,
-            fetchUserOverview,
-            fetchPersonalStats,
-            fetchGroupLeaderboard
-        }}>
-            {children}
-        </StatsContext.Provider>
-    );
+  return (
+    <StatsContext.Provider value={{
+      dashboardConfigs,
+      loading,
+      refreshAllConfigs,
+      addDashboardConfig,
+      updateDashboardConfig,
+      removeDashboardConfig,
+      fetchPersonalStats,
+      fetchGroupPanoramicStats
+    }}>
+      {children}
+    </StatsContext.Provider>
+  );
 };
 
+/**
+ * Custom hook utility proxying contextual abstraction layers cleanly.
+ * Must be consumed strictly within an active StatsProvider scope wrapper boundary.
+ */
 export const useStats = () => {
-    const context = useContext(StatsContext);
-    if (!context) {
-        throw new Error("useStats must be used within a StatsProvider");
-    }
-    return context;
+  const context = useContext(StatsContext);
+  if (!context) {
+    throw new Error('useStats must be consumed strictly within an active StatsProvider scope wrapper boundary.');
+  }
+  return context;
 };
 
 export default StatsProvider;

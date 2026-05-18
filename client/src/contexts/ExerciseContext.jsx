@@ -1,118 +1,44 @@
-import React, { createContext, useState, useCallback } from 'react';
+import React, { createContext, useState, useCallback, useContext } from 'react';
 import { exerciseService } from '../services/exerciseService';
-import { initialData } from '../mock/mockData';
+import FrontendLogger from '../utils/logger';
 
 export const ExerciseContext = createContext();
 
-const IS_DEV = process.env.NODE_ENV === 'development';
-
 export const ExerciseProvider = ({ children }) => {
-  const [exercises, setExercises] = useState([]); // Now a flat list from registry
+  const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /**
-   * Helper to manage local storage for Dev mode
+   * Fetches the flat list of exercises from the unified Group Registry.
    */
-  const getMockDb = useCallback(() => {
-    const data = localStorage.getItem('mitamnim2_db');
-    if (!data) {
-      localStorage.setItem('mitamnim2_db', JSON.stringify(initialData));
-      return initialData;
+  const fetchExercises = useCallback(async () => {
+    setLoading(true);
+    try {
+      FrontendLogger.info('EXERCISE_CONTEXT', 'Initiating group exercise registry synchronization sequence');
+      const data = await exerciseService.getAll();
+      setExercises(data);
+      FrontendLogger.info('EXERCISE_CONTEXT', `Successfully synchronized ${data.length} flat exercises from registry`);
+    } catch (err) {
+      FrontendLogger.error('EXERCISE_CONTEXT', 'Failed to synchronize exercise registry matrix mapping parameters', err);
+    } finally {
+      setLoading(false);
     }
-    return JSON.parse(data);
   }, []);
 
-  const saveMockDb = (db) => {
-    localStorage.setItem('mitamnim2_db', JSON.stringify(db));
-  };
-
   /**
-   * Fetches the flat list of exercises from the Group Registry.
-   * This replaces the old recursive tree fetch.
+   * Registers a brand new flat exercise token node asset.
    */
-  const fetchExercises = useCallback(async (groupId) => {
+  const createExercise = async (exerciseData) => {
     setLoading(true);
     try {
-      if (IS_DEV) {
-        await new Promise(resolve => setTimeout(resolve, 400));
-        const db = getMockDb();
-        // Filters registry by group_id
-        const registry = db.group_exercise_registry.filter(ex => ex.group_id === groupId);
-        setExercises(registry);
-      } else {
-        const response = await exerciseService.getRegistry(groupId);
-        setExercises(response.data || response);
-      }
+      FrontendLogger.info('EXERCISE_CONTEXT', `Spawning new flat exercise blueprint token: '${exerciseData.name}'`);
+      const newExercise = await exerciseService.create(exerciseData);
+      
+      setExercises(prev => [...prev, newExercise]);
+      FrontendLogger.info('EXERCISE_CONTEXT', `Exercise token '${exerciseData.name}' successfully allocated inside local context state`, newExercise);
+      return newExercise;
     } catch (err) {
-      console.error("ExerciseContext: Failed to fetch registry:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [getMockDb]);
-
-  /**
-   * Retrieves the last parameter snapshot for a specific exercise name.
-   * Used to auto-fill parameters when a trainer selects an exercise.
-   */
-  const getExerciseParams = useCallback(async (exerciseName, groupId) => {
-    try {
-      if (IS_DEV) {
-        const db = getMockDb();
-        const entry = db.group_exercise_registry.find(
-          ex => ex.exercise_name === exerciseName && ex.group_id === groupId
-        );
-        return entry ? entry.last_params_snapshot : null;
-      } else {
-        const response = await exerciseService.getParamsSnapshot(exerciseName, groupId);
-        return response.data || response;
-      }
-    } catch (err) {
-      console.error("ExerciseContext: Failed to fetch params snapshot:", err);
-      return null;
-    }
-  }, [getMockDb]);
-
-  /**
-   * Renames an exercise and performs a bulk update across logs and templates.
-   * This is the "Merge/Repair" logic.
-   */
-  const renameExercise = async (groupId, oldName, newName) => {
-    setLoading(true);
-    try {
-      if (IS_DEV) {
-        const db = getMockDb();
-
-        // 1. Update Registry
-        db.group_exercise_registry = db.group_exercise_registry.map(ex => 
-          (ex.exercise_name === oldName && ex.group_id === groupId) 
-          ? { ...ex, exercise_name: newName } 
-          : ex
-        );
-
-        // 2. Update Activity Logs
-        db.activity_logs = db.activity_logs.map(log => 
-          log.exercise_name === oldName ? { ...log, exercise_name: newName } : log
-        );
-
-        // 3. Update Workout Templates (exercises_config JSON)
-        db.workout_templates = db.workout_templates.map(tpl => {
-          if (tpl.group_id === groupId && tpl.exercises_config) {
-            const updatedConfig = tpl.exercises_config.map(ex => 
-              ex.exercise_name === oldName ? { ...ex, exercise_name: newName } : ex
-            );
-            return { ...tpl, exercises_config: updatedConfig };
-          }
-          return tpl;
-        });
-
-        saveMockDb(db);
-        setExercises(db.group_exercise_registry.filter(ex => ex.group_id === groupId));
-      } else {
-        await exerciseService.rename(groupId, oldName, newName);
-        await fetchExercises(groupId);
-      }
-    } catch (err) {
-      console.error("ExerciseContext: Rename/Merge failed:", err);
+      FrontendLogger.error('EXERCISE_CONTEXT', `Failed to execute allocation sequence for exercise target rule: '${exerciseData.name}'`, err);
       throw err;
     } finally {
       setLoading(false);
@@ -120,24 +46,41 @@ export const ExerciseProvider = ({ children }) => {
   };
 
   /**
-   * Deletes an exercise entry from the registry (Wipes the "memory" of it).
+   * Updates an existing exercise configuration parameters matrix.
    */
-  const removeExerciseFromRegistry = async (groupId, exerciseName) => {
+  const updateExercise = async (id, updateData) => {
+    setLoading(true);
     try {
-      if (IS_DEV) {
-        const db = getMockDb();
-        db.group_exercise_registry = db.group_exercise_registry.filter(
-          ex => !(ex.exercise_name === exerciseName && ex.group_id === groupId)
-        );
-        saveMockDb(db);
-        setExercises(prev => prev.filter(ex => ex.exercise_name !== exerciseName));
-      } else {
-        await exerciseService.deleteFromRegistry(groupId, exerciseName);
-        setExercises(prev => prev.filter(ex => ex.exercise_name !== exerciseName));
-      }
+      FrontendLogger.info('EXERCISE_CONTEXT', `Mutating structural boundaries configuration for exercise target validation node id: ${id}`);
+      const updatedExercise = await exerciseService.update(id, updateData);
+      
+      setExercises(prev => prev.map(ex => ex.id === id ? updatedExercise : ex));
+      FrontendLogger.info('EXERCISE_CONTEXT', `Exercise token id: ${id} successfully re-mapped and synced with layout schemas`);
+      return updatedExercise;
     } catch (err) {
-      console.error("ExerciseContext: Failed to delete from registry:", err);
+      FrontendLogger.error('EXERCISE_CONTEXT', `Failed to apply structural mutations on exercise validation asset node target id: ${id}`, err);
       throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Completely evicts an exercise definition registry row from database.
+   */
+  const deleteExercise = async (id) => {
+    setLoading(true);
+    try {
+      FrontendLogger.info('EXERCISE_CONTEXT', `Requesting absolute destruction chain for exercise validation registry node id: ${id}`);
+      await exerciseService.delete(id);
+      
+      setExercises(prev => prev.filter(ex => ex.id !== id));
+      FrontendLogger.info('EXERCISE_CONTEXT', `Exercise record instance row id: ${id} completely flushed from local tracking bounds memory`);
+    } catch (err) {
+      FrontendLogger.error('EXERCISE_CONTEXT', `Failed to trigger destruction sequence execution layout for target entity record node id: ${id}`, err);
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -146,13 +89,23 @@ export const ExerciseProvider = ({ children }) => {
       exercises, 
       loading, 
       fetchExercises, 
-      getExerciseParams, 
-      renameExercise, 
-      removeExerciseFromRegistry 
+      createExercise, 
+      updateExercise, 
+      deleteExercise 
     }}>
       {children}
     </ExerciseContext.Provider>
   );
 };
 
-export default ExerciseProvider;
+/**
+ * Custom hook utility proxying contextual abstraction layers cleanly.
+ * Must be consumed strictly within an active ExerciseProvider scope wrapper boundary.
+ */
+export const useExercises = () => {
+  const context = useContext(ExerciseContext);
+  if (!context) {
+    throw new Error('useExercises must be consumed strictly within an active ExerciseProvider scope wrapper boundary.');
+  }
+  return context;
+};

@@ -1,55 +1,32 @@
 import React, { createContext, useState, useCallback, useContext } from 'react';
 import { parameterService } from '../services/parameterService';
-import { initialData } from '../mock/mockData';
+import FrontendLogger from '../utils/logger';
 
 export const ParameterContext = createContext();
-
-const IS_DEV = process.env.NODE_ENV === 'development';
 
 export const ParameterProvider = ({ children }) => {
   const [parameters, setParameters] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /**
-   * Helper to manage local storage for Dev mode
-   */
-  const getMockDb = useCallback(() => {
-    const data = localStorage.getItem('mitamnim2_db');
-    if (!data) {
-      localStorage.setItem('mitamnim2_db', JSON.stringify(initialData));
-      return initialData;
-    }
-    return JSON.parse(data);
-  }, []);
-
-  const saveMockDb = (db) => {
-    localStorage.setItem('mitamnim2_db', JSON.stringify(db));
-  };
-
-  /**
-   * Fetches all available parameters for the group.
+   * Fetches all available measurement parameters for the current group perimeter.
    */
   const fetchParameters = useCallback(async () => {
     setLoading(true);
     try {
-      if (IS_DEV) {
-        await new Promise(resolve => setTimeout(resolve, 400));
-        const db = getMockDb();
-        setParameters(db.parameters);
-      } else {
-        const response = await parameterService.getAll();
-        const data = response.data || response;
-        setParameters(data);
-      }
+      FrontendLogger.info('PARAMETER_CONTEXT', 'Initiating group metrics parameter schema synchronization');
+      const data = await parameterService.getAll();
+      setParameters(data);
+      FrontendLogger.info('PARAMETER_CONTEXT', `Successfully synchronized ${data.length} measurement parameters`);
     } catch (error) {
-      console.error("ParameterContext: Failed to fetch parameters:", error);
+      FrontendLogger.error('PARAMETER_CONTEXT', 'Failed to fetch parameter layout definitions framework', error);
     } finally {
       setLoading(false);
     }
-  }, [getMockDb]);
+  }, []);
 
   /**
-   * Logic for calculating virtual parameter values based on source data.
+   * Evaluates and computes live virtual parameter previews on the client-side for fluid UI feedback.
    */
   const calculateVirtualValue = useCallback((param, performanceData) => {
     if (!param.is_virtual || !param.source_parameter_ids) return null;
@@ -73,80 +50,57 @@ export const ParameterProvider = ({ children }) => {
   }, []);
 
   /**
-   * Adds a new parameter definition.
+   * Registers a brand new parameter token tracking asset.
    */
-  const addParameter = async (data) => {
+  const addParameter = async (paramData) => {
     try {
-      if (IS_DEV) {
-        const db = getMockDb();
-        const newParam = { 
-          ...data, 
-          id: Math.floor(Math.random() * 10000) 
-        };
-        db.parameters.push(newParam);
-        saveMockDb(db);
-        setParameters(prev => [...prev, newParam]);
-        return newParam;
-      } else {
-        const response = await parameterService.create(data);
-        const dataRes = response.data || response;
-        setParameters(prev => [...prev, dataRes]);
-        return dataRes;
-      }
+      FrontendLogger.info('PARAMETER_CONTEXT', `Spawning new system parameter blueprint rule: '${paramData.name}'`);
+      const createdParam = await parameterService.create(paramData);
+      
+      setParameters(prev => [...prev, createdParam]);
+      FrontendLogger.info('PARAMETER_CONTEXT', `Parameter token '${paramData.name}' successfully verified and allocated`, createdParam);
+      return createdParam;
     } catch (error) {
-      console.error("ParameterContext: Failed to add parameter:", error);
+      FrontendLogger.error('PARAMETER_CONTEXT', `Failed to execute allocation sequence for parameter target rule: '${paramData.name}'`, error);
       throw error;
     }
   };
 
   /**
-   * Updates an existing parameter.
+   * Updates configuration definitions for an existing parameter matrix.
    */
-  const editParameter = async (id, data) => {
+  const editParameter = async (id, updateData) => {
     try {
-      let updated;
-      if (IS_DEV) {
-        const db = getMockDb();
-        const index = db.parameters.findIndex(p => p.id === id);
-        if (index === -1) throw new Error("Parameter not found in mock DB");
-        
-        db.parameters[index] = { ...db.parameters[index], ...data };
-        updated = db.parameters[index];
-        saveMockDb(db);
-      } else {
-        const response = await parameterService.update(id, data);
-        updated = response.data || response;
-      }
+      FrontendLogger.info('PARAMETER_CONTEXT', `Mutating structural boundaries configuration for parameter validation node id: ${id}`);
+      const updatedParam = await parameterService.update(id, updateData);
 
-      setParameters(prev => prev.map(p => p.id === id ? updated : p));
-      return updated;
+      setParameters(prev => prev.map(p => p.id === id ? updatedParam : p));
+      FrontendLogger.info('PARAMETER_CONTEXT', `Parameter token id: ${id} successfully re-mapped and synced with layout schemas`);
+      return updatedParam;
     } catch (error) {
-      console.error("ParameterContext: Failed to edit parameter:", error);
+      FrontendLogger.error('PARAMETER_CONTEXT', `Failed to apply structural mutations on parameter validation asset node target id: ${id}`, error);
       throw error;
     }
   };
 
   /**
-   * Removes a parameter definition.
+   * Removes a parameter definition token asset from the active tracking schemas.
    */
   const removeParameter = async (id) => {
     try {
-      if (IS_DEV) {
-        const db = getMockDb();
-        db.parameters = db.parameters.filter(p => p.id !== id);
-        saveMockDb(db);
-      } else {
-        await parameterService.delete(id);
-      }
+      FrontendLogger.info('PARAMETER_CONTEXT', `Requesting absolute destruction chain for parameter validation registry node id: ${id}`);
+      await parameterService.delete(id);
+      
       setParameters(prev => prev.filter(p => p.id !== id));
+      FrontendLogger.info('PARAMETER_CONTEXT', `Parameter record instance row id: ${id} completely flushed from local tracking bounds memory`);
     } catch (error) {
-      console.error("ParameterContext: Failed to remove parameter:", error);
+      FrontendLogger.error('PARAMETER_CONTEXT', `Failed to trigger destruction sequence execution layout for target entity record node id: ${id}`, error);
       throw error;
     }
   };
 
   /**
-   * Retrieves a parameter's name by its unique ID.
+   * Utility lookup resolving numerical parameter identifiers into clean string tokens.
    */
   const getParameterNameById = useCallback((id) => {
     const param = parameters.find(p => p.id === parseInt(id));
@@ -169,12 +123,16 @@ export const ParameterProvider = ({ children }) => {
   );
 };
 
+/**
+ * Custom hook utility proxying contextual abstraction layers cleanly.
+ * Must be consumed strictly within an active ParameterProvider scope wrapper boundary.
+ */
 export const useParameter = () => {
-    const context = useContext(ParameterContext);
-    if (!context) {
-        throw new Error("useParameter must be used within a ParameterProvider");
-    }
-    return context;
+  const context = useContext(ParameterContext);
+  if (!context) {
+    throw new Error("useParameter must be consumed strictly within an active ParameterProvider scope wrapper boundary.");
+  }
+  return context;
 };
 
 export default ParameterProvider;

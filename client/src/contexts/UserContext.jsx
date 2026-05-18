@@ -1,137 +1,88 @@
-import React, { createContext, useState, useCallback } from 'react';
+import React, { createContext, useState, useCallback, useContext } from 'react';
 import { userService } from '../services/userService';
-import { initialData } from '../mock/mockData';
+import FrontendLogger from '../utils/logger';
 
 export const UserContext = createContext();
-
-const IS_DEV = process.env.NODE_ENV === 'development';
 
 export const UserProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /**
-   * Helper to manage local storage for Dev mode
-   */
-  const getMockDb = useCallback(() => {
-    const data = localStorage.getItem('mitamnim2_db');
-    if (!data) {
-      localStorage.setItem('mitamnim2_db', JSON.stringify(initialData));
-      return initialData;
-    }
-    return JSON.parse(data);
-  }, []);
-
-  const saveMockDb = (db) => {
-    localStorage.setItem('mitamnim2_db', JSON.stringify(db));
-  };
-
-  /**
-   * Fetch users for a specific group
+   * Fetches users belonging to the active group perimeter scope context.
    */
   const refreshUsers = useCallback(async (groupId = null) => {
     setLoading(true);
     try {
-      if (IS_DEV) {
-        // Dev Mode: Filter users from mock database
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const db = getMockDb();
-        const filteredUsers = groupId 
-          ? db.users.filter(u => u.group_id === groupId) 
-          : db.users;
-        setUsers(filteredUsers);
-      } else {
-        // Prod Mode: Call actual API service
-        const response = await userService.getGroupUsers(groupId);
-        const data = response.data || response;
-        setUsers(data);
-      }
+      FrontendLogger.info('USER_CONTEXT', 'Initiating group roster synchronization pipeline', { groupId });
+      const data = await userService.getGroupUsers(groupId);
+      setUsers(data);
+      FrontendLogger.info('USER_CONTEXT', `Successfully synchronized ${data.length} users within current state boundaries`);
     } catch (error) {
-      console.error("Failed to fetch users:", error);
+      FrontendLogger.error('USER_CONTEXT', 'Failed to synchronize group user directory registry mappings', error);
     } finally {
       setLoading(false);
     }
-  }, [getMockDb]);
+  }, []);
 
   /**
-   * Add a new user
+   * Allocates and registers a brand new user account profile node inside the cluster pool.
    */
   const addUser = async (userData) => {
+    setLoading(true);
     try {
-      if (IS_DEV) {
-        // Dev Mode: Update mock database
-        const db = getMockDb();
-        const newUser = { 
-          ...userData, 
-          id: crypto.randomUUID(), 
-          created_at: new Date().toISOString() 
-        };
-        db.users.push(newUser);
-        saveMockDb(db);
-        setUsers((prev) => [...prev, newUser]);
-        return newUser;
-      } else {
-        // Prod Mode: Call API
-        const response = await userService.createUser(userData);
-        const newUser = response.data || response;
-        setUsers((prev) => [...prev, newUser]);
-        return newUser;
-      }
+      FrontendLogger.info('USER_CONTEXT', `Spawning new user registration token for username: '${userData.username}'`);
+      const newUser = await userService.createUser(userData);
+      
+      setUsers((prev) => [...prev, newUser]);
+      FrontendLogger.info('USER_CONTEXT', `User account profile token successfully allocated in local state`, newUser);
+      return newUser;
     } catch (error) {
-      console.error("Failed to add user:", error);
+      FrontendLogger.error('USER_CONTEXT', `Failed to execute user account allocation pipeline for: '${userData.username}'`, error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   /**
-   * Update an existing user
+   * Updates configuration attributes for an existing registered user profile node.
    */
   const updateUser = async (userId, userData) => {
+    setLoading(true);
     try {
-      let updatedUser;
-      if (IS_DEV) {
-        // Dev Mode: Local update
-        const db = getMockDb();
-        const index = db.users.findIndex(u => u.id === userId);
-        if (index === -1) throw new Error("User not found in mock DB");
-        
-        db.users[index] = { ...db.users[index], ...userData };
-        updatedUser = db.users[index];
-        saveMockDb(db);
-      } else {
-        // Prod Mode: API Update
-        const response = await userService.updateUser(userId, userData);
-        updatedUser = response.data || response;
-      }
+      FrontendLogger.info('USER_CONTEXT', `Mutating profile identity parameter layout constraints for user id: ${userId}`);
+      const updatedUser = await userService.updateUser(userId, userData);
 
       setUsers((prev) => 
         prev.map((u) => (u.id === userId ? updatedUser : u))
       );
+      FrontendLogger.info('USER_CONTEXT', `User entity node id: ${userId} successfully re-mapped and synchronized with state bounds`);
       return updatedUser;
     } catch (error) {
-      console.error("Failed to update user:", error);
+      FrontendLogger.error('USER_CONTEXT', `Failed to commit structural updates across user profile target node id: ${userId}`, error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   /**
-   * Delete a user
+   * Absolutely evicts a user security identity registration row asset from schemas.
    */
   const deleteUser = async (userId) => {
+    setLoading(true);
     try {
-      if (IS_DEV) {
-        // Dev Mode: Local filter
-        const db = getMockDb();
-        db.users = db.users.filter(u => u.id !== userId);
-        saveMockDb(db);
-      } else {
-        // Prod Mode: API Delete
-        await userService.deleteUser(userId);
-      }
+      FrontendLogger.info('USER_CONTEXT', `Requesting absolute destruction chain execution against user target node id: ${userId}`);
+      await userService.deleteUser(userId);
+      
       setUsers((prev) => prev.filter((u) => u.id !== userId));
+      FrontendLogger.info('USER_CONTEXT', `User record instance asset row id: ${userId} completely dropped from tracking memory bounds`);
     } catch (error) {
-      console.error("Failed to delete user:", error);
+      FrontendLogger.error('USER_CONTEXT', `Failed to trigger destruction sequence execution context for target profile user id: ${userId}`, error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -148,3 +99,17 @@ export const UserProvider = ({ children }) => {
     </UserContext.Provider>
   );
 };
+
+/**
+ * Custom hook utility proxying contextual abstraction layers cleanly.
+ * Must be consumed strictly within an active UserProvider scope wrapper boundary.
+ */
+export const useUsers = () => {
+  const context = useContext(UserContext);
+  if (!context) {
+    throw new Error('useUsers must be consumed strictly within an active UserProvider scope wrapper boundary.');
+  }
+  return context;
+};
+
+export default UserProvider;

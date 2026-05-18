@@ -2,11 +2,9 @@ import React, { createContext, useState, useCallback, useContext, useEffect } fr
 import { messageService } from '../services/messageService';
 import { SocketContext } from './SocketContext';
 import { AuthContext } from './AuthContext';
-import { initialData } from '../mock/mockData';
+import FrontendLogger from '../utils/logger';
 
 export const MessageContext = createContext();
-
-const IS_DEV = process.env.NODE_ENV === 'development';
 
 export const MessageProvider = ({ children }) => {
   const { socket } = useContext(SocketContext);
@@ -18,48 +16,24 @@ export const MessageProvider = ({ children }) => {
   const [loadingStates, setLoadingStates] = useState({ history: {}, contacts: false });
 
   /**
-   * Helper to manage local storage for Dev mode
-   */
-  const getMockDb = useCallback(() => {
-    const data = localStorage.getItem('mitamnim2_db');
-    if (!data) {
-      localStorage.setItem('mitamnim2_db', JSON.stringify(initialData));
-      return initialData;
-    }
-    return JSON.parse(data);
-  }, []);
-
-  const saveMockDb = (db) => {
-    localStorage.setItem('mitamnim2_db', JSON.stringify(db));
-  };
-
-  /**
-   * Fetches the list of contacts.
-   * In Dev: Filters users from the mock DB belonging to the same group.
+   * Fetches the list of authorized communication contacts within the group scope.
    */
   const fetchContacts = useCallback(async () => {
     if (!user) return;
     setLoadingStates(prev => ({ ...prev, contacts: true }));
     try {
-      if (IS_DEV) {
-        await new Promise(resolve => setTimeout(resolve, 400));
-        const db = getMockDb();
-        // Exclude current user from contacts
-        const groupUsers = db.users.filter(u => u.group_id === user.group_id && u.id !== user.id);
-        setContacts(groupUsers);
-      } else {
-        const response = await messageService.getContacts();
-        setContacts(response.data || response);
-      }
+      FrontendLogger.info('MESSAGE_CONTEXT', 'Fetching verified contact directory from network service');
+      const data = await messageService.getContacts();
+      setContacts(data);
     } catch (error) {
-      console.error("MessageContext: Error fetching contacts:", error);
+      FrontendLogger.error('MESSAGE_CONTEXT', 'Error fetching message directory contacts roster', error);
     } finally {
       setLoadingStates(prev => ({ ...prev, contacts: false }));
     }
-  }, [user, getMockDb]);
+  }, [user]);
 
   /**
-   * Fetches message history for a target.
+   * Fetches the complete message stream history matrix for a specific target ID.
    */
   const fetchHistory = useCallback(async (targetId) => {
     if (!targetId || !user) return;
@@ -70,46 +44,30 @@ export const MessageProvider = ({ children }) => {
     }));
 
     try {
-      if (IS_DEV) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        const db = getMockDb();
-        const history = db.messages.filter(m => 
-          m.group_id === targetId || // General chat
-          m.recipient_id === targetId || // Sent to contact
-          (m.sender_id === targetId && m.recipient_id === user.id) // Received from contact
-        );
-        setMessagesByTarget(prev => ({ ...prev, [targetId]: history }));
-      } else {
-        const response = await messageService.getHistory(targetId);
-        setMessagesByTarget(prev => ({
-          ...prev,
-          [targetId]: response.data || response
-        }));
-      }
+      FrontendLogger.info('MESSAGE_CONTEXT', `Syncing historical conversation timeline for target channel node: ${targetId}`);
+      const data = await messageService.getHistory(targetId);
+      setMessagesByTarget(prev => ({
+        ...prev,
+        [targetId]: data
+      }));
     } catch (error) {
-      console.error(`MessageContext: Error fetching history for ${targetId}:`, error);
+      FrontendLogger.error(`MESSAGE_CONTEXT`, `Failed to retrieve sync metrics history for target node ${targetId}`, error);
     } finally {
       setLoadingStates(prev => ({ 
         ...prev, 
         history: { ...prev.history, [targetId]: false } 
       }));
     }
-  }, [user, getMockDb]);
+  }, [user]);
 
   /**
-   * Fetches sticky/main messages for the announcement board.
+   * Fetches sticky/main broadcast announcements for the landing dashboard panel.
    */
   const fetchMainMessages = useCallback(async () => {
     if (!user) return;
     try {
-      let data = [];
-      if (IS_DEV) {
-        const db = getMockDb();
-        data = db.messages.filter(m => m.is_main && (m.group_id === user.group_id || m.recipient_id === user.id));
-      } else {
-        const response = await messageService.getMainMessages();
-        data = response.data || response;
-      }
+      FrontendLogger.info('MESSAGE_CONTEXT', 'Querying active sticky announcement configurations portfolio');
+      const data = await messageService.getMainMessages();
 
       const main = { general: null, personal: null };
       data.forEach(m => { 
@@ -117,92 +75,62 @@ export const MessageProvider = ({ children }) => {
       });
       setMainMessages(main);
     } catch (error) {
-      console.error("MessageContext: Error fetching main messages:", error);
+      FrontendLogger.error('MESSAGE_CONTEXT', 'Error parsing landing system banner main messages payload', error);
     }
-  }, [user, getMockDb]);
+  }, [user]);
 
   /**
-   * Sends a message.
-   * In Dev: Updates localStorage and immediately updates state.
+   * Dispatches and stores an outbound communication transmission payload packet.
    */
   const sendMessage = async (type, content, targetId, isMain) => {
     try {
-      if (IS_DEV) {
-        const db = getMockDb();
-        const newMessage = {
-          id: crypto.randomUUID(),
-          sender_id: user.id,
-          recipient_id: type === 'personal' ? targetId : null,
-          group_id: type === 'general' ? targetId : user.group_id,
-          content,
-          message_type: type,
-          is_main: isMain,
-          created_at: new Date().toISOString()
-        };
-        
-        db.messages.push(newMessage);
-        saveMockDb(db);
-
-        // Update local history state immediately in Dev
-        setMessagesByTarget(prev => ({
-          ...prev,
-          [targetId]: [...(prev[targetId] || []), newMessage]
-        }));
-
-        if (isMain) fetchMainMessages();
-        return newMessage;
-      } else {
-        return await messageService.createMessage(content, type, targetId, isMain);
-      }
+      FrontendLogger.info('MESSAGE_CONTEXT', `Dispatching outbound payload block [Type: ${type}] to destination node: ${targetId}`);
+      const result = await messageService.createMessage(content, type, targetId, isMain);
+      return result;
     } catch (error) {
-      console.error("MessageContext: Send message failed:", error);
+      FrontendLogger.error('MESSAGE_CONTEXT', `Failed to pipeline outbound message token transmission to target: ${targetId}`, error);
       throw error;
     }
   };
 
+  /**
+   * Mutates the inner content string properties of an existing message node.
+   */
   const updateMessage = async (messageId, content) => {
     try {
-      if (IS_DEV) {
-        const db = getMockDb();
-        const index = db.messages.findIndex(m => m.id === messageId);
-        if (index !== -1) {
-          db.messages[index].content = content;
-          saveMockDb(db);
-          // Refreshing the UI depends on the current active targetId, 
-          // usually handled by state update in the component or manual refresh.
-        }
-      } else {
-        return await messageService.updateMessage(messageId, content);
-      }
+      FrontendLogger.info('MESSAGE_CONTEXT', `Transmitting content string mutations for message asset entity id: ${messageId}`);
+      return await messageService.updateMessage(messageId, content);
     } catch (error) {
-      console.error("MessageContext: Update message failed:", error);
-    }
-  };
-
-  const deleteMessage = async (messageId) => {
-    try {
-      if (IS_DEV) {
-        const db = getMockDb();
-        db.messages = db.messages.filter(m => m.id !== messageId);
-        saveMockDb(db);
-        fetchMainMessages();
-      } else {
-        return await messageService.deleteMessage(messageId);
-      }
-    } catch (error) {
-      console.error("MessageContext: Delete message failed:", error);
+      FrontendLogger.error('MESSAGE_CONTEXT', `Failed to finalize message content node update for target id: ${messageId}`, error);
     }
   };
 
   /**
-   * WebSocket listener (Only active in Production or if socket exists)
+   * Evicts a message validation row record asset from the system.
+   */
+  const deleteMessage = async (messageId) => {
+    try {
+      FrontendLogger.info('MESSAGE_CONTEXT', `Triggering structural destruction validation call for message asset id: ${messageId}`);
+      return await messageService.deleteMessage(messageId);
+    } catch (error) {
+      FrontendLogger.error('MESSAGE_CONTEXT', `Failed to apply absolute eviction sequences for target message id: ${messageId}`, error);
+    }
+  };
+
+  /**
+   * Real-time WebSocket packet pipeline interceptor loop listener.
    */
   useEffect(() => {
-    if (!socket || !user || IS_DEV) return;
+    if (!socket || !user) return;
 
     const handleMessage = (event) => {
       const payload = JSON.parse(event.data);
       const { action, data } = payload;
+
+      // Filter non-message events safely
+      if (!action || !action.startsWith("MESSAGE_")) return;
+
+      FrontendLogger.socket(`Inbound live real-time payload action block intercepted: ${action}`, data);
 
       setMessagesByTarget(prev => {
         let targetKey = null;
@@ -241,6 +169,9 @@ export const MessageProvider = ({ children }) => {
     return () => socket.removeEventListener('message', handleMessage);
   }, [socket, user, fetchMainMessages]);
 
+  /**
+   * Lifecycle trigger executing profile boot sync variables.
+   */
   useEffect(() => {
     if (user) {
       fetchContacts();
@@ -265,6 +196,18 @@ export const MessageProvider = ({ children }) => {
       {children}
     </MessageContext.Provider>
   );
+};
+
+/**
+ * Custom hook utility proxying contextual abstraction layers cleanly.
+ * Must be consumed strictly within an active MessageProvider scope wrapper boundary.
+ */
+export const useMessages = () => {
+  const context = useContext(MessageContext);
+  if (!context) {
+    throw new Error('useMessages must be consumed strictly within an active MessageProvider scope wrapper boundary.');
+  }
+  return context;
 };
 
 export default MessageProvider;

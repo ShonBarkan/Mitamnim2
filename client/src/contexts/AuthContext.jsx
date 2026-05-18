@@ -1,95 +1,65 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import { authService } from '../services/authService';
-import { initialData } from '../mock/mockData';
+import FrontendLogger from '../utils/logger';
 
 export const AuthContext = createContext();
-
-// דגל לזיהוי סביבת פיתוח
-const IS_DEV = process.env.NODE_ENV === 'development';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
-  // פונקציית עזר לניהול ה-Mock DB בתוך ה-LocalStorage
-  const getMockDb = useCallback(() => {
-    const data = localStorage.getItem('mitamnim2_db');
-    if (!data) {
-      localStorage.setItem('mitamnim2_db', JSON.stringify(initialData));
-      return initialData;
-    }
-    return JSON.parse(data);
-  }, []);
-
   /**
-   * Initialize auth state
+   * Initializes session validation tracking on application mount
    */
   useEffect(() => {
     const initAuth = async () => {
       if (token) {
         try {
-          if (IS_DEV) {
-            // לוגיקת Mock: מוצאים את המשתמש ב-LocalStorage לפי ה-ID (הטוקן שלנו)
-            const db = getMockDb();
-            const foundUser = db.users.find(u => u.id === token);
-            if (foundUser) {
-              const { password, password_raw, ...safeUser } = foundUser;
-              setUser(safeUser);
-            } else {
-              throw new Error("User not found in mock DB");
-            }
-          } else {
-            // לוגיקת Prod: קריאה לסרביס האמיתי
-            const response = await authService.getCurrentUser();
-            const userData = response.data || response;
-            setUser(userData);
-          }
+          FrontendLogger.info('AUTH_CONTEXT', 'Recovering authenticated user session from local token footprint');
+          const userData = await authService.getCurrentUser();
+          setUser(userData);
+          FrontendLogger.info('AUTH_CONTEXT', `Session successfully recovered for user: '${userData.username}'`);
         } catch (error) {
-          console.error("Auth initialization failed:", error);
+          FrontendLogger.error('AUTH_CONTEXT', 'Token footprint tracking state corrupted or expired. Evicting session parameters.', error);
           logout();
         }
+      } else {
+        FrontendLogger.info('AUTH_CONTEXT', 'No token identity discovered in storage context. Standing by for credential submission.');
       }
       setLoading(false);
     };
     initAuth();
-  }, [token, getMockDb]);
+  }, [token]);
 
   /**
-   * Login logic
+   * Dispatches network token authentication credentials
    */
   const login = async (username, password) => {
-    if (IS_DEV) {
-      // סימולציית השהיה של שרת
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const db = getMockDb();
-      const foundUser = db.users.find(u => u.username === username);
-
-      // בדיקה מול password_raw כפי שביקשת
-      if (foundUser && foundUser.password_raw === password) {
-        const mockToken = foundUser.id; // ב-Mock נשתמש ב-ID כטוקן
-        localStorage.setItem('token', mockToken);
-        setToken(mockToken);
-        return { access_token: mockToken };
-      } else {
-        throw new Error("Invalid username or password");
-      }
-    } else {
-      // לוגיקת Prod: שימוש בסרביס ששולח FormData לשרת
-      const response = await authService.login(username, password);
-      const data = response.data || response;
+    try {
+      FrontendLogger.info('AUTH_CONTEXT', `Initiating out-of-bounds validation login pipeline for user: '${username}'`);
+      const data = await authService.login(username, password);
       
       localStorage.setItem('token', data.access_token);
       setToken(data.access_token);
+      
+      // Immediately pull fresh database model profile mappings to synchronize across layers
+      FrontendLogger.info('AUTH_CONTEXT', 'Token validation confirmed. Pre-fetching fresh user profile context block');
+      const userData = await authService.getCurrentUser();
+      setUser(userData);
+      
       return data;
+    } catch (error) {
+      FrontendLogger.error('AUTH_CONTEXT', `Authentication transaction sequence failed for user: '${username}'`, error);
+      throw error;
     }
   };
 
   /**
-   * Logout logic
+   * Evicts token authentication blueprints and destroys active session context state memory
    */
   const logout = () => {
+    FrontendLogger.warn('AUTH_CONTEXT', 'Destruction sequence triggered. Evicting active token allocations and profile memory blocks.');
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
@@ -100,4 +70,16 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
+};
+
+/**
+ * Custom hook utility proxying contextual abstraction layers cleanly.
+ * Must be consumed strictly within an active AuthProvider scope wrapper boundary.
+ */
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be consumed strictly within an active AuthProvider scope wrapper boundary.');
+  }
+  return context;
 };

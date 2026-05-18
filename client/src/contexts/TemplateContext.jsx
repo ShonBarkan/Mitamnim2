@@ -1,127 +1,86 @@
-import React, { createContext, useState, useCallback } from 'react';
-import templateService from '../services/templateService';
-import { initialData } from '../mock/mockData';
+import React, { createContext, useState, useCallback, useContext } from 'react';
+import { templateService } from '../services/templateService';
+import FrontendLogger from '../utils/logger';
 
 export const TemplateContext = createContext();
-
-const IS_DEV = process.env.NODE_ENV === 'development';
 
 export const TemplateProvider = ({ children }) => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /**
-   * Helper to manage local storage for Dev mode
-   */
-  const getMockDb = useCallback(() => {
-    const data = localStorage.getItem('mitamnim2_db');
-    if (!data) {
-      localStorage.setItem('mitamnim2_db', JSON.stringify(initialData));
-      return initialData;
-    }
-    return JSON.parse(data);
-  }, []);
-
-  const saveMockDb = (db) => {
-    localStorage.setItem('mitamnim2_db', JSON.stringify(db));
-  };
-
-  /**
-   * Fetches all workout templates for the group.
+   * Fetches all workout templates allocated within the current group perimeter.
    */
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      if (IS_DEV) {
-        await new Promise(resolve => setTimeout(resolve, 400));
-        const db = getMockDb();
-        setTemplates(db.workout_templates || []);
-      } else {
-        const response = await templateService.getAll();
-        const data = response.data || response;
-        setTemplates(data);
-      }
+      FrontendLogger.info('TEMPLATE_CONTEXT', 'Initiating workout templates configuration sync sequence');
+      const data = await templateService.getAll();
+      setTemplates(data);
+      FrontendLogger.info('TEMPLATE_CONTEXT', `Successfully synchronized ${data.length} template framework blueprints`);
     } catch (err) {
-      console.error("TemplateContext: Fetching templates failed", err);
+      FrontendLogger.error('TEMPLATE_CONTEXT', 'Failed to retrieve synchronized workout templates catalog layout', err);
     } finally {
       setLoading(false);
     }
-  }, [getMockDb]);
+  }, []);
 
   /**
-   * Creates a new workout template.
-   * Exercises_config is stored as a JSON object containing exercise names and params.
+   * Spawns and registers a brand new workout template framework entity.
    */
   const addTemplate = async (templateData) => {
+    setLoading(true);
     try {
-      if (IS_DEV) {
-        const db = getMockDb();
-        const newTemplate = { 
-          ...templateData, 
-          id: crypto.randomUUID(),
-          created_at: new Date().toISOString() 
-        };
-        db.workout_templates.push(newTemplate);
-        saveMockDb(db);
-        setTemplates(prev => [...prev, newTemplate]);
-        return newTemplate;
-      } else {
-        const response = await templateService.create(templateData);
-        const data = response.data || response;
-        setTemplates(prev => [...prev, data]);
-        return data;
-      }
+      FrontendLogger.info('TEMPLATE_CONTEXT', `Spawning new relational template layout: '${templateData.name}'`, templateData);
+      const createdTemplate = await templateService.create(templateData);
+      
+      setTemplates(prev => [...prev, createdTemplate]);
+      FrontendLogger.info('TEMPLATE_CONTEXT', `Template token '${templateData.name}' successfully allocated inside local state bounds`, createdTemplate);
+      return createdTemplate;
     } catch (err) {
-      console.error("TemplateContext: Creating template failed", err);
+      FrontendLogger.error('TEMPLATE_CONTEXT', `Failed to execute allocation chain for template blueprint: '${templateData.name}'`, err);
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   /**
-   * Updates an existing template.
+   * Updates configuration definitions or relational mapping sets for an existing template record.
    */
   const editTemplate = async (templateId, updateData) => {
+    setLoading(true);
     try {
-      let updated;
-      if (IS_DEV) {
-        const db = getMockDb();
-        const index = db.workout_templates.findIndex(t => t.id === templateId);
-        if (index === -1) throw new Error("Template not found in mock DB");
-        
-        db.workout_templates[index] = { ...db.workout_templates[index], ...updateData };
-        updated = db.workout_templates[index];
-        saveMockDb(db);
-      } else {
-        const response = await templateService.update(templateId, updateData);
-        updated = response.data || response;
-      }
+      FrontendLogger.info('TEMPLATE_CONTEXT', `Mutating schema configuration rules on template validation node id: ${templateId}`, updateData);
+      const updatedTemplate = await templateService.update(templateId, updateData);
 
-      setTemplates(prev => 
-        prev.map(t => (t.id === templateId ? updated : t))
-      );
-      return updated;
+      setTemplates(prev => prev.map(t => t.id === templateId ? updatedTemplate : t));
+      FrontendLogger.info('TEMPLATE_CONTEXT', `Template token id: ${templateId} successfully re-mapped and synced with state bounds`);
+      return updatedTemplate;
     } catch (err) {
-      console.error("TemplateContext: Updating template failed", err);
+      FrontendLogger.error('TEMPLATE_CONTEXT', `Failed to apply structural mutations on template target record node id: ${templateId}`, err);
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   /**
-   * Deletes a template and synchronizes the local state.
+   * Absolutely flushes a workout template row record and drops downstream dependencies.
    */
   const removeTemplate = async (templateId) => {
+    setLoading(true);
     try {
-      if (IS_DEV) {
-        const db = getMockDb();
-        db.workout_templates = db.workout_templates.filter(t => t.id !== templateId);
-        saveMockDb(db);
-      } else {
-        await templateService.delete(templateId);
-      }
+      FrontendLogger.info('TEMPLATE_CONTEXT', `Requesting absolute destruction chain execution for template target node id: ${templateId}`);
+      await templateService.delete(templateId);
+      
       setTemplates(prev => prev.filter(t => t.id !== templateId));
+      FrontendLogger.info('TEMPLATE_CONTEXT', `Template record instance asset row id: ${templateId} completely dropped from tracking bounds memory`);
     } catch (err) {
-      console.error("TemplateContext: Deleting template failed", err);
+      FrontendLogger.error('TEMPLATE_CONTEXT', `Failed to trigger destruction sequence layout execution for target template id: ${templateId}`, err);
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -137,6 +96,18 @@ export const TemplateProvider = ({ children }) => {
       {children}
     </TemplateContext.Provider>
   );
+};
+
+/**
+ * Custom hook utility proxying contextual abstraction layers cleanly.
+ * Must be consumed strictly within an active TemplateProvider scope wrapper boundary.
+ */
+export const useTemplates = () => {
+  const context = useContext(TemplateContext);
+  if (!context) {
+    throw new Error('useTemplates must be consumed strictly within an active TemplateProvider scope wrapper boundary.');
+  }
+  return context;
 };
 
 export default TemplateProvider;

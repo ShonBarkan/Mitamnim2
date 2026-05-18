@@ -1,99 +1,45 @@
-import React, { createContext, useState, useCallback } from 'react';
-import { workoutService } from '../services/workoutManagementService';
-import { initialData } from '../mock/mockData';
+import React, { createContext, useState, useCallback, useContext } from 'react';
+import { workoutSessionService } from '../services/workoutSessionService';
+import FrontendLogger from '../utils/logger';
 
 export const WorkoutContext = createContext();
 
-const IS_DEV = process.env.NODE_ENV === 'development';
-
 /**
- * Context provider for managing active workout sessions and historical data.
+ * Context provider for managing live workout synchronization pipelines and historical data portfolios.
  */
 export const WorkoutProvider = ({ children }) => {
   const [history, setHistory] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
 
   /**
-   * Helper to manage local storage for Dev mode
+   * Fetches the authenticated user's completed workout session history array.
    */
-  const getMockDb = useCallback(() => {
-    const data = localStorage.getItem('mitamnim2_db');
-    if (!data) {
-      localStorage.setItem('mitamnim2_db', JSON.stringify(initialData));
-      return initialData;
+  const fetchHistory = useCallback(async () => {
+    try {
+      FrontendLogger.info('WORKOUT_CONTEXT', 'Initiating historic completed workout logs synchronization pipeline');
+      const data = await workoutSessionService.getHistory();
+      setHistory(data);
+      FrontendLogger.info('WORKOUT_CONTEXT', `Successfully synchronized ${data.length} historic workout sessions from database`);
+    } catch (err) {
+      FrontendLogger.error('WORKOUT_CONTEXT', 'Failed to retrieve synchronized workout history matrix portfolio', err);
     }
-    return JSON.parse(data);
   }, []);
 
-  const saveMockDb = (db) => {
-    localStorage.setItem('mitamnim2_db', JSON.stringify(db));
-  };
-
   /**
-   * Fetches user's workout history.
-   * In Dev: Retrieves sessions from the mock database.
-   */
-  const fetchHistory = useCallback(async (userId = null) => {
-    try {
-      if (IS_DEV) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const db = getMockDb();
-        // Filter sessions by user if ID is provided
-        const userHistory = userId 
-          ? db.workout_sessions.filter(s => s.user_id === userId)
-          : db.workout_sessions;
-        setHistory(userHistory || []);
-      } else {
-        const res = await workoutService.getHistory();
-        const data = res.data || res;
-        setHistory(data);
-      }
-    } catch (err) {
-      console.error("WorkoutContext: History fetch failed", err);
-    }
-  }, [getMockDb]);
-
-  /**
-   * Finalizes and saves a live workout session.
-   * In Dev: Atomically updates sessions and activity logs in local storage.
+   * Transmits and commits a completed live workout session block to the database perimeter.
+   * Maps un-nested structured performed_exercises containing exact relational set metrics.
    */
   const saveWorkoutSession = async (sessionData) => {
     setIsSaving(true);
     try {
-      if (IS_DEV) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const db = getMockDb();
-
-        const newSession = {
-          ...sessionData,
-          id: crypto.randomUUID(),
-          created_at: new Date().toISOString()
-        };
-
-        // Persist session
-        db.workout_sessions.unshift(newSession);
-
-        // Persist logs included in this session if they exist
-        if (sessionData.logs && Array.isArray(sessionData.logs)) {
-          const logsWithSessionId = sessionData.logs.map(log => ({
-            ...log,
-            id: Math.floor(Math.random() * 1000000),
-            session_id: newSession.id
-          }));
-          db.activity_logs = [...logsWithSessionId, ...db.activity_logs];
-        }
-
-        saveMockDb(db);
-        setHistory(prev => [newSession, ...prev]);
-        return newSession;
-      } else {
-        const res = await workoutService.finishWorkout(sessionData);
-        const data = res.data || res;
-        setHistory(prev => [data, ...prev]);
-        return data;
-      }
+      FrontendLogger.info('WORKOUT_CONTEXT', 'Dispatching active live session payload structural block to network service', sessionData);
+      const data = await workoutSessionService.finishWorkout(sessionData);
+      
+      setHistory(prev => [data, ...prev]);
+      FrontendLogger.info('WORKOUT_CONTEXT', 'Live workout session successfully closed, validated and pushed to local history state matrix', data);
+      return data;
     } catch (err) {
-      console.error("WorkoutContext: Save session failed", err);
+      FrontendLogger.error('WORKOUT_CONTEXT', 'Failed to finalize live session transaction block transmission parameters', err);
       throw err;
     } finally {
       setIsSaving(false);
@@ -110,6 +56,18 @@ export const WorkoutProvider = ({ children }) => {
       {children}
     </WorkoutContext.Provider>
   );
+};
+
+/**
+ * Custom hook utility proxying contextual abstraction layers cleanly.
+ * Must be consumed strictly within an active WorkoutProvider scope wrapper boundary.
+ */
+export const useWorkout = () => {
+  const context = useContext(WorkoutContext);
+  if (!context) {
+    throw new Error('useWorkout must be consumed strictly within an active WorkoutProvider scope wrapper boundary.');
+  }
+  return context;
 };
 
 export default WorkoutProvider;
