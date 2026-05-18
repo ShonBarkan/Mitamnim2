@@ -1,97 +1,112 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useActivity } from '../hooks/useActivity';
-import { useUsers } from '../hooks/useUsers';
+import { useAuth } from '../contexts/AuthContext';
+import { useActivity } from '../contexts/ActivityContext';
+import { UserContext } from '../contexts/UserContext';
 import { ExerciseContext } from '../contexts/ExerciseContext';
 
-// Components
-import ActivityJournal from '../components/Activity/ActivityJournal';
-import ActivityCreator from '../components/Activity/ActivityCreator';
+// Sub-components re-mapped strictly to the customized localized components directory path
+import ActivityJournal from '../components/ActivityDashboardPage/ActivityJournal';
+import ActivityCreator from '../components/ActivityDashboardPage/ActivityCreator';
+import FrontendLogger from '../utils/logger';
 
 /**
- * ActivityDashboardPage - The central hub for performance tracking.
- * Features a Trainer Sidebar for trainee management and a high-end Glassmorphism feed.
+ * ActivityDashboardPage - The central performance capturing hub and training log ecosystem.
+ * Features a dynamic Trainer Sidebar for tactical squad management and high-end glassmorphic feed states.
  */
 const ActivityDashboardPage = () => {
   const { user: currentUser } = useAuth();
   const { logs, loading: logsLoading, fetchLogs } = useActivity();
-  const { users, refreshUsers, loading: usersLoading } = useUsers();
+  const { users, refreshUsers } = useContext(UserContext);
   const { exercises } = useContext(ExerciseContext);
 
-  // States for filtering and UI
+  // States for live operational filtering and viewport layouts
   const [selectedTraineeId, setSelectedTraineeId] = useState(null);
   const [exerciseFilter, setExerciseFilter] = useState('');
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
 
   const isTrainer = currentUser?.role === 'trainer' || currentUser?.role === 'admin';
 
-  // Initial data sync
+  // Synchronize state registries caches on mount
   useEffect(() => {
-    // If trainer, fetch all group members for the sidebar
+    FrontendLogger.info('ACTIVITY_DASHBOARD', 'Mounting performance analytics and activity feed dashboard');
+    
     if (isTrainer && currentUser?.group_id) {
+      FrontendLogger.info('ACTIVITY_DASHBOARD', `User has leadership authorization tokens. Hydrating group trainees roster for index ID: ${currentUser.group_id}`);
       refreshUsers(currentUser.group_id);
     }
-    // Fetch all relevant logs (group logs for trainer, personal for trainee)
+    
+    // Request log timeline cascade records sync from server layers
     fetchLogs(null, isTrainer);
-  }, [isTrainer, currentUser]);
+  }, [isTrainer, currentUser, fetchLogs, refreshUsers]);
 
   /**
    * Filtered Log Engine:
-   * Combines trainee selection and exercise name search.
+   * Dynamically evaluates active target user vectors and string search patterns.
    */
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
       const matchesTrainee = !selectedTraineeId || log.user_id === selectedTraineeId;
       const matchesExercise = !exerciseFilter || 
-        log.exercise_name.toLowerCase().includes(exerciseFilter.toLowerCase());
+        (log.exercise_name || '').toLowerCase().includes(exerciseFilter.toLowerCase());
       return matchesTrainee && matchesExercise;
     });
   }, [logs, selectedTraineeId, exerciseFilter]);
 
   /**
-   * Helper: Get current trainee object for header display
+   * Helper: Resolves highlighted trainee state coordinates for contextual title banners
    */
   const activeTrainee = useMemo(() => {
     return users.find(u => u.id === selectedTraineeId);
   }, [users, selectedTraineeId]);
 
+  const handleTraineeSelect = (id) => {
+    FrontendLogger.info('ACTIVITY_DASHBOARD', `Altering active tracking pipeline focus parameters to filter user ID: ${id || 'GLOBAL_FEED'}`);
+    setSelectedTraineeId(id);
+  };
+
+  const handleFilterChange = (val) => {
+    setExerciseFilter(val);
+  };
+
   return (
     <div className="flex min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-slate-100 to-zinc-200 font-sans selection:bg-zinc-900 selection:text-white" dir="rtl">
       
-      {/* --- TRAINER SIDEBAR --- */}
+      {/* --- TRAINER MANAGEMENT SIDEBAR FRAME --- */}
       {isTrainer && (
         <aside className="sticky top-0 h-screen w-80 bg-white/60 backdrop-blur-3xl border-l border-white/60 shadow-2xl flex flex-col z-40">
           <div className="p-8">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mb-8 mr-2">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 mb-8 mr-2 select-none">
               My Trainees
             </h2>
             
-            <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-200px)] scrollbar-hide">
-              {/* "Show All" Node */}
+            <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-200px)] scrollbar-hide pr-1">
+              {/* Global Feed "Show All" Reset Node */}
               <button
-                onClick={() => setSelectedTraineeId(null)}
-                className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${
+                type="button"
+                onClick={() => handleTraineeSelect(null)}
+                className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 active:scale-[0.98] ${
                   !selectedTraineeId 
                     ? 'bg-zinc-900 text-white shadow-xl shadow-zinc-900/20' 
                     : 'text-zinc-500 hover:bg-white/60 hover:text-zinc-900'
                 }`}
               >
-                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-lg">👥</div>
+                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-lg select-none">👥</div>
                 <span className="font-black text-sm uppercase tracking-tighter">כל המתאמנים</span>
               </button>
 
-              {/* Trainee List */}
+              {/* Trainee Node Map Pipeline */}
               {users.filter(u => u.role === 'trainee').map(trainee => (
                 <button
                   key={trainee.id}
-                  onClick={() => setSelectedTraineeId(trainee.id)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 group ${
+                  type="button"
+                  onClick={() => handleTraineeSelect(trainee.id)}
+                  className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 active:scale-[0.98] group ${
                     selectedTraineeId === trainee.id 
                       ? 'bg-zinc-900 text-white shadow-xl shadow-zinc-200' 
                       : 'text-zinc-500 hover:bg-white/60 hover:text-zinc-900'
                   }`}
                 >
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     {trainee.profile_picture ? (
                       <img 
                         src={trainee.profile_picture} 
@@ -101,14 +116,18 @@ const ActivityDashboardPage = () => {
                         alt="" 
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center text-[10px] font-black text-zinc-400">
-                        {trainee.first_name?.[0]}
+                      <div className="w-10 h-10 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-[11px] font-black text-zinc-400 uppercase font-mono">
+                        {trainee.first_name?.[0] || '?'}
                       </div>
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black tracking-tight leading-none">{trainee.first_name} {trainee.second_name}</p>
-                    <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest mt-1">@{trainee.username}</p>
+                    <p className="text-sm font-black tracking-tight leading-none transition-colors group-hover:text-zinc-900 dark:group-hover:text-white">
+                      {trainee.first_name} {trainee.second_name}
+                    </p>
+                    <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest mt-1 font-mono">
+                      @{trainee.username}
+                    </p>
                   </div>
                 </button>
               ))}
@@ -116,55 +135,59 @@ const ActivityDashboardPage = () => {
           </div>
           
           <div className="mt-auto p-8 border-t border-white/40">
-             <p className="text-[9px] font-black text-zinc-300 uppercase tracking-[0.3em]">
+             <p className="text-[9px] font-black text-zinc-300 uppercase tracking-[0.3em] italic select-none leading-none">
                Mitamnim Management Suite v2
              </p>
           </div>
         </aside>
       )}
 
-      {/* --- MAIN CONTENT AREA --- */}
+      {/* --- MAIN DASHBOARD CONTENT AREA VIEWPORT --- */}
       <main className="flex-1 p-8 lg:p-16 overflow-y-auto">
         <div className="max-w-5xl mx-auto space-y-12">
           
-          {/* Dashboard Header */}
-          <header className="flex flex-col md:flex-row justify-between items-end md:items-center gap-8 bg-white/40 backdrop-blur-2xl p-10 rounded-[3rem] border border-white/60 shadow-xl">
+          {/* Dashboard Glass Header Layout Banner */}
+          <header className="flex flex-col md:flex-row justify-between items-end md:items-center gap-8 bg-white/40 backdrop-blur-2xl p-10 rounded-[3rem] border border-white/60 shadow-xl animate-in fade-in slide-in-from-top-4 duration-700">
             <div className="space-y-2">
-              <h1 className="text-5xl font-black tracking-tighter text-zinc-900">
-                {selectedTraineeId ? `ביצועים: ${activeTrainee?.first_name}` : 'יומן פעילות גלובלי'}
+              <h1 className="text-5xl font-black tracking-tighter text-zinc-900 leading-tight">
+                {selectedTraineeId ? `ביצועים: ${activeTrainee?.first_name || 'אתלט'}` : 'יומן פעילות קבוצתי'}
               </h1>
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em]">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] font-mono">
                   {logs.length} Total Records Synced
                 </p>
               </div>
             </div>
 
-            {/* Header Search & Actions */}
+            {/* Header Content Search Configurations and Insertion Triggers */}
             <div className="flex items-center gap-4 w-full md:w-auto">
               <div className="relative group flex-1 md:w-64">
                 <input 
                   type="text"
                   placeholder="חפש תרגיל ביומן..."
                   value={exerciseFilter}
-                  onChange={(e) => setExerciseFilter(e.target.value)}
-                  className="w-full bg-white/60 border border-white/80 rounded-2xl px-6 py-4 text-sm font-bold text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all shadow-inner"
+                  onChange={(e) => handleFilterChange(e.target.value)}
+                  className="w-full bg-white/60 border border-white/80 rounded-2xl px-6 py-4 text-sm font-bold text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all shadow-inner placeholder:text-zinc-300"
                 />
-                <span className="absolute left-6 top-1/2 -translate-y-1/2 opacity-20">🔍</span>
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 opacity-30 select-none pointer-events-none">🔍</span>
               </div>
               
               <button 
-                onClick={() => setIsCreatorOpen(true)}
-                className="w-14 h-14 bg-zinc-900 text-white rounded-2xl flex items-center justify-center text-xl shadow-2xl shadow-zinc-900/20 hover:scale-110 active:scale-95 transition-all"
-                title="Add Manual Log"
+                type="button"
+                onClick={() => {
+                  FrontendLogger.info('ACTIVITY_DASHBOARD', 'Opening dynamic standalone log creator portal overlay frame');
+                  setIsCreatorOpen(true);
+                }}
+                className="w-14 h-14 bg-zinc-900 text-white rounded-2xl flex items-center justify-center text-xl shadow-2xl shadow-zinc-900/20 hover:scale-105 active:scale-95 transition-all shrink-0 font-black"
+                title="Add Manual Performance Entry"
               >
                 ＋
               </button>
             </div>
           </header>
 
-          {/* Activity Feed Section */}
+          {/* Activity Stream Feed Section Layout View */}
           <section className="animate-in fade-in slide-in-from-bottom-6 duration-1000">
             <ActivityJournal 
               logs={filteredLogs} 
@@ -175,22 +198,24 @@ const ActivityDashboardPage = () => {
         </div>
       </main>
 
-      {/* --- LOG CREATOR MODAL --- */}
+      {/* --- LOG INSERTION CREATOR DIALOG OVERLAY --- */}
       {isCreatorOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-zinc-900/60 backdrop-blur-md animate-in fade-in duration-500">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-500">
           <div className="absolute inset-0" onClick={() => setIsCreatorOpen(false)} />
           <div className="relative w-full max-w-2xl animate-in zoom-in-95 duration-500">
             <ActivityCreator 
               onComplete={() => {
+                FrontendLogger.info('ACTIVITY_DASHBOARD', 'Performance entry created successfully. Refreshing live logs cache pool.');
                 setIsCreatorOpen(false);
-                fetchLogs(null, isTrainer); // Refresh feed
+                fetchLogs(null, isTrainer); 
               }} 
             />
             <button 
+              type="button"
               onClick={() => setIsCreatorOpen(false)}
-              className="absolute -top-12 left-0 text-white font-black text-xs uppercase tracking-widest hover:opacity-70 transition-opacity"
+              className="absolute -top-12 left-0 text-white font-black text-xs uppercase tracking-widest hover:opacity-70 transition-opacity active:scale-95"
             >
-              Close Portal ✕
+              סגור חלון Portal ✕
             </button>
           </div>
         </div>
