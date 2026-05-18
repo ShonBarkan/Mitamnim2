@@ -15,6 +15,7 @@ import ActivityCreator from '../components/ActivityDashboardPage/ActivityCreator
 /**
  * LandingPage Component - The primary athlete command dashboard.
  * Implements a premium bright "Arctic Mirror" aesthetic with deep translucent blurs.
+ * Completely static layout positions with absolute zero automatic scroll behaviors.
  */
 const LandingPage = () => {
   const { user } = useContext(AuthContext);
@@ -47,14 +48,14 @@ const LandingPage = () => {
           </h1>
         </div>
 
-        {/* Global Interaction Grid: Perfectly aligned layout heights */}
+        {/* Global Interaction Grid: Perfectly aligned layout heights matching core perimeters */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-stretch animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
-          <div className="lg:col-span-3 flex flex-col justify-between">
+          <div className="lg:col-span-3 flex flex-col justify-between min-h-[160px]">
             <MainBanners mainMessages={mainMessages} />
           </div>
           
           {/* Quick Action Trigger Tile */}
-          <div className="w-full flex">
+          <div className="w-full flex h-full">
             <button 
               type="button"
               onClick={() => {
@@ -106,7 +107,7 @@ const LandingPage = () => {
                 </div>
               </div>
               
-              {/* Isolated container blocks auto-scrolling to prevent main body shifting anchor drops */}
+              {/* Cleaned container bounds with zero operational window hook side-effects */}
               <div className="p-8 max-h-[600px] overflow-y-auto scrollbar-hide">
                 <MessageFeed 
                   title="" 

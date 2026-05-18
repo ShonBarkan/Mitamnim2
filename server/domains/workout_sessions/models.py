@@ -28,13 +28,21 @@ class WorkoutSession(Base):
 
 
 class PerformedSet(Base):
-    """Represents a single distinct set executed for an exercise during a session."""
+    """
+    Represents a single distinct set executed for an exercise during a session.
+    Explicitly maps Pythonic attributes to physical PostgreSQL column names.
+    """
     __tablename__ = "performed_sets"
 
     id = Column(Integer, primary_key=True, index=True)
-    workout_session_id = Column(Integer, ForeignKey("workout_sessions.id", ondelete="CASCADE"), nullable=False)
+
+    # Mapped to physical column 'session_id' in PostgreSQL while keeping property name clean
+    workout_session_id = Column("session_id", Integer, ForeignKey("workout_sessions.id", ondelete="CASCADE"), nullable=False)
+
     exercise_id = Column(Integer, ForeignKey("group_exercise_registry.id", ondelete="CASCADE"), nullable=False)
-    set_number = Column(Integer, nullable=False)
+
+    # Mapped to physical column 'set_num' in PostgreSQL while keeping property name clean
+    set_number = Column("set_num", Integer, nullable=False)
 
     workout_session = relationship("WorkoutSession", back_populates="performed_sets")
     exercise = relationship("GroupExerciseRegistry")
@@ -42,12 +50,15 @@ class PerformedSet(Base):
 
 
 class PerformedSetValue(Base):
-    """Holds the specific, isolated metric log value produced during a single performed set."""
+    """
+    Holds the specific, isolated metric log value produced during a single performed set.
+    Utilizes a composite primary key layout matching the physical database schema architecture.
+    """
     __tablename__ = "performed_set_values"
 
-    id = Column(Integer, primary_key=True, index=True)
-    performed_set_id = Column(Integer, ForeignKey("performed_sets.id", ondelete="CASCADE"), nullable=False)
-    parameter_id = Column(Integer, ForeignKey("parameters.id", ondelete="CASCADE"), nullable=False)
+    # Adjusted to reflect the actual composite primary keys instead of a missing auto-increment column
+    performed_set_id = Column(Integer, ForeignKey("performed_sets.id", ondelete="CASCADE"), primary_key=True, nullable=False)
+    parameter_id = Column(Integer, ForeignKey("parameters.id", ondelete="CASCADE"), primary_key=True, nullable=False)
     value = Column(Text, nullable=False)
 
     performed_set = relationship("PerformedSet", back_populates="set_values")
@@ -60,13 +71,16 @@ class ParamValuePayload(BaseModel):
     parameter_id: int
     value: str
 
+
 class SetPerformancePayload(BaseModel):
     set_number: int
     metrics: List[ParamValuePayload]
 
+
 class ExercisePerformancePayload(BaseModel):
     exercise_id: int
     sets: List[SetPerformancePayload]
+
 
 class WorkoutSessionFinish(BaseModel):
     template_id: Optional[int] = None
@@ -74,6 +88,7 @@ class WorkoutSessionFinish(BaseModel):
     workout_summary: Optional[str] = None
     actual_duration: Optional[str] = None
     performed_exercises: List[ExercisePerformancePayload]
+
 
 class WorkoutSessionOut(BaseModel):
     id: int

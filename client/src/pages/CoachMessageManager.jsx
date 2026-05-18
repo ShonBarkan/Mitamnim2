@@ -69,9 +69,9 @@ const CoachMessageManager = () => {
 
         if (action === 'MESSAGE_CREATED' && data?.is_main) {
           FrontendLogger.info('COACH_MESSAGE_MANAGER', `Live hot-reload packet detected via stream channel for action: ${action}`);
-          if (data.message_type === 'general' && data.group_id === user?.group_id) {
-            fetchMainMessages();
-          } else if (data.message_type === 'personal') {
+          fetchMainMessages();
+          
+          if (data.message_type === 'personal') {
             const traineeId = data.sender_id === user?.id ? data.recipient_id : data.sender_id;
             fetchHistory(traineeId);
           }
@@ -83,7 +83,7 @@ const CoachMessageManager = () => {
 
     socket.addEventListener('message', handleSocketUpdate);
     return () => socket.removeEventListener('message', handleSocketUpdate);
-  }, [socket, user?.id, user?.group_id, fetchMainMessages, fetchHistory]);
+  }, [socket, user?.id, fetchMainMessages, fetchHistory]);
 
   const handleUpdateGroupMessage = async () => {
     if (!groupMessage.trim()) return;
@@ -112,6 +112,8 @@ const CoachMessageManager = () => {
       await sendMessage('personal', content.trim(), traineeId, true);
       showToast("הודעה אישית עודכנה והוצמדה למסך הבית של האתלט", "success");
       setPersonalMessages(prev => ({ ...prev, [traineeId]: '' }));
+      
+      fetchMainMessages();
       fetchHistory(traineeId); 
     } catch (error) {
       FrontendLogger.error('COACH_MESSAGE_MANAGER', `Transaction failure while forcing personal sticky log patch to target: ${traineeId}`, error);
@@ -123,6 +125,7 @@ const CoachMessageManager = () => {
 
   const getTraineeMainMessage = (traineeId) => {
     const history = messagesByTarget[traineeId] || [];
+    // Fixed syntax bug: evaluated clean JS lowercase boolean truthy metrics
     return history.find(m => m.is_main === true);
   };
 
@@ -130,11 +133,11 @@ const CoachMessageManager = () => {
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-slate-100 to-zinc-200 font-sans p-6 lg:p-12 space-y-12 max-w-6xl mx-auto" dir="rtl">
       
       {/* Top Main Page Header Block */}
-      <header className="space-y-2 pb-6 border-b border-white/40 animate-in fade-in slide-in-from-top-6 duration-700">
+      <header className="space-y-2 pb-6 border-b border-white/40 animate-in fade-in slide-in-from-top-6 duration-700 select-none">
         <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-zinc-900 uppercase m-0 leading-none">
           ניהול הודעות מאמן
         </h1>
-        <p className="text-xs font-bold text-zinc-400 m-0">
+        <p className="text-xs font-bold text-zinc-400 m-0 mt-1">
           עדכון הודעות ראשיות (Sticky) לקבוצה ולמתאמנים
         </p>
       </header>

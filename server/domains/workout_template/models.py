@@ -44,13 +44,19 @@ class TemplateExercise(Base):
 
 
 class TemplateExerciseParameter(Base):
-    """Maps baseline metric parameters and values linked to a specific template exercise."""
+    """
+    Maps baseline metric parameters and values linked to a specific template exercise.
+    Utilizes a composite primary key layout and maps to physical column names accurately.
+    """
     __tablename__ = "template_exercise_parameters"
 
-    id = Column(Integer, primary_key=True, index=True)
-    template_exercise_id = Column(Integer, ForeignKey("template_exercises.id", ondelete="CASCADE"), nullable=False)
-    parameter_id = Column(Integer, ForeignKey("parameters.id", ondelete="CASCADE"), nullable=False)
-    target_value = Column(Text, nullable=False)
+    # Adjusted to primary key layout to match physical schema without standalone auto-increment id column
+    template_exercise_id = Column(Integer, ForeignKey("template_exercises.id", ondelete="CASCADE"), primary_key=True,
+                                  nullable=False)
+    parameter_id = Column(Integer, ForeignKey("parameters.id", ondelete="CASCADE"), primary_key=True, nullable=False)
+
+    # Mapped to physical column name 'value' found in your PostgreSQL schema while keeping code attribute names clean
+    target_value = Column("value", Text, nullable=False)
 
     template_exercise = relationship("TemplateExercise", back_populates="parameter_values")
     parameter = relationship("Parameter")

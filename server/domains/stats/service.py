@@ -56,7 +56,7 @@ class StatsService:
     def compute_group_panoramic_stats(db: Session, group_id: uuid.UUID, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """
         Builds collective bird's-eye visibility matrices alongside individual members breakdown
-        by mapping the underlying relational set tables structure safely.
+        by mapping the underlying relational set tables structure safely without duplicate table aliases.
         """
         logger.info(f"Generating global group aggregation statistics overview for group_id: {group_id}")
 
@@ -78,7 +78,6 @@ class StatsService:
             WorkoutSession.end_time.label("timestamp"),
             cast(PerformedSetValue.value, Float).label("numeric_val")
         ).join(User, User.id == WorkoutSession.user_id) \
-         .join(WorkoutSession, WorkoutSession.user_id == User.id) \
          .join(PerformedSet, PerformedSet.workout_session_id == WorkoutSession.id) \
          .join(GroupExerciseRegistry, GroupExerciseRegistry.id == PerformedSet.exercise_id) \
          .join(PerformedSetValue, PerformedSetValue.performed_set_id == PerformedSet.id) \

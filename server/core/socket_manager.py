@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Any
 from fastapi import WebSocket
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
-from core.logger import logger  # Integrated our new centralized logging engine
+from core.logger import logger
 
 class ConnectionManager:
     """
@@ -136,6 +136,7 @@ class ConnectionManager:
         except Exception as e:
             logger.error(f"Unexpected operational bottleneck occurred during WebSocket encryption authentication: {str(e)}")
             return None
+
 
 # Instantiated application singleton lifecycle binding unit
 socket_manager = ConnectionManager()

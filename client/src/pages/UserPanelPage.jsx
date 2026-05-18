@@ -14,7 +14,7 @@ import FrontendLogger from '../utils/logger';
 const UserPanelPage = () => {
   const { user: currentUser } = useAuth();
   const { users, loading, refreshUsers, addUser, deleteUser, updateUser } = useUsers();
-  const { groups, refreshGroups } = useGroups();
+  const { groups, refreshGroups } = useGroups(); // Kept context instance strictly to populate creation select forms
   const { showToast } = useToast();
 
   const initialFormState = {
@@ -43,6 +43,7 @@ const UserPanelPage = () => {
     const targetGroupId = currentUser.role === 'trainer' ? currentUser.group_id : null;
     refreshUsers(targetGroupId);
     
+    // Groups lookup network request is now required only for global admin creation contexts
     if (currentUser.role === 'admin') {
       refreshGroups();
     }
@@ -248,7 +249,7 @@ const UserPanelPage = () => {
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שיוך לקבוצת פעילות</label>
                 {currentUser.role === 'trainer' ? (
-                  <input type="text" readOnly value={groups.find(g => g.id === currentUser.group_id)?.name || 'קבוצת המאמן'} className="w-full bg-zinc-200/50 border border-zinc-300 rounded-2xl px-6 py-4 text-sm font-bold outline-none cursor-not-allowed opacity-70" />
+                  <input type="text" readOnly value={currentUser.group_name || 'קבוצת המאמן'} className="w-full bg-zinc-200/50 border border-zinc-300 rounded-2xl px-6 py-4 text-sm font-bold outline-none cursor-not-allowed opacity-70" />
                 ) : (
                   <select name="group_id" value={formData.group_id} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 appearance-none transition-all">
                     <option value="">-- בחר קבוצה מהרשימה --</option>
@@ -342,7 +343,8 @@ const UserPanelPage = () => {
                         </span>
                       </td>
                       <td className="px-8 py-6 font-bold text-zinc-500">
-                        {groups.find(g => g.id === u.group_id)?.name || <span className="opacity-30 italic">ללא שיוך</span>}
+                        {/* Streamed efficiently straight from server parameters instead of local map arrays loops */}
+                        {u.group_name || <span className="opacity-30 italic">ללא שיוך</span>}
                       </td>
                       <td className="px-8 py-6 text-left">
                         <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">

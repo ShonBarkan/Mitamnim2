@@ -17,10 +17,11 @@ export const StatsProvider = ({ children }) => {
     try {
       FrontendLogger.info('STATS_CONTEXT', 'Synchronizing leaderboard metrics dashboard configurations');
       const data = await dashboardConfigService.getConfigs();
-      setDashboardConfigs(data);
-      FrontendLogger.info('STATS_CONTEXT', `Successfully loaded ${data.length} active layout config rules`);
+      setDashboardConfigs(Array.isArray(data) ? data : []);
+      FrontendLogger.info('STATS_CONTEXT', `Successfully loaded ${data?.length || 0} active layout config rules`);
     } catch (error) {
       FrontendLogger.error('STATS_CONTEXT', 'Failed to synchronize dashboard configuration matrix portfolio', error);
+      setDashboardConfigs([]);
     } finally {
       setLoading(false);
     }
@@ -128,10 +129,8 @@ export const StatsProvider = ({ children }) => {
   );
 };
 
-/**
- * Custom hook utility proxying contextual abstraction layers cleanly.
- * Must be consumed strictly within an active StatsProvider scope wrapper boundary.
- */
+export default StatsProvider;
+
 export const useStats = () => {
   const context = useContext(StatsContext);
   if (!context) {
@@ -139,5 +138,3 @@ export const useStats = () => {
   }
   return context;
 };
-
-export default StatsProvider;

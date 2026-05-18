@@ -6,14 +6,13 @@ import FrontendLogger from '../utils/logger';
 
 /**
  * MessageFeed Component - Real-time core messaging thread layer.
- * Powered by WebSockets with protection layout boundaries against scrolling focus distraction locks.
+ * Re-architected to maintain a completely static viewport with absolute zero automatic scroll behaviors.
  */
-const MessageFeed = ({ title, targetId, type, currentUserId, userRole, disableAutoScrollFocus = false }) => {
+const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
   const [newMsg, setNewMsg] = useState('');
   const [deleteModal, setDeleteModal] = useState({ open: false, msgId: null });
   
   const messagesContainerRef = useRef(null);
-  const messagesEndRef = useRef(null);
   
   const { showToast } = useToast();
   const { socket } = useSocket();
@@ -33,32 +32,6 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole, disableAu
   }, [targetId, fetchHistory]);
 
   /**
-   * Evaluates layout coordinates to handle non-intrusive lazy scrolling execution blocks
-   */
-  const scrollToBottom = (force = false) => {
-    if (!messagesContainerRef.current || !messagesEndRef.current) return;
-
-    if (force || !disableAutoScrollFocus) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-      return;
-    }
-
-    // Lazy scroll: Only snap focus to bottom if the user is already looking at recent content bounds
-    const container = messagesContainerRef.current;
-    const threshold = 150; 
-    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
-
-    if (isNearBottom) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
-  // Safe layout lifecycle listener capturing document stack modification increments
-  useEffect(() => {
-    scrollToBottom(false);
-  }, [messages]);
-
-  /**
    * Commits and pipelines outbound text payloads directly over network endpoints
    */
   const handleSend = async () => {
@@ -67,9 +40,6 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole, disableAu
       FrontendLogger.info('MESSAGE_FEED', 'User dispatched an outbound communication package block');
       await sendMessage(type, newMsg.trim(), targetId, false);
       setNewMsg('');
-      
-      // Explicitly force scroll down on self-generated outbound events
-      setTimeout(() => scrollToBottom(true), 50);
     } catch (err) {
       showToast("שליחת ההודעה נכשלה", "error");
     }
@@ -125,7 +95,7 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole, disableAu
     <section className="flex flex-col h-full w-full bg-white/30 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] shadow-2xl overflow-hidden relative" dir="rtl">
       
       {/* Feed Dynamic Header */}
-      <header className="p-6 border-b border-white/40 bg-white/20 flex items-center justify-between">
+      <header className="p-6 border-b border-white/40 bg-white/20 flex items-center justify-between select-none">
         <div className="space-y-0.5">
           <h3 className="m-0 text-xl font-black text-zinc-900 tracking-tighter uppercase">{title || "צ'אט קבוצתי"}</h3>
           <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Secure Chat Thread</p>
@@ -138,12 +108,12 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole, disableAu
         className="flex-1 overflow-y-auto flex flex-col gap-4 p-6 max-h-[500px]"
       >
         {isHistoryLoading ? (
-          <div className="flex flex-col flex-1 justify-center items-center gap-2 py-12">
+          <div className="flex flex-col flex-1 justify-center items-center gap-2 py-12 select-none">
             <div className="w-6 h-6 border-2 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
             <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Loading Sync...</p>
           </div>
         ) : messages.length === 0 ? (
-          <p className="text-center text-xs font-bold text-zinc-400 italic py-12">אין הודעות בשיחה זו</p>
+          <p className="text-center text-xs font-bold text-zinc-400 italic py-12 select-none">אין הודעות בשיחה זו</p>
         ) : (
           messages.map((msg, index) => {
             const msgDate = new Date(msg.created_at).toDateString();
@@ -160,17 +130,23 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole, disableAu
               ? 'bg-blue-500/10 border border-blue-200/40 rounded-tl-none' 
               : 'bg-white/80 border border-white rounded-tr-none';
 
-            // Override styling parameters for standardized general announcement feeds
             if (type === 'broadcast') {
               alignment = 'self-center w-[96%]';
               bubbleStyle = 'bg-amber-500/5 border border-amber-200/30 shadow-inner text-center';
             }
 
+            // Extract the formatted display name string explicitly using full DB relations
+            const senderDisplayName = isMine 
+              ? 'אני' 
+              : (msg.sender?.first_name 
+                  ? `${msg.sender.first_name} ${msg.sender.second_name || ''}`.trim() 
+                  : (msg.sender_name || 'אתלט'));
+
             return (
               <React.Fragment key={msg.id}>
                 {/* Timeline Axis Date Badges */}
                 {isNewDay && (
-                  <div className="flex justify-center my-2">
+                  <div className="flex justify-center my-2 select-none">
                     <span className="bg-white/90 backdrop-blur-md border border-white/80 text-zinc-400 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">
                       {formatDateLabel(msg.created_at)}
                     </span>
@@ -183,11 +159,11 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole, disableAu
                   {/* Metadata Row */}
                   <div className="flex justify-between items-center gap-6 text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2">
                     <span className={isMine ? 'text-blue-600' : 'text-zinc-500'}>
-                      {isMine ? 'אני' : msg.sender_name || 'אתלט'}
+                      {senderDisplayName}
                     </span>
                     
                     <div className="flex items-center gap-1.5">
-                      <span className="tabular-nums font-bold opacity-70">{formatTime(msg.created_at)}</span>
+                      <span className="tabular-nums font-bold opacity-70 select-none">{formatTime(msg.created_at)}</span>
                       {canEdit && (
                         <button 
                           onClick={() => handleEdit(msg)} 
@@ -219,7 +195,6 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole, disableAu
             );
           })
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input Action Panel */}
@@ -243,7 +218,7 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole, disableAu
 
       {/* Confirmation Guard Overlay Modal */}
       {deleteModal.open && (
-        <div className="absolute inset-0 z-[120] flex items-center justify-center p-6 bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="absolute inset-0 z-[120] flex items-center justify-center p-6 bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-300 select-none">
           <div className="bg-white/90 backdrop-blur-3xl border border-white/80 rounded-[2.5rem] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95 duration-300 space-y-6">
             <p className="text-base font-black text-zinc-900 tracking-tight">האם ברצונך למחוק הודעה זו?</p>
             <div className="flex gap-3 justify-center">

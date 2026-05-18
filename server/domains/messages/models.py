@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import Column, DateTime, ForeignKey, Text, Boolean, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 from db.database import Base
 
@@ -49,15 +49,37 @@ class MessageUpdate(BaseModel):
     message_type: Optional[str] = None
 
 
+# Embedded minimalist schema to populate nested target attributes cleanly
+class MessageUserMetadata(BaseModel):
+    id: uuid.UUID
+    first_name: str
+    second_name: Optional[str] = None
+    username: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MessageOut(BaseModel):
-    """Output serialization matrix enriched with structural platform timestamps."""
+    """Output serialization matrix enriched with structural platform timestamps and user context metadata."""
     id: uuid.UUID
     sender_id: uuid.UUID
-    recipient_id: Optional[uuid.UUID]
-    group_id: Optional[uuid.UUID]
+    recipient_id: Optional[uuid.UUID] = None
+    group_id: Optional[uuid.UUID] = None
     content: str
     message_type: str
     is_main: bool
     created_at: datetime
+
+    # Enriched relational structure contexts mapped out cleanly from base attributes
+    sender: Optional[MessageUserMetadata] = None
+    recipient: Optional[MessageUserMetadata] = None
+
+    # Dynamically extract flat representation fallback fields to satisfy multi-variant client templates
+    @computed_field
+    @property
+    def sender_name(self) -> str:
+        if self.sender and self.sender.first_name:
+            return f"{self.sender.first_name} {self.sender.second_name or ''}".strip()
+        return "אתלט"
 
     model_config = ConfigDict(from_attributes=True)
