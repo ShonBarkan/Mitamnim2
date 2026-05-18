@@ -1,5 +1,5 @@
 import React from 'react';
-import ActivityLogItem from './ActivityLogItem';
+import ActivityLogItem from './JournalDayGroup/ActivityLogItem';
 
 /**
  * JournalDayGroup Component - Groups logs by date in a high-end timeline layout.

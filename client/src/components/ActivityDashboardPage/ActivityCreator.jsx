@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { useActivity } from '../../contexts/ActivityContext';
+import { useWorkout } from '../../contexts/WorkoutContext';
 import { ParameterContext } from '../../contexts/ParameterContext';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -14,7 +14,7 @@ import FrontendLogger from '../../utils/logger';
  * Features a dynamic Arithmetic Engine to compile calculated formulas during the summary phase.
  */
 const ActivityCreator = ({ initialExercise = null, onComplete }) => {
-  const { addLog } = useActivity();
+  const { addLog } = useWorkout();
   const { parameters } = useContext(ParameterContext);
   const { showToast } = useToast();
 

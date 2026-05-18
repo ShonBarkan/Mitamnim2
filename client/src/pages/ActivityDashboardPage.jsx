@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useActivity } from '../contexts/ActivityContext';
+import { AuthContext } from '../contexts/AuthContext';
+import { WorkoutContext } from '../contexts/WorkoutContext';
 import { UserContext } from '../contexts/UserContext';
 import { ExerciseContext } from '../contexts/ExerciseContext';
 
@@ -12,12 +12,13 @@ import FrontendLogger from '../utils/logger';
 /**
  * ActivityDashboardPage - The central performance capturing hub and training log ecosystem.
  * Features a dynamic Trainer Sidebar for tactical squad management and high-end glassmorphic feed states.
+ * Fully synchronized with the global relational WorkoutContext tracking pipelines.
  */
 const ActivityDashboardPage = () => {
-  const { user: currentUser } = useAuth();
-  const { logs, loading: logsLoading, fetchLogs } = useActivity();
-  const { users, refreshUsers } = useContext(UserContext);
-  const { exercises } = useContext(ExerciseContext);
+  const { user: currentUser } = useContext(AuthContext);
+  const { logs = [], loading: logsLoading, fetchLogs } = useContext(WorkoutContext);
+  const { users = [], refreshUsers } = useContext(UserContext);
+  const { exercises = [] } = useContext(ExerciseContext);
 
   // States for live operational filtering and viewport layouts
   const [selectedTraineeId, setSelectedTraineeId] = useState(null);
@@ -26,7 +27,7 @@ const ActivityDashboardPage = () => {
 
   const isTrainer = currentUser?.role === 'trainer' || currentUser?.role === 'admin';
 
-  // Synchronize state registries caches on mount
+  // Synchronize state registries caches on component mount lifecycle
   useEffect(() => {
     FrontendLogger.info('ACTIVITY_DASHBOARD', 'Mounting performance analytics and activity feed dashboard');
     
@@ -35,8 +36,10 @@ const ActivityDashboardPage = () => {
       refreshUsers(currentUser.group_id);
     }
     
-    // Request log timeline cascade records sync from server layers
-    fetchLogs(null, isTrainer);
+    // Request log timeline cascade records sync from server layers via WorkoutContext
+    if (fetchLogs) {
+      fetchLogs(null, isTrainer);
+    }
   }, [isTrainer, currentUser, fetchLogs, refreshUsers]);
 
   /**
@@ -116,16 +119,16 @@ const ActivityDashboardPage = () => {
                         alt="" 
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-[11px] font-black text-zinc-400 uppercase font-mono">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center text-[11px] font-black text-zinc-400 uppercase font-mono shadow-sm">
                         {trainee.first_name?.[0] || '?'}
                       </div>
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black tracking-tight leading-none transition-colors group-hover:text-zinc-900 dark:group-hover:text-white">
+                    <p className="text-sm font-black tracking-tight leading-none text-zinc-900">
                       {trainee.first_name} {trainee.second_name}
                     </p>
-                    <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest mt-1 font-mono">
+                    <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest mt-1.5 font-mono">
                       @{trainee.username}
                     </p>
                   </div>
@@ -143,19 +146,19 @@ const ActivityDashboardPage = () => {
       )}
 
       {/* --- MAIN DASHBOARD CONTENT AREA VIEWPORT --- */}
-      <main className="flex-1 p-8 lg:p-16 overflow-y-auto">
+      <main className="flex-1 p-6 lg:p-12 overflow-y-auto">
         <div className="max-w-5xl mx-auto space-y-12">
           
           {/* Dashboard Glass Header Layout Banner */}
           <header className="flex flex-col md:flex-row justify-between items-end md:items-center gap-8 bg-white/40 backdrop-blur-2xl p-10 rounded-[3rem] border border-white/60 shadow-xl animate-in fade-in slide-in-from-top-4 duration-700">
             <div className="space-y-2">
-              <h1 className="text-5xl font-black tracking-tighter text-zinc-900 leading-tight">
+              <h1 className="text-5xl font-black tracking-tighter text-zinc-900 leading-tight m-0">
                 {selectedTraineeId ? `ביצועים: ${activeTrainee?.first_name || 'אתלט'}` : 'יומן פעילות קבוצתי'}
               </h1>
               <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] font-mono">
-                  {logs.length} Total Records Synced
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50 animate-pulse" />
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] font-mono m-0">
+                  {filteredLogs.length} Total Records Synced
                 </p>
               </div>
             </div>
@@ -179,7 +182,7 @@ const ActivityDashboardPage = () => {
                   FrontendLogger.info('ACTIVITY_DASHBOARD', 'Opening dynamic standalone log creator portal overlay frame');
                   setIsCreatorOpen(true);
                 }}
-                className="w-14 h-14 bg-zinc-900 text-white rounded-2xl flex items-center justify-center text-xl shadow-2xl shadow-zinc-900/20 hover:scale-105 active:scale-95 transition-all shrink-0 font-black"
+                className="w-14 h-14 bg-zinc-900 text-white rounded-2xl flex items-center justify-center text-xl shadow-2xl shadow-zinc-900/20 hover:scale-105 active:scale-95 transition-all shrink-0 font-black border border-zinc-900"
                 title="Add Manual Performance Entry"
               >
                 ＋
@@ -200,14 +203,16 @@ const ActivityDashboardPage = () => {
 
       {/* --- LOG INSERTION CREATOR DIALOG OVERLAY --- */}
       {isCreatorOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-500">
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-6 bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-400">
           <div className="absolute inset-0" onClick={() => setIsCreatorOpen(false)} />
-          <div className="relative w-full max-w-2xl animate-in zoom-in-95 duration-500">
+          <div className="relative w-full max-w-2xl animate-in zoom-in-95 duration-400">
             <ActivityCreator 
               onComplete={() => {
                 FrontendLogger.info('ACTIVITY_DASHBOARD', 'Performance entry created successfully. Refreshing live logs cache pool.');
                 setIsCreatorOpen(false);
-                fetchLogs(null, isTrainer); 
+                if (fetchLogs) {
+                  fetchLogs(null, isTrainer);
+                }
               }} 
             />
             <button 

@@ -1,6 +1,7 @@
 import os
 import sys
 import uuid
+import random
 from passlib.context import CryptContext
 
 # Align system paths to allow clean root directory package execution
@@ -19,6 +20,7 @@ def seed_system_mock_data():
     """
     Automated relational database seeder logic. Spawns 1 Admin, 1 Group,
     2 Trainers, 6 Trainees, 2 Raw Parameters, and 1 Virtual Parameter calculation row.
+    Injects dynamic randomized Lorem Picsum asset URLs for profiles and group avatars.
     """
     logger.info("Initializing relational mock data injection script context...")
     db = SessionLocal()
@@ -36,16 +38,17 @@ def seed_system_mock_data():
             first_name="System",
             second_name="Administrator",
             email="admin@mitamnim.com",
+            profile_picture=f"https://picsum.photos/150/150?random={uuid.uuid4()}",
             group_id=None
         )
         db.add(admin_user)
-        logger.info("Admin entity staged.")
+        logger.info("Admin entity staged with dynamic avatar preset.")
 
         # 3. Spawn Core Training Group
         mock_group = Group(
             id=uuid.uuid4(),
             name="Iron Warriors Elite",
-            group_image="https://images.unsplash.com/photo-mock"
+            group_image=f"https://picsum.photos/800/400?random={random.randint(100, 999)}"
         )
         db.add(mock_group)
         db.flush()  # Extract secure Group UUID key context safely
@@ -62,12 +65,13 @@ def seed_system_mock_data():
                 first_name=f"Coach",
                 second_name=f"Alpha {i}",
                 email=f"trainer{i}@mitamnim.com",
+                profile_picture=f"https://picsum.photos/150/150?random=trainer_{i}",
                 group_id=mock_group.id
             )
             db.add(trainer_node)
             trainers.append(trainer_node)
 
-        logger.info("2 Group Trainers staged successfully.")
+        logger.info("2 Group Trainers staged successfully with unique avatars.")
 
         # 5. Spawn 3 Trainees for each Trainer inside the Group (Total: 6 Trainees)
         trainee_counter = 1
@@ -81,12 +85,13 @@ def seed_system_mock_data():
                     first_name=f"Athlete",
                     second_name=f"Number-{trainee_counter}",
                     email=f"trainee{trainee_counter}@mitamnim.com",
+                    profile_picture=f"https://picsum.photos/150/150?random=trainee_{trainee_counter}",
                     group_id=mock_group.id
                 )
                 db.add(trainee_node)
                 trainee_counter += 1
 
-        logger.info("6 Isolated Trainee athlete profiles staged successfully.")
+        logger.info("6 Isolated Trainee athlete profiles staged successfully with unique avatars.")
 
         # 6. Spawn Base Logging Parameters (Reps and Weight)
         reps_param = Parameter(

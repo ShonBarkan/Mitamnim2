@@ -1,58 +1,99 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-// Providers Wrapper (Injects all updated hybrid contexts)
+// Providers Wrapper (Injects the complete centralized architecture layer state tree)
 import AppProviders from './components/AppProviders';
 
-// Components & Pages
+// Application Structural Layout Components & Guards
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+
+// Viewport Pages Matrix Pipeline
 import LoginPage from './pages/LoginPage';
 import LandingPage from './pages/LandingPage';
 import UserPanelPage from './pages/UserPanelPage';
 import GroupPanelPage from './pages/GroupPanelPage';
-import WorkoutTemplatePage from './pages/WorkoutTemplatePage';
+import WorkoutsPage from './pages/WorkoutsPage';
 import CreateWorkoutTemplatePage from './pages/CreateWorkoutTemplatePage';
 import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
-import ActivityDashboardPage from './pages/ActivityDashboardPage'; // New Hub
+import ActivityDashboardPage from './pages/ActivityDashboardPage';
 import ChatsPage from './pages/ChatsPage';
 import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
-import PersonalStatsPage from './pages/PersonalStatsPage';
+import AnalyticsStudioPage from './pages/AnalyticsStudioPage';
 
 /**
- * Main Application Component
- * Defines the routing structure and global layout.
- * Refactored: Removed ExercisePage in favor of ActivityDashboardPage.
+ * Main Application Configuration Engine
+ * Establishes client-side routing structures, privilege layers, and the core global layout wireframe.
+ * Refactored: Standardized route namings and transposed static stats components into AnalyticsStudio components.
  */
 function App() {
   return (
     <AppProviders>
       <Router>
-        {/* Navigation bar is visible on all routes */}
+        {/* Navigation bar is decoupled and consistently available across authenticated route sessions */}
         <Navbar />
         
-        {/* Main Viewport Container with Arctic Mirror base styles */}
-        <div className="min-h-screen font-sans antialiased selection:bg-zinc-900 selection:text-white bg-slate-50" dir="rtl">
+        {/* Unified Viewport Container Layer maintaining Arctic Mirror base configurations */}
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-slate-50 to-zinc-200 font-sans antialiased selection:bg-zinc-900 selection:text-white" dir="rtl">
           <Routes>
-            {/* Public Routes */}
+            {/* Public Authentication Gateways */}
             <Route path="/login" element={<LoginPage />} />
             
-            {/* Private Routes (Protected by AuthContext & ProtectedRoute) */}
+            {/* Authenticated Global Core Views Nodes */}
             <Route path="/" element={
               <ProtectedRoute>
                 <LandingPage />
               </ProtectedRoute>
             } />
 
-            {/* Performance Hub: Replaces ExercisePage as the main logging & history view */}
+            {/* Performance Activity Logs & Chronicles Tracker Hub */}
             <Route path="/activity" element={
               <ProtectedRoute>
                 <ActivityDashboardPage />
               </ProtectedRoute>
             } />
 
-            {/* Admin/Trainer Access Only: Management Panels */}
+            {/* Workout Programs & Live Athlete Performance Sessions Tracking Pipeline */}
+            <Route path="/workouts" element={
+              <ProtectedRoute>
+                <WorkoutsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/create-workout-templates" element={
+              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
+                <CreateWorkoutTemplatePage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/active-workouts/:templateId" element={
+              <ProtectedRoute>
+                <ActiveWorkoutPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Live Instant Communications Real-Time Thread Mesh */}
+            <Route path="/chats" element={
+              <ProtectedRoute>
+                <ChatsPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Highly Customized Target Metrics Analytics Studios */}
+            <Route path="/analytics-studio" element={
+              <ProtectedRoute>
+                <AnalyticsStudioPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/analytics-studio/:userId" element={
+              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
+                <AnalyticsStudioPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Privileged Squad & Accounts Governance Panels */}
             <Route path="/users" element={
               <ProtectedRoute allowedRoles={['admin', 'trainer']}>
                 <UserPanelPage />
@@ -65,62 +106,22 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Workout & Training Management */}
-            <Route path="/workout-templates" element={
-              <ProtectedRoute>
-                <WorkoutTemplatePage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/create-workout-templates" element={
-              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                <CreateWorkoutTemplatePage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/active-workouts" element={
-              <ProtectedRoute>
-                <ActiveWorkoutPage />
-              </ProtectedRoute>
-            } />
-
-            {/* Communication & Feedback */}
-            <Route path="/chats" element={
-              <ProtectedRoute>
-                <ChatsPage />
-              </ProtectedRoute>
-            } />
-
+            {/* Broadcast Sticky Announcement Command Dashboards */}
             <Route path="/coach-messages" element={
-                <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                  <CoachMessageManager />
-                </ProtectedRoute>
-              } 
-            />
+              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
+                <CoachMessageManager />
+              </ProtectedRoute>
+            } />
 
-            {/* Analytics, Stats & System Settings */}
+            {/* Flat Core System Parameter Configurations Registry */}
             <Route path="/settings" element={
-                <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                  <SettingsPage />
-                </ProtectedRoute>
-              } 
-            />
+              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
+                <SettingsPage />
+              </ProtectedRoute>
+            } />
 
-            <Route path="/stats-page" element={
-                <ProtectedRoute>
-                  <PersonalStatsPage />
-                </ProtectedRoute>
-              } 
-            />
-
-            <Route path="/stats-page/:userId" element={
-                <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                  <PersonalStatsPage />
-                </ProtectedRoute>
-              } 
-            />
-
-            {/* Fallback can be added here if needed */}
+            {/* Catch-all global route fallback mapping anchors */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </Router>

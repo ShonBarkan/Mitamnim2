@@ -1,8 +1,8 @@
 import React, { useState, useContext } from 'react';
-import { ActivityContext } from '../../../contexts/ActivityContext';
-import { formatTime } from '../../../utils/activityDateUtils';
+import { WorkoutContext } from '../../../../contexts/WorkoutContext';
+import { formatTime } from '../../../../utils/activityDateUtils';
 import ActivityLogEditModal from './ActivityLogItem/ActivityLogEditModal';
-import FrontendLogger from '../../../utils/logger';
+import FrontendLogger from '../../../../utils/logger';
 
 /**
  * ActivityLogItem Component - Displays a single concrete historical exercise performance node.
@@ -10,7 +10,7 @@ import FrontendLogger from '../../../utils/logger';
  * Nested firmly under components/ActivityDashboardPage/ActivityJournal/ workspace layer.
  */
 const ActivityLogItem = ({ log, isTrainerView = false }) => {
-  const { removeLog } = useContext(ActivityContext);
+  const { removeLog } = useContext(WorkoutContext);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const handleDelete = () => {

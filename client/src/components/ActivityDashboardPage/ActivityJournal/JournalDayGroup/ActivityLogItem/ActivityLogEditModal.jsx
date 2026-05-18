@@ -1,8 +1,8 @@
 import React, { useState, useContext, useCallback } from 'react';
-import { ActivityContext } from '../../../../contexts/ActivityContext';
-import { ParameterContext } from '../../../../contexts/ParameterContext';
-import { useToast } from '../../../../contexts/ToastContext';
-import FrontendLogger from '../../../../utils/logger';
+import { WorkoutContext } from '../../../../../contexts/WorkoutContext';
+import { ParameterContext } from '../../../../../contexts/ParameterContext';
+import { useToast } from '../../../../../contexts/ToastContext';
+import FrontendLogger from '../../../../../utils/logger';
 
 /**
  * ActivityLogEditModal Component - High-end live standalone performance node record editor.
@@ -10,7 +10,7 @@ import FrontendLogger from '../../../../utils/logger';
  * Allocated strictly inside the component-specific local nested directory pipeline.
  */
 const ActivityLogEditModal = ({ log, onClose }) => {
-  const { editLog } = useContext(ActivityContext);
+  const { editLog } = useContext(WorkoutContext);
   const { parameters } = useContext(ParameterContext);
   const { showToast } = useToast();
   
