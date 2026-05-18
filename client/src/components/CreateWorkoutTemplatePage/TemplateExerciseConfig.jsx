@@ -8,7 +8,7 @@ import TemplateExerciseItem from './TemplateExerciseItem';
  * Supports Drag-and-Drop reordering and automatic virtual parameter calculation.
  */
 const TemplateExerciseConfig = ({ 
-  exercisesConfig, 
+  exercisesConfig = [], 
   sensors, 
   handleDragEnd, 
   updateSets, 
@@ -16,7 +16,7 @@ const TemplateExerciseConfig = ({
   removeExercise
 }) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       <header className="flex justify-between items-center px-2">
         <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-400">
           סדר תרגילים באימון (גרור לשינוי סדר):
@@ -42,19 +42,16 @@ const TemplateExerciseConfig = ({
                 item={item} 
                 index={index}
                 onUpdateSets={updateSets}
-                /* onUpdateExerciseParams handles the injection of virtual parameters 
-                   when a source raw parameter value is modified.
-                */
                 onUpdateExerciseParams={onUpdateExerciseParams} 
                 onRemove={removeExercise}
               />
             ))}
             
-            {/* Empty State Illustration */}
+            {/* Empty State Illustration Block Area */}
             {exercisesConfig.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 border border-white/40">
-                   <span className="text-2xl opacity-30">🏋️</span>
+              <div className="flex flex-col items-center justify-center py-16 text-center select-none pointer-events-none">
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 border border-white/40 shadow-inner">
+                   <span className="text-2xl opacity-40">🏋️</span>
                 </div>
                 <p className="text-zinc-400 font-bold text-sm tracking-tight max-w-[200px]">
                   יש להוסיף תרגילים מהבנק למעלה כדי לבנות את האימון

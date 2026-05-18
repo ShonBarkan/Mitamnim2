@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import ExerciseRegistryManager from '../components/Exercises/ExerciseRegistryManager';
-import ParameterManager from '../components/Parameters/ParameterManager';
-import DashboardConfig from '../components/Parameters/DashboardConfig/DashboardConfig';
+import ExerciseRegistryManager from '../components/SettingsPage/ExerciseRegistryManager';
+import ParameterManager from '../components/SettingsPage/ParameterManager';
+import DashboardConfig from '../components/SettingsPage/DashboardConfig';
 import FrontendLogger from '../utils/logger';
 
 /**

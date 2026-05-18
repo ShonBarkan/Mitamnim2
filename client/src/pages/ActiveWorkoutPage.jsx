@@ -3,25 +3,25 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ExerciseContext } from '../contexts/ExerciseContext';
 import { ParameterContext } from '../contexts/ParameterContext';
 import { TemplateContext } from '../contexts/TemplateContext';
-import { WorkoutContext } from '../contexts/WorkoutContext'; // Hooking up the new context
-import { useToast } from '../hooks/useToast';
+import { WorkoutContext } from '../contexts/WorkoutContext';
+import { useToast } from '../contexts/ToastContext';
 
-// Sub-components mapped to premium architecture standards
+// Sub-components mapped to premium architecture standards inside components/ActiveWorkoutPage/
 import WorkoutHeader from '../components/ActiveWorkoutPage/WorkoutHeader';
 import ExerciseActiveCard from '../components/ActiveWorkoutPage/ExerciseActiveCard';
 import AddExerciseModal from '../components/ActiveWorkoutPage/AddExerciseModal';
 import WorkoutFooterSection from '../components/ActiveWorkoutPage/WorkoutFooterSection';
+import FrontendLogger from '../utils/logger';
 
 /**
- * ActiveWorkoutPage Component - Tracks live workout performance execution.
- * Rewritten to consume WorkoutContext and fully support local mock-database lifecycles.
+ * ActiveWorkoutPage Component - Tracks live performance execution parameters in real-time.
+ * Rewritten to consume WorkoutContext and fully support unified data streams.
  */
 const ActiveWorkoutPage = () => {
   const { templateId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Consuming the new custom workout state architecture layer
   const { saveWorkoutSession, isSaving } = useContext(WorkoutContext);
   const { exercises, fetchExercises } = useContext(ExerciseContext);
   const { parameters, fetchParameters } = useContext(ParameterContext);
@@ -36,7 +36,7 @@ const ActiveWorkoutPage = () => {
   const [actualDuration, setActualDuration] = useState("");
   const [isFetchingTemplate, setIsFetchingTemplate] = useState(false);
 
-  // Sync structural core definitions cache tables on mount
+  // Sync structural core definitions tables cache maps on mount
   useEffect(() => {
     if (exercises.length === 0) fetchExercises();
     if (parameters.length === 0) fetchParameters();
@@ -44,12 +44,14 @@ const ActiveWorkoutPage = () => {
     const loadTemplate = async () => {
       if (templateId && !template) {
         setIsFetchingTemplate(true);
+        FrontendLogger.info('ACTIVE_WORKOUT', `Hydrating template program state from network endpoint ID: ${templateId}`);
         try {
           const data = await fetchTemplateById(parseInt(templateId));
           setTemplate(data);
         } catch (err) {
+          FrontendLogger.error('ACTIVE_WORKOUT', 'Failed to retrieve blueprint framework context metadata rules', err);
           showToast("Failed to load workout template", "error");
-          navigate('/workout-templates');
+          navigate('/workouts');
         } finally {
           setIsFetchingTemplate(false);
         }
@@ -59,7 +61,7 @@ const ActiveWorkoutPage = () => {
   }, [templateId, template, fetchTemplateById, navigate, showToast, exercises.length, parameters.length, fetchExercises, fetchParameters]);
 
   /**
-   * Real-time calculation engine for synchronous math metrics parameter structures.
+   * Arithmetic Engine: Processes raw metrics streams into calculated values.
    */
   const runMath = useCallback((type, values, multiplier) => {
     const nums = values.map(v => parseFloat(v) || 0);
@@ -74,12 +76,17 @@ const ActiveWorkoutPage = () => {
     }
   }, []);
 
-  // Initialize tracking node cards dynamically based on current configurations
+  // Initialize tracking node cards dynamically based on active configurations
   useEffect(() => {
     if (template && parameters.length > 0 && workoutData.length === 0) {
-      const initialExercises = template.exercises_config.map((ex, idx) => {
+      FrontendLogger.info('ACTIVE_WORKOUT', 'Mapping template metadata rules to generate tracking session matrices');
+      const configSource = template.exercises_config || [];
+      
+      const initialExercises = configSource.map((ex, idx) => {
         const initialValues = {};
-        ex.params.forEach(p => {
+        const paramSource = ex.params || [];
+        
+        paramSource.forEach(p => {
           initialValues[p.parameter_id] = p.value;
         });
 
@@ -87,7 +94,7 @@ const ActiveWorkoutPage = () => {
           ...ex,
           instanceId: `ex-${idx}-${Date.now()}`, 
           isDone: false,
-          paramsMetadata: ex.params.map(p => {
+          paramsMetadata: paramSource.map(p => {
             const meta = parameters.find(m => Number(m.id) === Number(p.parameter_id));
             return {
               ...p,
@@ -95,7 +102,7 @@ const ActiveWorkoutPage = () => {
               parameter_name: meta?.name || p.parameter_name || `Param ${p.parameter_id}`,
             };
           }),
-          actualSets: Array.from({ length: ex.num_of_sets }, (_, i) => ({
+          actualSets: Array.from({ length: ex.num_of_sets || 3 }, (_, i) => ({
             id: `set-${idx}-${i}-${Date.now()}`,
             setNum: i + 1,
             isDone: false,
@@ -108,7 +115,7 @@ const ActiveWorkoutPage = () => {
   }, [template, parameters, workoutData.length]);
 
   /**
-   * Dispatches internal row input updates and updates dependent math calculations.
+   * Dispatches internal cell updates and triggers cascade math formula updates.
    */
   const updateSetValue = (exIdx, setIdx, parameterId, newValue) => {
     const newData = [...workoutData];
@@ -117,6 +124,7 @@ const ActiveWorkoutPage = () => {
 
     set.values[parameterId] = newValue;
 
+    // Recalculate linked virtual dependencies row-by-row
     exercise.paramsMetadata.forEach(pMeta => {
       if (pMeta.is_virtual) {
         const sourceIds = pMeta.source_parameter_ids || [];
@@ -130,12 +138,13 @@ const ActiveWorkoutPage = () => {
   };
 
   const addSetToExercise = (exIdx) => {
+    FrontendLogger.info('ACTIVE_WORKOUT', `Appending new performance set row index to exercise card node index: ${exIdx}`);
     const newData = [...workoutData];
     const sets = newData[exIdx].actualSets;
     const lastSet = sets[sets.length - 1];
     
     sets.push({
-      id: `set-new-${Date.now()}`,
+      id: `set-new-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       setNum: sets.length + 1,
       isDone: false,
       values: lastSet ? { ...lastSet.values } : {}
@@ -144,6 +153,7 @@ const ActiveWorkoutPage = () => {
   };
 
   const deleteSet = (exIdx, setIdx) => {
+    FrontendLogger.info('ACTIVE_WORKOUT', `Dropping set card row index: ${setIdx} from exercise node index: ${exIdx}`);
     const newData = [...workoutData];
     newData[exIdx].actualSets.splice(setIdx, 1);
     newData[exIdx].actualSets = newData[exIdx].actualSets.map((s, i) => ({ 
@@ -155,7 +165,9 @@ const ActiveWorkoutPage = () => {
 
   const toggleSetDone = (exIdx, setIdx) => {
     const newData = [...workoutData];
-    newData[exIdx].actualSets[setIdx].isDone = !newData[exIdx].actualSets[setIdx].isDone;
+    const currentStatus = newData[exIdx].actualSets[setIdx].isDone;
+    FrontendLogger.info('ACTIVE_WORKOUT', `Toggling set tracking checkpoint cell state status parameter to: ${!currentStatus}`);
+    newData[exIdx].actualSets[setIdx].isDone = !currentStatus;
     setWorkoutData(newData);
   };
 
@@ -166,10 +178,12 @@ const ActiveWorkoutPage = () => {
   };
 
   /**
-   * Injects an exercise from the Flat Registry directly into the active tracking dashboard.
+   * Injects a selected exercise dynamically from the flat pool straight into the session workspace.
    */
   const addNewExercise = (exercise) => {
+    FrontendLogger.info('ACTIVE_WORKOUT', `Injecting flat registry exercise node item straight to tracker grid: '${exercise.exercise_name}'`);
     const activeParamIds = exercise.active_parameter_ids || [];
+    
     const enrichedParams = activeParamIds.map(pId => {
       const meta = parameters.find(m => Number(m.id) === Number(pId));
       return {
@@ -186,7 +200,7 @@ const ActiveWorkoutPage = () => {
 
     const newEntry = {
       exercise_id: exercise.id,
-      exercise_name: exercise.name,
+      exercise_name: exercise.exercise_name,
       instanceId: `ex-new-${Date.now()}`,
       isDone: false,
       paramsMetadata: enrichedParams,
@@ -200,13 +214,15 @@ const ActiveWorkoutPage = () => {
 
     setWorkoutData(prev => [...prev, newEntry]);
     setIsModalOpen(false);
-    showToast(`${exercise.name} נוסף לאימון`, "success");
+    showToast(`${exercise.exercise_name} נוסף לאימון הנוכחי`, "success");
   };
 
   /**
-   * Compiles the performance metrics payload and submits it down to the context layer.
+   * Bundles compiled dataset blocks into an export tracking blueprint submission package.
    */
   const handleFinish = async () => {
+    FrontendLogger.info('ACTIVE_WORKOUT', 'Assembling final live athletic session scorecard packet');
+    
     const performedExercisesPayload = workoutData
       .map(ex => {
         const completedSets = ex.actualSets.filter(s => s.isDone);
@@ -227,11 +243,10 @@ const ActiveWorkoutPage = () => {
       .filter(Boolean);
 
     if (performedExercisesPayload.length === 0) {
-      showToast("יש לסמן לפחות סט אחד כבוצע", "warning");
+      showToast("יש לסמן לפחות סט אחד כבוצע כדי לחתום את האימון", "warning");
       return;
     }
 
-    // Map a fallback array to support mock DB standalone logs injection structure
     const flattenedMockLogs = [];
     performedExercisesPayload.forEach(ex => {
       ex.performance_data.forEach(setMetrics => {
@@ -250,26 +265,21 @@ const ActiveWorkoutPage = () => {
       workout_summary: workoutSummary,
       actual_duration: actualDuration ? `${actualDuration} min` : null,
       performed_exercises: performedExercisesPayload,
-      logs: flattenedMockLogs // Ensures full compatibility with dev-mode localStorage pipelines
+      logs: flattenedMockLogs 
     };
 
     try {
       await saveWorkoutSession(sessionPayload);
-      showToast("האימון נשמר בהצלחה!", "success");
+      showToast("האימון נחתם ונשמר בהצלחה!", "success");
       navigate('/activity');
     } catch (err) {
-      showToast("שגיאה בשמירת האימון", "error");
+      FrontendLogger.error('ACTIVE_WORKOUT', 'Transaction failure observed while committing workout history payload', err);
+      showToast("שגיאה בשמירת נתוני האימון", "error");
     }
   };
 
-  const parentCategoryName = useMemo(() => {
-    return template?.category || "כללי";
-  }, [template]);
-
-  const availableToAdd = useMemo(() => {
-    if (!template?.category) return exercises;
-    return exercises.filter(ex => ex.category === template.category);
-  }, [exercises, template]);
+  // Expose full flat pool directly to comply with categorical removal rules
+  const availableToAdd = exercises;
 
   if (isFetchingTemplate || !template) {
     return (
@@ -285,11 +295,11 @@ const ActiveWorkoutPage = () => {
       <WorkoutHeader 
         name={template?.name} 
         description={template?.description}
-        parentName={parentCategoryName}
+        parentName="אימון קבוצה"
         onSave={handleFinish}
         onCancel={() => {
-          if (window.confirm("בטוח שברצונך לצאת? הנתונים הנוכחיים לא יישמרו.")) {
-            navigate('/workout-templates');
+          if (window.confirm("בטוח שברצונך לצאת? הנתונים שהזנת באימון זה יימחקו.")) {
+            navigate('/workouts');
           }
         }}
         isSaving={isSaving}

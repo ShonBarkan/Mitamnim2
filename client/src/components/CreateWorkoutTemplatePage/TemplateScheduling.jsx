@@ -1,11 +1,11 @@
 import React from 'react';
 
 /**
- * TemplateScheduling Component - Configures workout timing and frequency.
- * Implements the "Arctic Mirror" aesthetic with high-end Glassmorphism.
+ * TemplateScheduling Component - Configures workout timing and weekly frequency.
+ * Implements the bright "Arctic Mirror" aesthetic with high-end glassmorphic fields.
  */
 const TemplateScheduling = ({ 
-  scheduledDays, 
+  scheduledDays = [], 
   expectedDurationTime, 
   scheduledHour, 
   onDaysChange, 
@@ -23,7 +23,7 @@ const TemplateScheduling = ({
   ];
 
   /**
-   * Toggles the selection of a specific day and ensures the array remains sorted.
+   * Toggles the selection of a specific day and ensures the array remains strictly sorted.
    */
   const toggleDay = (dayValue) => {
     if (scheduledDays.includes(dayValue)) {
@@ -36,12 +36,12 @@ const TemplateScheduling = ({
   return (
     <div className="flex flex-col gap-10" dir="rtl">
       
-      {/* Day Selection Logic */}
+      {/* Day Selection Logic Badge Matrix */}
       <div className="space-y-4">
         <label className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mr-2">
           ימי אימון מיועדים:
         </label>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {days.map(day => {
             const isSelected = scheduledDays.includes(day.value);
             return (
@@ -62,9 +62,9 @@ const TemplateScheduling = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
         
-        {/* Expected Duration Input */}
+        {/* Expected Duration Numeric Input Track */}
         <div className="space-y-3">
           <label className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mr-2">
             זמן משוער (דקות):
@@ -75,13 +75,14 @@ const TemplateScheduling = ({
               min="1"
               value={expectedDurationTime} 
               onChange={(e) => onDurationChange(e.target.value)}
-              className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-lg font-black text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all text-center"
+              className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-lg font-black text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all text-center placeholder:text-zinc-300"
+              placeholder="45"
             />
-            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300 uppercase">Min</span>
+            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300 uppercase select-none pointer-events-none">Min</span>
           </div>
         </div>
 
-        {/* Start Hour Selection */}
+        {/* Start Hour Clock Time Selection Field */}
         <div className="space-y-3">
           <label className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500 mr-2">
             שעת התחלת אימון:
@@ -93,7 +94,7 @@ const TemplateScheduling = ({
               onChange={(e) => onHourChange(e.target.value)}
               className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-lg font-black text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all text-center appearance-none"
             />
-            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300 uppercase">Hour</span>
+            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300 uppercase select-none pointer-events-none">Hour</span>
           </div>
         </div>
         

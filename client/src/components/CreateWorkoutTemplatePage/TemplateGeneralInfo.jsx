@@ -1,17 +1,17 @@
 import React from 'react';
 
 /**
- * TemplateGeneralInfo Component - Handles the core metadata for a workout template.
- * Refactored to completely remove all category layers and select filters.
- * Implements the "Arctic Mirror" aesthetic with glassmorphic inputs.
+ * TemplateGeneralInfo Component - Handles the core metadata fields for a workout template.
+ * Refactored: Stripped from duplicate sections wrappers to comply with parent layout architecture guidelines.
+ * Implements the bright "Arctic Mirror" aesthetic with high-end glassmorphic inputs.
  */
 const TemplateGeneralInfo = ({ formData, setFormData }) => {
   return (
-    <section className="bg-white/40 backdrop-blur-3xl rounded-[3rem] p-10 border border-white/60 shadow-xl space-y-8">
+    <div className="space-y-8" dir="rtl">
       
       {/* Module Title Header Block */}
       <header className="flex items-center gap-4 mb-2">
-        <div className="w-10 h-10 bg-zinc-900 rounded-2xl flex items-center justify-center text-white text-lg shadow-md">
+        <div className="w-10 h-10 bg-zinc-900 rounded-2xl flex items-center justify-center text-white text-lg shadow-md select-none">
           📝
         </div>
         <div className="space-y-0.5">
@@ -23,7 +23,7 @@ const TemplateGeneralInfo = ({ formData, setFormData }) => {
       {/* Main Structural Form Inputs Stack */}
       <div className="space-y-6">
         
-        {/* Workout Session Descriptive Name */}
+        {/* Workout Session Descriptive Name Input Field */}
         <div className="space-y-2">
           <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mr-2">שם האימון</label>
           <input 
@@ -36,7 +36,7 @@ const TemplateGeneralInfo = ({ formData, setFormData }) => {
           />
         </div>
 
-        {/* Extended Context Narrative Area */}
+        {/* Extended Context Narrative Description Area */}
         <div className="space-y-2">
           <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mr-2">תיאור ודגשים</label>
           <textarea 
@@ -48,7 +48,7 @@ const TemplateGeneralInfo = ({ formData, setFormData }) => {
         </div>
 
       </div>
-    </section>
+    </div>
   );
 };
 
