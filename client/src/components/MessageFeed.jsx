@@ -1,81 +1,75 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useMessages } from '../hooks/useMessages';
-import { useToast } from '../hooks/useToast';
-import { useSocket } from '../hooks/useSocket';
+import { useMessages } from '../contexts/MessageContext';
+import { useToast } from '../contexts/ToastContext';
+import { useSocket } from '../contexts/SocketContext';
+import FrontendLogger from '../utils/logger';
 
 /**
- * MessageFeed Component - Core messaging thread layer.
- * Powered by WebSockets for real-time CRUD operational state syncing.
- * Styled completely with premium Arctic Mirror glassmorphic design configurations.
+ * MessageFeed Component - Real-time core messaging thread layer.
+ * Powered by WebSockets with protection layout boundaries against scrolling focus distraction locks.
  */
-const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
+const MessageFeed = ({ title, targetId, type, currentUserId, userRole, disableAutoScrollFocus = false }) => {
   const [newMsg, setNewMsg] = useState('');
   const [deleteModal, setDeleteModal] = useState({ open: false, msgId: null });
+  
+  const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   
   const { showToast } = useToast();
   const { socket } = useSocket();
   
-  // Real-time hook synchronization bindings
-  const { messages, setMessages, sendMessage, deleteMessage, updateMessage, loading } = useMessages(targetId);
+  // Connect cleanly to the unified standardized state context mapping
+  const { messagesByTarget, fetchHistory, sendMessage, deleteMessage, updateMessage, loadingStates } = useMessages();
+  
+  const messages = messagesByTarget[targetId] || [];
+  const isHistoryLoading = loadingStates.history[targetId] || false;
+
+  // Hydrate chat thread records dynamically whenever anchor coordinates shift
+  useEffect(() => {
+    if (targetId) {
+      FrontendLogger.info('MESSAGE_FEED', `Requesting conversation timeline hydration for stream endpoint node: ${targetId}`);
+      fetchHistory(targetId);
+    }
+  }, [targetId, fetchHistory]);
 
   /**
-   * WebSocket Lifecycle: Synchronizes global messaging operations seamlessly.
+   * Evaluates layout coordinates to handle non-intrusive lazy scrolling execution blocks
    */
-  useEffect(() => {
-    if (!socket) return;
+  const scrollToBottom = (force = false) => {
+    if (!messagesContainerRef.current || !messagesEndRef.current) return;
 
-    const handleSocketMessage = (event) => {
-      const payload = JSON.parse(event.data);
-      const { action, data } = payload;
+    if (force || !disableAutoScrollFocus) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
 
-      // Gateway Filter: Only trap packets belonging strictly to this operational chat scope
-      const isRelevant = 
-        (type === 'general' && data.group_id === targetId) || 
-        (type === 'personal' && (data.sender_id === targetId || data.recipient_id === targetId));
+    // Lazy scroll: Only snap focus to bottom if the user is already looking at recent content bounds
+    const container = messagesContainerRef.current;
+    const threshold = 150; 
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
 
-      if (!isRelevant) return;
-
-      switch (action) {
-        case 'MESSAGE_CREATED':
-          setMessages((prev) => {
-            if (prev.find(m => m.id === data.id)) return prev;
-            return [...prev, data];
-          });
-          break;
-
-        case 'MESSAGE_UPDATED':
-          setMessages((prev) => 
-            prev.map(m => m.id === data.id ? { ...m, content: data.content } : m)
-          );
-          break;
-
-        case 'MESSAGE_DELETED':
-          setMessages((prev) => prev.filter(m => m.id !== data.id));
-          break;
-
-        default:
-          break;
-      }
-    };
-
-    socket.addEventListener('message', handleSocketMessage);
-    return () => socket.removeEventListener('message', handleSocketMessage);
-  }, [socket, targetId, type, setMessages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isNearBottom) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
+  // Safe layout lifecycle listener capturing document stack modification increments
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom(false);
   }, [messages]);
 
+  /**
+   * Commits and pipelines outbound text payloads directly over network endpoints
+   */
   const handleSend = async () => {
     if (!newMsg.trim() || !targetId) return;
     try {
-      await sendMessage(type, newMsg, targetId, false);
+      FrontendLogger.info('MESSAGE_FEED', 'User dispatched an outbound communication package block');
+      await sendMessage(type, newMsg.trim(), targetId, false);
       setNewMsg('');
+      
+      // Explicitly force scroll down on self-generated outbound events
+      setTimeout(() => scrollToBottom(true), 50);
     } catch (err) {
       showToast("שליחת ההודעה נכשלה", "error");
     }
@@ -85,7 +79,7 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
     const newContent = prompt("ערוך הודעה:", msg.content);
     if (newContent && newContent.trim() !== msg.content) {
       try {
-        await updateMessage(msg.id, newContent);
+        await updateMessage(msg.id, newContent.trim());
         showToast("ההודעה עודכנה", "success");
       } catch (err) {
         showToast("העדכון נכשל", "error");
@@ -128,7 +122,7 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
   };
 
   return (
-    <section className="flex flex-col h-full bg-white/30 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] shadow-2xl overflow-hidden relative" dir="rtl">
+    <section className="flex flex-col h-full w-full bg-white/30 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] shadow-2xl overflow-hidden relative" dir="rtl">
       
       {/* Feed Dynamic Header */}
       <header className="p-6 border-b border-white/40 bg-white/20 flex items-center justify-between">
@@ -138,10 +132,13 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
         </div>
       </header>
       
-      {/* Messaging Stream Arena */}
-      <div className="flex-1 overflow-y-auto flex flex-col gap-4 p-6 scrollbar-hide">
-        {loading ? (
-          <div className="flex flex-col flex-1 justify-center items-center gap-2 py-10">
+      {/* Messaging Stream Arena Container */}
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto flex flex-col gap-4 p-6 max-h-[500px]"
+      >
+        {isHistoryLoading ? (
+          <div className="flex flex-col flex-1 justify-center items-center gap-2 py-12">
             <div className="w-6 h-6 border-2 border-zinc-200 border-t-zinc-900 rounded-full animate-spin" />
             <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Loading Sync...</p>
           </div>
@@ -157,13 +154,14 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
             const canEdit = isMine;
             const canDelete = isMine || userRole === 'trainer' || userRole === 'admin';
 
-            // Establish responsive fluid layouts based on message configuration types
-            let alignment = isMine ? 'self-start' : 'self-end';
+            // Aligns layout elements nicely within RTL/LTR boundaries
+            let alignment = isMine ? 'self-start ml-auto' : 'self-end mr-auto';
             let bubbleStyle = isMine 
-              ? 'bg-blue-500/10 border border-blue-200/30 rounded-tr-none' 
-              : 'bg-white/80 border border-white rounded-tl-none';
+              ? 'bg-blue-500/10 border border-blue-200/40 rounded-tl-none' 
+              : 'bg-white/80 border border-white rounded-tr-none';
 
-            if (type === 'general') {
+            // Override styling parameters for standardized general announcement feeds
+            if (type === 'broadcast') {
               alignment = 'self-center w-[96%]';
               bubbleStyle = 'bg-amber-500/5 border border-amber-200/30 shadow-inner text-center';
             }
@@ -172,47 +170,47 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
               <React.Fragment key={msg.id}>
                 {/* Timeline Axis Date Badges */}
                 {isNewDay && (
-                  <div className="flex justify-center my-4">
-                    <span className="bg-white/80 backdrop-blur-md border border-white/80 text-zinc-400 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">
+                  <div className="flex justify-center my-2">
+                    <span className="bg-white/90 backdrop-blur-md border border-white/80 text-zinc-400 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">
                       {formatDateLabel(msg.created_at)}
                     </span>
                   </div>
                 )}
                 
                 {/* Message Item Module Container */}
-                <div className={`max-w-[85%] p-4 rounded-[1.5rem] shadow-sm flex flex-col transition-all duration-300 hover:shadow-md ${alignment} ${bubbleStyle}`}>
+                <div className={`max-w-[80%] p-4 rounded-[1.5rem] shadow-sm flex flex-col transition-all duration-300 hover:shadow-md ${alignment} ${bubbleStyle}`}>
                   
-                  {/* Metadata Row: Sender Context and Meta Control Utilities */}
+                  {/* Metadata Row */}
                   <div className="flex justify-between items-center gap-6 text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2">
                     <span className={isMine ? 'text-blue-600' : 'text-zinc-500'}>
-                      {isMine ? 'אני' : msg.sender_name}
+                      {isMine ? 'אני' : msg.sender_name || 'אתלט'}
                     </span>
                     
-                    <div className="flex items-center gap-2">
-                      <span className="tabular-nums font-bold">{formatTime(msg.created_at)}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="tabular-nums font-bold opacity-70">{formatTime(msg.created_at)}</span>
                       {canEdit && (
                         <button 
                           onClick={() => handleEdit(msg)} 
-                          className="border-none bg-transparent cursor-pointer text-xs p-1 text-zinc-300 hover:text-zinc-900 transition-colors"
+                          className="border-none bg-transparent cursor-pointer text-xs px-1 text-zinc-300 hover:text-zinc-900 transition-colors"
                           title="Edit message"
                         >
-                          ✎
+                          ✏️
                         </button>
                       )}
                       {canDelete && (
                         <button 
                           onClick={() => setDeleteModal({ open: true, msgId: msg.id })} 
-                          className="border-none bg-transparent cursor-pointer text-xs p-1 text-rose-300 hover:text-rose-500 transition-colors"
+                          className="border-none bg-transparent cursor-pointer text-xs px-1 text-rose-300 hover:text-rose-500 transition-colors"
                           title="Delete message"
                         >
-                          ⨉
+                          🗑️
                         </button>
                       )}
                     </div>
                   </div>
 
                   {/* Operational Message Content Frame */}
-                  <div className="break-words text-zinc-800 font-bold text-sm leading-relaxed text-right">
+                  <div className="break-words text-zinc-800 font-bold text-sm leading-relaxed text-right whitespace-pre-line">
                     {msg.content}
                   </div>
 
@@ -231,7 +229,7 @@ const MessageFeed = ({ title, targetId, type, currentUserId, userRole }) => {
           value={newMsg} 
           onChange={(e) => setNewMsg(e.target.value)} 
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="הקלד הודעה משהו..."
+          placeholder="הקלד הודעה לצוות..."
           className="flex-1 bg-white border border-zinc-100 rounded-full px-6 py-4 text-sm font-bold text-zinc-900 outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all shadow-inner placeholder:text-zinc-300"
         />
         <button 

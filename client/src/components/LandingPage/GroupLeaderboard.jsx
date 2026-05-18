@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useStats } from '../../contexts/StatsContext';
+import FrontendLogger from '../../utils/logger';
 
 /**
  * GroupLeaderboard Component - High-end analytical scoreboard for training groups.
- * Re-engineered to follow the Arctic Mirror visual guidelines and flat metric schemas.
+ * Fully integrated with the Arctic Mirror layout and flat panoramic metric schemas.
  */
 const GroupLeaderboard = () => {
-  const { fetchGroupLeaderboard } = useStats();
+  const { fetchGroupPanoramicStats } = useStats();
   const [leaderboards, setLeaderboards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('week');
@@ -14,13 +15,13 @@ const GroupLeaderboard = () => {
   const [collapsedStates, setCollapsedStates] = useState({});
 
   /**
-   * Generates localized ISO timestamp query boundaries based on selected range.
+   * Generates localized ISO timestamp query boundaries based on selected range for the current year (2026).
    */
   const dateQuery = useMemo(() => {
     const now = new Date();
     const end = new Date();
     const start = new Date();
-    start.setHours(0, 0, 0, 0); // Defaults to midnight for 'today' selection
+    start.setHours(0, 0, 0, 0);
 
     if (dateRange === 'week') {
       const dayOfWeek = now.getDay();
@@ -28,40 +29,43 @@ const GroupLeaderboard = () => {
     } else if (dateRange === 'month') {
       start.setDate(1);
     } else if (dateRange === 'all') {
-      start.setFullYear(now.getFullYear() - 10);
+      start.setFullYear(now.getFullYear() - 5);
     }
     
-    return { start: start.toISOString(), end: end.toISOString() };
+    return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] };
   }, [dateRange]);
 
   // Synchronize remote leaderboard stats whenever dateQuery boundaries shift
   useEffect(() => {
     const loadLeaderboards = async () => {
       setLoading(true);
+      FrontendLogger.info('LEADERBOARD_COMP', 'Querying group flat panoramic stats layer framework', { dateRange, ...dateQuery });
       try {
-        const data = await fetchGroupLeaderboard(dateQuery.start, dateQuery.end);
-        setLeaderboards(data);
+        const data = await fetchGroupPanoramicStats(dateQuery.start, dateQuery.end);
+        const unifiedData = data || [];
+        setLeaderboards(unifiedData);
         
         const initialStates = {};
-        data.forEach(board => {
+        unifiedData.forEach(board => {
           initialStates[`${board.exercise_id}-${board.parameter_name}`] = false;
         });
         setCollapsedStates(initialStates);
         setAllOpen(true);
       } catch (error) {
-        console.error("Failed to load leaderboards:", error);
+        FrontendLogger.error('LEADERBOARD_COMP', 'Failed to synchronize live group scoreboard matrices', error);
       } finally {
         setLoading(false);
       }
     };
     loadLeaderboards();
-  }, [dateQuery, fetchGroupLeaderboard]);
+  }, [dateQuery, dateRange, fetchGroupPanoramicStats]);
 
   /**
    * Bulk action toggle for collapsing or expanding all active card segments.
    */
   const toggleAll = () => {
     const newState = !allOpen;
+    FrontendLogger.info('LEADERBOARD_COMP', `Executing bulk visibility toggle layout sequence. Target state: ${newState ? 'Expand' : 'Collapse'}`);
     const updatedStates = {};
     leaderboards.forEach(board => {
       updatedStates[`${board.exercise_id}-${board.parameter_name}`] = !newState;
@@ -124,6 +128,10 @@ const GroupLeaderboard = () => {
           <div className="animate-spin rounded-full h-10 w-10 border-4 border-zinc-200 border-t-zinc-900 mb-4" />
           <p className="text-zinc-400 font-black tracking-[0.3em] uppercase text-[10px]">Synchronizing Matrix Stats...</p>
         </div>
+      ) : leaderboards.length === 0 ? (
+        <div className="text-center py-24 bg-white/30 backdrop-blur-3xl rounded-[3rem] border border-white/60 shadow-xl text-zinc-400 font-bold italic text-sm">
+          לא נמצאו נתוני ביצועים בטווח הזמן שנבחר
+        </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-8">
           {leaderboards.map((board) => {
@@ -133,7 +141,10 @@ const GroupLeaderboard = () => {
                 key={boardId} 
                 board={board} 
                 isCollapsed={collapsedStates[boardId]}
-                onToggle={() => setCollapsedStates(prev => ({ ...prev, [boardId]: !prev[boardId] }))}
+                onToggle={() => {
+                  FrontendLogger.info('LEADERBOARD_COMP', `Toggling panel visibility threshold for rule mapping node key: ${boardId}`);
+                  setCollapsedStates(prev => ({ ...prev, [boardId]: !prev[boardId] }));
+                }}
               />
             );
           })}
@@ -144,11 +155,10 @@ const GroupLeaderboard = () => {
 };
 
 /**
- * LeaderboardCard Component - Visualizes ranking metrics for an exercise.
+ * LeaderboardCard Sub-component - Visualizes ranking metrics for a flat exercise definition.
  */
 const LeaderboardCard = ({ board, isCollapsed, onToggle }) => {
   
-  // Rank calculations compiled cleanly via structural memos
   const { entries, stats } = useMemo(() => {
     if (!board.entries) return { entries: [], stats: null };
     const activeParticipants = board.entries.filter(e => e.value > 0);
@@ -168,15 +178,12 @@ const LeaderboardCard = ({ board, isCollapsed, onToggle }) => {
     };
   }, [board]);
 
-  /**
-   * Premium theme resolver for ranking medals.
-   */
   const getRankStyles = (rank, isNotParticipated) => {
     if (isNotParticipated) return 'bg-zinc-100 text-zinc-300';
     switch (rank) {
-      case 1: return 'bg-gradient-to-br from-amber-300 via-yellow-400 to-yellow-500 text-white shadow-lg shadow-yellow-500/20';
-      case 2: return 'bg-gradient-to-br from-slate-200 via-zinc-300 to-zinc-400 text-white shadow-lg shadow-zinc-400/20';
-      case 3: return 'bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 text-white shadow-lg shadow-amber-700/20';
+      case 1: return 'bg-gradient-to-br from-amber-300 via-yellow-400 to-yellow-500 text-white shadow-lg shadow-yellow-500/10';
+      case 2: return 'bg-gradient-to-br from-slate-200 via-zinc-300 to-zinc-400 text-white shadow-lg';
+      case 3: return 'bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 text-white shadow-lg';
       default: return 'bg-zinc-900 text-white';
     }
   };
@@ -245,21 +252,18 @@ const LeaderboardCard = ({ board, isCollapsed, onToggle }) => {
                     key={entry.full_name} 
                     className={`transition-all duration-300 ${isNotParticipated ? 'opacity-30' : 'bg-white/80 border border-white rounded-2xl shadow-sm hover:shadow-md'}`}
                   >
-                    {/* Rank Number Badge */}
                     <td className="p-3 w-16 rounded-r-2xl border-y border-r border-transparent">
                       <div className={`w-9 h-9 flex items-center justify-center rounded-xl font-black text-xs transition-all duration-500 ${getRankStyles(entry.displayRank, isNotParticipated)}`}>
                         {isNotParticipated ? '-' : entry.displayRank}
                       </div>
                     </td>
 
-                    {/* Athlete Profile Full Identity Name */}
                     <td className="p-3 border-y border-transparent">
                       <p className="font-black text-zinc-900 text-base tracking-tight">
                         {entry.full_name}
                       </p>
                     </td>
 
-                    {/* Metric Execution Value */}
                     <td className="p-3 text-left rounded-l-2xl border-y border-l border-transparent">
                       {isNotParticipated ? (
                         <span className="text-[9px] text-zinc-300 font-black uppercase tracking-tight italic">No Entry</span>
