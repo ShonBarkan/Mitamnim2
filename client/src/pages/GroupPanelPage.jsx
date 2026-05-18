@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useGroups } from '../hooks/useGroups';
-import { useToast } from '../hooks/useToast';
+import React, { useState, useEffect, useRef } from 'react';
+import { useGroups } from '../contexts/GroupContext';
+import { useToast } from '../contexts/ToastContext';
+import { uploadToCloudinary } from '../utils/cloudinary';
+import FrontendLogger from '../utils/logger';
 
 /**
  * GroupPanelPage Component - Admin dashboard for managing athletic groups.
- * Implements the "Arctic Mirror" design language with Glassmorphism.
+ * Implements the "Arctic Mirror" design language with decoupled Cloudinary utility integration.
  */
 const GroupPanelPage = () => {
   const { groups, loading, refreshGroups, addGroup, deleteGroup, updateGroup } = useGroups();
@@ -12,10 +14,16 @@ const GroupPanelPage = () => {
 
   const [groupName, setGroupName] = useState('');
   const [groupImage, setGroupImage] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   const [editingGroupId, setEditingGroupId] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  const fileInputRef = useRef(null);
 
   // Fetch groups on component mount
   useEffect(() => {
+    FrontendLogger.info('GROUP_PANEL', 'Mounting group administration cluster view panel');
     refreshGroups();
   }, [refreshGroups]);
 
@@ -23,62 +31,95 @@ const GroupPanelPage = () => {
    * Pre-fills the form to enter Edit Mode.
    */
   const startEdit = (group) => {
+    FrontendLogger.info('GROUP_PANEL', `Redirecting context focus pool into edit mode for group id: ${group.id}`);
     setEditingGroupId(group.id);
     setGroupName(group.name);
     setGroupImage(group.group_image || '');
+    setPreviewUrl(group.group_image || '');
+    setSelectedFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   /**
-   * Resets the form and returns to Create Mode.
+   * Resets the form and returns safely to Create Mode.
    */
   const cancelEdit = () => {
+    FrontendLogger.info('GROUP_PANEL', 'Evicting active inline edit mode state properties, resetting form constraints');
     setEditingGroupId(null);
     setGroupName('');
     setGroupImage('');
+    setSelectedFile(null);
+    setPreviewUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   /**
-   * Handles Form Submission (Create or Update).
+   * Handles local file selection and generates an instant UI image preview.
+   */
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      FrontendLogger.info('GROUP_PANEL', `Local image file selected: ${file.name} (${file.size} bytes)`);
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  /**
+   * Handles Form Submission (Uploads image if needed via shared utility, then saves group).
    */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    FrontendLogger.info('GROUP_PANEL', 'Intercepted group structure submission transaction event trigger');
+
     if (!groupName) {
       showToast("אנא הזן שם לקבוצה", "error");
       return;
     }
 
+    setIsUploading(true);
     try {
+      let finalImageUrl = groupImage;
+
+      // Stream media payload asynchronously to Cloudinary using the shared utility if file exists
+      if (selectedFile) {
+        finalImageUrl = await uploadToCloudinary(selectedFile);
+      }
+
       if (editingGroupId) {
         await updateGroup(editingGroupId, { 
           name: groupName, 
-          group_image: groupImage || null 
+          group_image: finalImageUrl || null 
         });
         showToast("הקבוצה עודכנה בהצלחה", "success");
       } else {
         await addGroup({ 
           name: groupName, 
-          group_image: groupImage || null 
+          group_image: finalImageUrl || null 
         });
         showToast("קבוצה נוצרה בהצלחה", "success");
       }
       cancelEdit(); 
     } catch (error) {
-      const errMsg = error.response?.data?.detail || "נסה שוב";
-      showToast("שגיאה בפעולה: " + errMsg, "error");
+      FrontendLogger.error('GROUP_PANEL', 'Exception caught during organization pipeline mutation execution layout', error);
+      showToast("שגיאה בפעולה: " + (error.message || "נסה שוב"), "error");
+    } finally {
+      setIsUploading(false);
     }
   };
 
   /**
-   * Handles Group Deletion with a safety confirmation.
+   * Handles Group Deletion with safety confirmation.
    */
   const handleDeleteGroup = async (groupId) => {
+    FrontendLogger.warn('GROUP_PANEL', `Prompting structural verification destruction loop sequence for target group id: ${groupId}`);
     if (window.confirm("האם אתה בטוח? מחיקת קבוצה עלולה להשפיע על המשתמשים המשויכים אליה.")) {
       try {
         await deleteGroup(groupId);
         showToast("קבוצה נמחקה", "success");
         if (editingGroupId === groupId) cancelEdit();
       } catch (error) {
+        FrontendLogger.error('GROUP_PANEL', `Destruction process fault observed for target group row entity index: ${groupId}`, error);
         showToast("שגיאה במחיקה", "error");
       }
     }
@@ -94,7 +135,7 @@ const GroupPanelPage = () => {
           <p className="text-xs font-bold text-zinc-400 uppercase tracking-[0.4em]">Global Organization Management</p>
         </header>
 
-        {/* Dynamic Action Card (Create/Edit) */}
+        {/* Dynamic Action Card (Create/Edit Framework) */}
         <section className={`bg-white/40 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/60 shadow-2xl transition-all duration-500 ${editingGroupId ? 'ring-4 ring-orange-500/20 border-orange-200/50' : ''}`}>
           <div className="flex items-center gap-4 mb-8">
             <div className={`w-3 h-3 rounded-full animate-pulse ${editingGroupId ? 'bg-orange-500' : 'bg-blue-600'}`} />
@@ -103,53 +144,89 @@ const GroupPanelPage = () => {
             </h3>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col md:flex-row items-end gap-6">
-            <div className="flex-1 w-full space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-4">שם הקבוצה</label>
-              <input 
-                type="text" 
-                placeholder="Group Name" 
-                value={groupName} 
-                onChange={(e) => setGroupName(e.target.value)} 
-                className="w-full bg-white/50 border border-white/40 rounded-2xl px-8 py-5 text-sm font-bold outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
-              />
-            </div>
-            
-            <div className="flex-1 w-full space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-4">קישור ללוגו / תמונה</label>
-              <input 
-                type="text" 
-                placeholder="Image URL (Optional)" 
-                value={groupImage} 
-                onChange={(e) => setGroupImage(e.target.value)} 
-                className="w-full bg-white/50 border border-white/40 rounded-2xl px-8 py-5 text-sm font-bold outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
-              />
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+              
+              {/* Group Name input */}
+              <div className="md:col-span-2 space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-4">שם הקבוצה</label>
+                <input 
+                  type="text" 
+                  placeholder="Group Name" 
+                  value={groupName} 
+                  onChange={(e) => setGroupName(e.target.value)} 
+                  disabled={isUploading}
+                  className="w-full bg-white/50 border border-white/40 rounded-2xl px-8 py-5 text-sm font-bold outline-none focus:ring-8 focus:ring-zinc-900/5 transition-all"
+                />
+              </div>
+
+              {/* High-End Glass Image Upload Field */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-4">לוגו / תמונת הקבוצה</label>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    disabled={isUploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 bg-white/60 backdrop-blur-md border border-white/80 rounded-2xl py-4 px-6 text-sm font-black text-zinc-700 hover:bg-white/90 active:scale-95 transition-all shadow-sm text-center"
+                  >
+                    {selectedFile ? 'החלף תמונה 🔄' : 'בחר קובץ 📸'}
+                  </button>
+                  <input 
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  
+                  {/* Real-time Local Upload Preview Frame */}
+                  {previewUrl && (
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border border-white bg-zinc-200/50 flex-shrink-0 shadow-md">
+                      <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
 
-            <div className="flex gap-3">
-              <button 
-                type="submit" 
-                className={`px-10 py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl active:scale-95 ${
-                  editingGroupId ? 'bg-orange-500 text-white shadow-orange-200 hover:bg-orange-600' : 'bg-zinc-900 text-white shadow-zinc-200 hover:bg-zinc-800'
-                }`}
-              >
-                {editingGroupId ? 'עדכון' : 'צור קבוצה'}
-              </button>
-              
+            {/* Actions Grid Block */}
+            <div className="flex justify-end gap-3 border-t border-zinc-900/5 pt-6">
               {editingGroupId && (
                 <button 
                   type="button" 
                   onClick={cancelEdit} 
+                  disabled={isUploading}
                   className="px-8 py-5 bg-white/60 backdrop-blur-md rounded-2xl text-zinc-500 font-bold text-sm hover:bg-white/80 transition-all"
                 >
                   ביטול
                 </button>
               )}
+              
+              <button 
+                type="submit" 
+                disabled={isUploading}
+                className={`px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl active:scale-95 flex items-center gap-3 ${
+                  editingGroupId ? 'bg-orange-500 text-white shadow-orange-200 hover:bg-orange-600' : 'bg-zinc-900 text-white shadow-zinc-200 hover:bg-zinc-800'
+                } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {isUploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    מעלה נתונים...
+                  </>
+                ) : editingGroupId ? (
+                  'עדכון'
+                ) : (
+                  'צור קבוצה'
+                )}
+              </button>
             </div>
           </form>
         </section>
 
-        {/* Groups Directory Table */}
+        {/* Groups Directory Table Area */}
         <section className="bg-white/70 backdrop-blur-3xl rounded-[3rem] shadow-2xl border border-white overflow-hidden">
           <div className="p-8 border-b border-zinc-100 flex justify-between items-center bg-white/40">
             <h3 className="text-2xl font-black tracking-tight text-zinc-900">רשימת קבוצות פעילות</h3>
