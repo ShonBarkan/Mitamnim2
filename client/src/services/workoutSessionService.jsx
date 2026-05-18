@@ -1,36 +1,50 @@
 import api from './api';
+import FrontendLogger from '../utils/logger';
 
 /**
- * Service for managing workout sessions and history.
- * Coordinates with the backend to finalize bulk workout data 
- * and retrieve past performance metadata.
+ * Service for managing workout sessions log transmissions and historic tracking.
+ * Coordinates with the database to finalize structural workout performance matrices.
  */
 export const workoutSessionService = {
   /**
-   * Submits a completed workout session to the server in bulk.
-   * The backend will split the performed_exercises into individual activity logs per set.
-   * 
-   * @param {Object} workoutData - Data structure:
+   * Submits a finalized completed workout session profile to the database.
+   * Maps clean, normalized metrics collections flatly into relational sets tables.
+   * * @param {Object} workoutData - Data structure aligned with WorkoutSessionFinish schema:
    * {
-   *   template_id: number|null,
-   *   start_time: string (ISO),
-   *   workout_summary: string,
-   *   actual_duration: string,
-   *   performed_exercises: [
-   *     {
-   *       exercise_id: number,
-   *       performance_data: [[{parameter_id: number, value: string}, ...], ...] // List of sets
-   *     }
-   *   ]
+   * template_id: number|null,
+   * start_time: string (ISO Timestamp),
+   * workout_summary: string|null,
+   * actual_duration: string|null,
+   * performed_exercises: [
+   * {
+   * exercise_id: number,
+   * sets: [
+   * {
+   * set_number: number,
+   * metrics: [
+   * { parameter_id: number, value: string }
+   * ]
+   * }
+   * ]
+   * }
+   * ]
    * }
    */
-  finishWorkout: (workoutData) => api.post('/workout-sessions/finish', workoutData),
+  finishWorkout: async (workoutData) => {
+    FrontendLogger.info('WORKOUT_SESSION', 'Transmitting finalized execution metrics data vector block to server', workoutData);
+    const response = await api.post('/workout-sessions/finish', workoutData);
+    return response.data;
+  },
 
   /**
-   * Fetches the authenticated user's workout history.
-   * Returns a list of sessions enriched with template names and unique exercise counts.
+   * Fetches the full historic logs of all validated sessions completed by the current user.
+   * Path: GET /workout-sessions
    */
-  getHistory: () => api.get('/workout-sessions/history'),
+  getHistory: async () => {
+    FrontendLogger.info('WORKOUT_SESSION', 'Requesting historic completed workout tracking matrix portfolio');
+    const response = await api.get('/workout-sessions');
+    return response.data;
+  }
 };
 
 export default workoutSessionService;
