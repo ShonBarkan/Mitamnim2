@@ -45,3 +45,39 @@ Table parameters {
   source_parameter_ids ARRAY
   multiplier "double precision"
 }
+
+// --- RE-ARCHITECTED ATHLETIC DOMAIN TABLES WITH GROUP ISOLATION ---
+
+Table tags {
+  id integer [pk, increment, not null]
+  name text [not null]
+  color text [not null]
+  group_id uuid [ref: > groups.id, not null] // FIXED: Isolated per group partition perimeter
+}
+
+Table exercises {
+  id integer [pk, increment, not null]
+  name text [not null]
+  group_id uuid [ref: > groups.id, not null]
+  created_at timestamp
+}
+
+// Many-to-Many Bridge Join Table: Exercises <-> Parameters
+Table exercise_parameters_map {
+  exercise_id integer [ref: > exercises.id, not null]
+  parameter_id integer [ref: > parameters.id, not null]
+
+  Indexes {
+    (exercise_id, parameter_id) [pk]
+  }
+}
+
+// Many-to-Many Bridge Join Table: Exercises <-> Tags
+Table exercise_tags_map {
+  exercise_id integer [ref: > exercises.id, not null]
+  tag_id integer [ref: > tags.id, not null]
+
+  Indexes {
+    (exercise_id, tag_id) [pk]
+  }
+}

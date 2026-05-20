@@ -22,6 +22,7 @@ from domains.users.router import router as users_router, auth_router
 from domains.groups.router import router as groups_router
 from domains.parameters.router import router as parameters_router
 from domains.messages.router import router as messages_router
+from domains.tags.router import router as tags_router
 
 
 # Synchronize SQLAlchemy models with the database schema
@@ -131,7 +132,7 @@ app.include_router(groups_router)
 # Social and Normalized Training Domains
 app.include_router(parameters_router)
 app.include_router(messages_router)
-
+app.include_router(tags_router)
 
 @app.get("/")
 async def root():

@@ -17,10 +17,13 @@ import ChatsPage from './pages/ChatsPage';
 import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
 
+// Settings Sub-System Workspace Components Mapped Directly To Core Target Modules
+import ParameterManager from './components/SettingsPage/ParameterManager';
+import TagManager from './components/SettingsPage/TagManager';
+
 /**
  * Main Application Configuration Engine
  * Establishes client-side routing structures, privilege layers, and the core global layout wireframe.
- * Refactored: Standardized route namings and removed deleted unsupported page routes.
  */
 function App() {
   return (
@@ -69,12 +72,17 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Flat Core System Parameter Configurations Registry */}
+            {/* Re-architected Nested Route Grid for Framework Sub-System Workspaces */}
             <Route path="/settings" element={
               <ProtectedRoute allowedRoles={['admin', 'trainer']}>
                 <SettingsPage />
               </ProtectedRoute>
-            } />
+            }>
+              {/* Fallback anchor to immediately force redirect onto parameters layout */}
+              <Route index element={<Navigate to="parameters" replace />} />
+              <Route path="parameters" element={<ParameterManager />} />
+              <Route path="tags" element={<TagManager />} />
+            </Route>
 
             {/* Catch-all global route fallback mapping anchors */}
             <Route path="*" element={<Navigate to="/" replace />} />

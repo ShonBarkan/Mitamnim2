@@ -6,6 +6,7 @@ import { GroupProvider } from '../contexts/GroupContext';
 import { SocketProvider } from '../contexts/SocketContext';
 import { MessageProvider } from '../contexts/MessageContext';
 import { ParameterProvider } from '../contexts/ParameterContext';
+import { TagProvider } from '../contexts/TagContext'; // FIXED: Imported the missing group tags context domain row
 import FrontendLogger from '../utils/logger';
 
 /**
@@ -14,7 +15,7 @@ import FrontendLogger from '../utils/logger';
  * Order of nesting strictly follows system dependency layers:
  * 1. Infrastructure & Global Safety UI (Toast, Auth)
  * 2. Identity Nodes & Live Sync Streams (User, Group, Socket, Message)
- * 3. Domain Core Repositories & Performance Matrices (Parameter, Exercise, Template, Workout, Stats)
+ * 3. Domain Core Repositories & Performance Matrices (Parameter, Tag, Exercise, Template, Workout, Stats)
  */
 const AppProviders = ({ children }) => {
   
@@ -31,7 +32,9 @@ const AppProviders = ({ children }) => {
             <SocketProvider>
               <MessageProvider>
                 <ParameterProvider>
-                  {children}
+                  <TagProvider> {/* FIXED: Enclosing underlying children components safely inside the active group tags blueprint scope */}
+                    {children}
+                  </TagProvider>
                 </ParameterProvider>
               </MessageProvider>
             </SocketProvider>
