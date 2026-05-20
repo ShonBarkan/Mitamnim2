@@ -16,6 +16,7 @@ import GroupPanelPage from './pages/GroupPanelPage';
 import ChatsPage from './pages/ChatsPage';
 import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
+import ExerciseManagerPage from './pages/ExerciseManagerPage';
 
 // Settings Sub-System Workspace Components Mapped Directly To Core Target Modules
 import ParameterManager from './components/SettingsPage/ParameterManager';
@@ -49,6 +50,13 @@ function App() {
             <Route path="/chats" element={
               <ProtectedRoute>
                 <ChatsPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Exercise Library - Accessible to all authenticated users */}
+            <Route path="/exercises" element={
+              <ProtectedRoute>
+                <ExerciseManagerPage />
               </ProtectedRoute>
             } />
 

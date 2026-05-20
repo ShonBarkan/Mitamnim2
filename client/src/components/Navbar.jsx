@@ -46,31 +46,17 @@ const Navbar = () => {
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
             <NavLink to="/" active={isActive("/")}>דף הבית</NavLink>
             <NavLink to="/chats" active={isActive("/chats")}>צ'אטים</NavLink>
+            
+            {/* Direct access to exercises library for all users */}
+            <NavLink to="/exercises" active={isActive("/exercises")}>תרגילים</NavLink>
 
             {/* Specialized Privileged Coach Tools Separation Gate */}
             {isTrainer && (
               <div className="flex items-center gap-1.5 mr-6 pr-6 border-r border-white/80">
-                <NavLink 
-                  to="/users" 
-                  active={isActive("/users")} 
-                  subtle 
-                >
-                  מתאמנים
-                </NavLink>
-                <NavLink 
-                  to="/coach-messages" 
-                  active={isActive("/coach-messages")} 
-                  subtle
-                >
-                  הודעות
-                </NavLink>
-                <NavLink 
-                  to="/settings" 
-                  active={isActive("/settings")} 
-                  subtle
-                >
-                  הגדרות
-                </NavLink>
+                <NavLink to="/users" active={isActive("/users")} subtle>מתאמנים</NavLink>
+                <NavLink to="/coach-messages" active={isActive("/coach-messages")} subtle>הודעות</NavLink>
+                <NavLink to="/settings" active={isActive("/settings")} subtle>הגדרות</NavLink>
+                
                 {isAdmin && (
                   <NavLink to="/groups" active={isActive("/groups")} subtle>קבוצות</NavLink>
                 )}
