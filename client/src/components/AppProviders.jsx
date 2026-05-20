@@ -6,10 +6,6 @@ import { GroupProvider } from '../contexts/GroupContext';
 import { SocketProvider } from '../contexts/SocketContext';
 import { MessageProvider } from '../contexts/MessageContext';
 import { ParameterProvider } from '../contexts/ParameterContext';
-import { ExerciseProvider } from '../contexts/ExerciseContext';
-import { TemplateProvider } from '../contexts/TemplateContext';
-import { WorkoutProvider } from '../contexts/WorkoutContext';
-import { StatsProvider } from '../contexts/StatsContext';
 import FrontendLogger from '../utils/logger';
 
 /**
@@ -35,15 +31,7 @@ const AppProviders = ({ children }) => {
             <SocketProvider>
               <MessageProvider>
                 <ParameterProvider>
-                  <ExerciseProvider>
-                    <TemplateProvider>
-                      <WorkoutProvider>
-                        <StatsProvider>
-                          {children}
-                        </StatsProvider>
-                      </WorkoutProvider>
-                    </TemplateProvider>
-                  </ExerciseProvider>
+                  {children}
                 </ParameterProvider>
               </MessageProvider>
             </SocketProvider>

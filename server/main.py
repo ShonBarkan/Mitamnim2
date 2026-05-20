@@ -21,12 +21,8 @@ from core.logger import logger, trace_id_var
 from domains.users.router import router as users_router, auth_router
 from domains.groups.router import router as groups_router
 from domains.parameters.router import router as parameters_router
-from domains.exercises.router import router as exercises_router
 from domains.messages.router import router as messages_router
-from domains.workout_template.router import router as templates_router
-from domains.workout_sessions.router import router as workout_sessions_router
-from domains.stats.router import router as stats_router
-from domains.stats_dashboard_config.router import router as dashboard_router
+
 
 # Synchronize SQLAlchemy models with the database schema
 Base.metadata.create_all(bind=engine)
@@ -134,14 +130,7 @@ app.include_router(groups_router)
 
 # Social and Normalized Training Domains
 app.include_router(parameters_router)
-app.include_router(exercises_router)
 app.include_router(messages_router)
-app.include_router(templates_router)
-app.include_router(workout_sessions_router)
-
-# Statistics and Analytics Real-time Dashboards
-app.include_router(stats_router)
-app.include_router(dashboard_router)
 
 
 @app.get("/")

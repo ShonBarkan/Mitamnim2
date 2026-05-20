@@ -13,19 +13,14 @@ import LoginPage from './pages/LoginPage';
 import LandingPage from './pages/LandingPage';
 import UserPanelPage from './pages/UserPanelPage';
 import GroupPanelPage from './pages/GroupPanelPage';
-import WorkoutsPage from './pages/WorkoutsPage';
-import CreateWorkoutTemplatePage from './pages/CreateWorkoutTemplatePage';
-import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
-import ActivityDashboardPage from './pages/ActivityDashboardPage';
 import ChatsPage from './pages/ChatsPage';
 import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
-import AnalyticsStudioPage from './pages/AnalyticsStudioPage';
 
 /**
  * Main Application Configuration Engine
  * Establishes client-side routing structures, privilege layers, and the core global layout wireframe.
- * Refactored: Standardized route namings and transposed static stats components into AnalyticsStudio components.
+ * Refactored: Standardized route namings and removed deleted unsupported page routes.
  */
 function App() {
   return (
@@ -47,49 +42,10 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Performance Activity Logs & Chronicles Tracker Hub */}
-            <Route path="/activity" element={
-              <ProtectedRoute>
-                <ActivityDashboardPage />
-              </ProtectedRoute>
-            } />
-
-            {/* Workout Programs & Live Athlete Performance Sessions Tracking Pipeline */}
-            <Route path="/workouts" element={
-              <ProtectedRoute>
-                <WorkoutsPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/create-workout-templates" element={
-              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                <CreateWorkoutTemplatePage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/active-workouts/:templateId" element={
-              <ProtectedRoute>
-                <ActiveWorkoutPage />
-              </ProtectedRoute>
-            } />
-
             {/* Live Instant Communications Real-Time Thread Mesh */}
             <Route path="/chats" element={
               <ProtectedRoute>
                 <ChatsPage />
-              </ProtectedRoute>
-            } />
-
-            {/* Highly Customized Target Metrics Analytics Studios */}
-            <Route path="/analytics-studio" element={
-              <ProtectedRoute>
-                <AnalyticsStudioPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/analytics-studio/:userId" element={
-              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                <AnalyticsStudioPage />
               </ProtectedRoute>
             } />
 

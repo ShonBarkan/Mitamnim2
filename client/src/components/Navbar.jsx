@@ -45,10 +45,7 @@ const Navbar = () => {
           {/* Navigation Links Chronological Stream Collection */}
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
             <NavLink to="/" active={isActive("/")}>דף הבית</NavLink>
-            <NavLink to="/activity" active={isActive("/activity")}>יומן פעילות</NavLink>
-            <NavLink to="/workouts" active={isActive("/workouts")}>תוכניות אימון</NavLink>
             <NavLink to="/chats" active={isActive("/chats")}>צ'אטים</NavLink>
-            <NavLink to="/analytics-studio" active={isActive("/analytics-studio")}>ניתוח נתונים</NavLink>
 
             {/* Specialized Privileged Coach Tools Separation Gate */}
             {isTrainer && (

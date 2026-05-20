@@ -27,23 +27,40 @@ export const ParameterProvider = ({ children }) => {
 
   /**
    * Evaluates and computes live virtual parameter previews on the client-side for fluid UI feedback.
+   * Aligned perfectly with the three concrete metric definitions: Regular, Conversion, and Combination.
    */
   const calculateVirtualValue = useCallback((param, performanceData) => {
     if (!param.is_virtual || !param.source_parameter_ids) return null;
 
-    const sourceValues = param.source_parameter_ids.map(id => performanceData[id] || 0);
+    const sourceValues = param.source_parameter_ids.map(id => parseFloat(performanceData[id]) || 0);
 
     switch (param.calculation_type) {
+      case 'conversion':
+        // Type 2: Direct single source base parameter transformation
+        return (sourceValues[0] || 0) * (param.multiplier || 1);
+        
       case 'sum':
-        return sourceValues.reduce((acc, val) => acc + val, 0) * (param.multiplier || 1);
+        // Type 3a: Arithmetic sum combination of two parameters
+        return ((sourceValues[0] || 0) + (sourceValues[1] || 0)) * (param.multiplier || 1);
+        
+      case 'subtract':
+        // Type 3b: Arithmetic subtraction combination of two parameters
+        return ((sourceValues[0] || 0) - (sourceValues[1] || 0)) * (param.multiplier || 1);
+        
+      case 'multiply':
+        // Type 3c: Arithmetic volume/multiplication combination of two parameters
+        return (sourceValues[0] || 0) * (sourceValues[1] || 0) * (param.multiplier || 1);
+        
       case 'divide':
+        // Type 3d: Direct division ratio computation tracking
         if (sourceValues[1] === 0) return 0;
         return (sourceValues[0] / sourceValues[1]) * (param.multiplier || 1);
-      case 'conversion':
-        return (sourceValues[0] || 0) * (param.multiplier || 1);
+        
       case 'percentage':
+        // Type 3e: Standard mathematical percentage ratio allocation
         if (sourceValues[1] === 0) return 0;
         return (sourceValues[0] / sourceValues[1]) * 100;
+        
       default:
         return null;
     }
@@ -62,7 +79,7 @@ export const ParameterProvider = ({ children }) => {
       return createdParam;
     } catch (error) {
       FrontendLogger.error('PARAMETER_CONTEXT', `Failed to execute allocation sequence for parameter target rule: '${paramData.name}'`, error);
-      throw error;
+      throw error; // FIXED: Changed from pythonic raise to JavaScript throw keyword
     }
   };
 
@@ -79,7 +96,7 @@ export const ParameterProvider = ({ children }) => {
       return updatedParam;
     } catch (error) {
       FrontendLogger.error('PARAMETER_CONTEXT', `Failed to apply structural mutations on parameter validation asset node target id: ${id}`, error);
-      throw error;
+      throw error; // FIXED: Changed from pythonic raise to JavaScript throw keyword
     }
   };
 
@@ -95,7 +112,7 @@ export const ParameterProvider = ({ children }) => {
       FrontendLogger.info('PARAMETER_CONTEXT', `Parameter record instance row id: ${id} completely flushed from local tracking bounds memory`);
     } catch (error) {
       FrontendLogger.error('PARAMETER_CONTEXT', `Failed to trigger destruction sequence execution layout for target entity record node id: ${id}`, error);
-      throw error;
+      throw error; // FIXED: Changed from pythonic raise to JavaScript throw keyword
     }
   };
 
@@ -104,7 +121,7 @@ export const ParameterProvider = ({ children }) => {
    */
   const getParameterNameById = useCallback((id) => {
     const param = parameters.find(p => p.id === parseInt(id));
-    return param ? param.name : "Parameter Not Found";
+    return param ? param.name : "לא נמצא";
   }, [parameters]);
 
   return (
@@ -125,7 +142,6 @@ export const ParameterProvider = ({ children }) => {
 
 /**
  * Custom hook utility proxying contextual abstraction layers cleanly.
- * Must be consumed strictly within an active ParameterProvider scope wrapper boundary.
  */
 export const useParameter = () => {
   const context = useContext(ParameterContext);

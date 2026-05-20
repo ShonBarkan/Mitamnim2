@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import ExerciseRegistryManager from '../components/common/Exercises/ExerciseRegistryManager';
 import ParameterManager from '../components/SettingsPage/ParameterManager';
-import DashboardConfig from '../components/SettingsPage/DashboardConfig';
 import FrontendLogger from '../utils/logger';
 
 /**
@@ -13,7 +11,6 @@ import FrontendLogger from '../utils/logger';
 const SettingsPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('exercises'); // State options: 'exercises' | 'parameters' | 'dashboard'
 
   // Access control constraint matrix: Only trainers and admins hold token validation rights
   const isAuthorized = user?.role === 'trainer' || user?.role === 'admin';
@@ -25,14 +22,6 @@ const SettingsPage = () => {
       navigate('/');
     }
   }, [user, isAuthorized, navigate]);
-
-  /**
-   * Tracks tab mutations inside user environment logs
-   */
-  const handleTabChange = (tabId) => {
-    FrontendLogger.info('SETTINGS_PAGE', `Shifting active management layout tab focus view context to: '${tabId}'`);
-    setActiveTab(tabId);
-  };
 
   // Prevent UI flashing anomalies for unauthenticated/unauthorized request pipelines
   if (!user || !isAuthorized) {
@@ -58,77 +47,24 @@ const SettingsPage = () => {
 
             {/* --- PREMIUM ARCTIC MIRROR TAB NAVIGATION CAPSULE --- */}
             <div className="bg-white/50 backdrop-blur-md border border-white/80 p-2 rounded-3xl flex items-center gap-1 shadow-inner max-w-max self-start md:self-auto">
-              <button
-                onClick={() => handleTabChange('exercises')}
-                className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'exercises'
-                    ? 'bg-zinc-900 text-white shadow-lg'
-                    : 'text-zinc-500 hover:bg-white/60 hover:text-zinc-900'
-                }`}
-              >
-                🏋️‍♂️ ניהול תרגילים
-              </button>
-              <button
-                onClick={() => handleTabChange('parameters')}
-                className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'parameters'
-                    ? 'bg-zinc-900 text-white shadow-lg'
-                    : 'text-zinc-500 hover:bg-white/60 hover:text-zinc-900'
-                }`}
-              >
-                📊 פרמטרי מדידה
-              </button>
-              <button
-                onClick={() => handleTabChange('dashboard')}
-                className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'dashboard'
-                    ? 'bg-zinc-900 text-white shadow-lg'
-                    : 'text-zinc-500 hover:bg-white/60 hover:text-zinc-900'
-                }`}
-              >
-                👑 הגדרות דשבורד
-              </button>
+              <span className="px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider bg-zinc-900 text-white shadow-lg">
+                📊 ניהול פרמטרים
+              </span>
             </div>
           </div>
         </header>
 
         {/* --- DETACHED SUB-SYSTEM WORKSPACE --- */}
         <main className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {activeTab === 'exercises' && (
-            <div className="bg-white/60 backdrop-blur-3xl rounded-[3.5rem] border border-white shadow-[0_32px_64px_-12px_rgba(0,0,0,0.06)] overflow-hidden">
-              <div className="p-8 border-b border-zinc-100/50 bg-white/30">
-                <h2 className="text-2xl font-black tracking-tight text-zinc-900">מאגר תרגילים קבוצתי</h2>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">Group Exercise Registry (Flat Cascade Mode)</p>
-              </div>
-              <div className="p-8">
-                <ExerciseRegistryManager />
-              </div>
+          <div className="bg-white/60 backdrop-blur-3xl rounded-[3.5rem] border border-white shadow-[0_32px_64px_-12px_rgba(0,0,0,0.06)] overflow-hidden">
+            <div className="p-8 border-b border-zinc-100/50 bg-white/30">
+              <h2 className="text-2xl font-black tracking-tight text-zinc-900">ניהול פרמטרים</h2>
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">כאן ניתן לערוך פרמטרי מדידה פעילים וסטנדרטיים.</p>
             </div>
-          )}
-
-          {activeTab === 'parameters' && (
-            <div className="bg-white/60 backdrop-blur-3xl rounded-[3.5rem] border border-white shadow-[0_32px_64px_-12px_rgba(0,0,0,0.06)] overflow-hidden">
-              <div className="p-8 border-b border-zinc-100/50 bg-white/30">
-                <h2 className="text-2xl font-black tracking-tight text-zinc-900">ניהול מטריקות ופרמטרי מדידה</h2>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">Dynamic Formula & Unit Calculation Matrix</p>
-              </div>
-              <div className="p-8">
-                <ParameterManager />
-              </div>
+            <div className="p-8">
+              <ParameterManager />
             </div>
-          )}
-
-          {activeTab === 'dashboard' && (
-            <div className="bg-white/60 backdrop-blur-3xl rounded-[3.5rem] border border-white shadow-[0_32px_64px_-12px_rgba(0,0,0,0.06)] overflow-hidden">
-              <div className="p-8 border-b border-zinc-100/50 bg-white/30">
-                <h2 className="text-2xl font-black tracking-tight text-zinc-900">הגדרות לוח תחרויות פומבי</h2>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">Landing Page Leaderboard Target Visibility Metrics</p>
-              </div>
-              <div className="p-8">
-                <DashboardConfig />
-              </div>
-            </div>
-          )}
+          </div>
         </main>
 
       </div>

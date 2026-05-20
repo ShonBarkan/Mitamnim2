@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { UserContext } from '../contexts/UserContext';
 import { MessageContext } from '../contexts/MessageContext';
@@ -7,10 +7,8 @@ import FrontendLogger from '../utils/logger';
 // Standardized Arctic Mirror Components from local directory
 import PersonalInfo from '../components/LandingPage/PersonalInfo';
 import MainBanners from '../components/LandingPage/MainBanners';
-import GroupLeaderboard from '../components/LandingPage/GroupLeaderboard';
 import TrainingSchedule from '../components/LandingPage/TrainingSchedule';
 import MessageFeed from '../components/MessageFeed';
-import ActivityCreator from '../components/ActivityDashboardPage/ActivityCreator';
 
 /**
  * LandingPage Component - The primary athlete command dashboard.
@@ -21,7 +19,6 @@ const LandingPage = () => {
   const { user } = useContext(AuthContext);
   const { refreshUsers } = useContext(UserContext);
   const { mainMessages, fetchMainMessages } = useContext(MessageContext);
-  const [isAddLogOpen, setIsAddLogOpen] = useState(false);
 
   /**
    * Data Synchronization: Hydrates users portfolio and global dashboard banners.
@@ -58,15 +55,12 @@ const LandingPage = () => {
           <div className="w-full flex h-full">
             <button 
               type="button"
-              onClick={() => {
-                FrontendLogger.info('LANDING_PAGE', 'User triggered live quick workout registration modal');
-                setIsAddLogOpen(true);
-              }}
-              className="w-full h-full min-h-[160px] bg-zinc-900 border border-zinc-900 hover:bg-zinc-800 text-white p-8 rounded-[3.5rem] font-black shadow-2xl shadow-zinc-900/20 transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-3 group relative overflow-hidden"
+              disabled
+              className="w-full h-full min-h-[160px] bg-zinc-900 border border-zinc-900 text-white p-8 rounded-[3.5rem] font-black shadow-2xl shadow-zinc-900/20 transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-3 group relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              <span className="text-5xl leading-none group-hover:rotate-180 transition-all duration-700 select-none">＋</span>
-              <span className="text-xs uppercase tracking-[0.3em] font-black opacity-90 select-none">תיעוד אימון מהיר</span>
+              <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0" />
+              <span className="text-5xl leading-none select-none">＋</span>
+              <span className="text-xs uppercase tracking-[0.3em] font-black opacity-90 select-none">תיעוד אימון מהיר (בפיתוח)</span>
             </button>
           </div>
         </div>
@@ -83,9 +77,12 @@ const LandingPage = () => {
         {/* --- PERFORMANCE ANALYTICS & SOCIAL INTEL GRID --- */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           
-          {/* Competitive Arena: The Global Leaderboard (75% Screen Width) */}
+          {/* Competitive Arena placeholder while leaderboard module is removed */}
           <div className="lg:col-span-9 space-y-10 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
-            <GroupLeaderboard />
+            <div className="bg-white/70 backdrop-blur-3xl rounded-[3rem] border border-white/70 shadow-2xl shadow-zinc-200/40 p-10 min-h-[400px] flex flex-col justify-center items-center text-center">
+              <h2 className="text-3xl font-black text-zinc-900">לוח דירוג קבוצתי לא זמין</h2>
+              <p className="mt-4 text-sm text-zinc-500 max-w-xl">הרכיב שנדרש להצגת דירוג קבוצה הוסר. עדיין ניתן להציג הודעות ופרטי משתמש נכונים בעמוד הבית.</p>
+            </div>
           </div>
 
           {/* Intel Sidebar: Scheduled Trackers & Bulletins (25% Screen Width) */}
@@ -124,34 +121,6 @@ const LandingPage = () => {
         </div>
       </main>
 
-      {/* --- QUICK ACTION INTERACTIVE WIZARD OVERLAY --- */}
-      {isAddLogOpen && (
-        <div className="fixed inset-0 z-[1200] flex items-end md:items-center justify-center p-0 md:p-8 animate-in fade-in duration-400">
-          <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-md transition-opacity" onClick={() => setIsAddLogOpen(false)} />
-          
-          <div className="relative w-full max-w-4xl bg-white/40 backdrop-blur-3xl rounded-t-[4rem] md:rounded-[4rem] shadow-[0_60px_120px_-30px_rgba(0,0,0,0.3)] overflow-hidden max-h-[94vh] animate-in slide-in-from-bottom-20 duration-500 border border-white/60">
-            <div className="p-10 md:p-12">
-              <header className="flex justify-between items-center mb-10 px-6 select-none">
-                <div className="space-y-1">
-                  <h3 className="text-4xl font-black tracking-tighter text-zinc-900 uppercase m-0">תיעוד אימון מהיר</h3>
-                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] font-mono mt-1">Deploy New Performance Matrix Record</p>
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => setIsAddLogOpen(false)} 
-                  className="text-zinc-400 hover:text-zinc-900 transition-all w-14 h-14 bg-white/60 hover:bg-white rounded-[1.5rem] flex items-center justify-center border border-white/80 active:scale-90 shadow-sm"
-                >
-                  <span className="text-xl">✕</span>
-                </button>
-              </header>
-              
-              <div className="max-h-[62vh] overflow-y-auto px-6 scrollbar-hide">
-                <ActivityCreator onComplete={() => setIsAddLogOpen(false)} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

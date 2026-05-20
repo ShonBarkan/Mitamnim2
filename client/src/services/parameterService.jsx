@@ -3,7 +3,8 @@ import FrontendLogger from '../utils/logger';
 
 /**
  * Service handling the API communication for tracking measurement parameters.
- * Supports standard (Raw) parameters and Virtual parameters (Calculated/Calculated Arrays).
+ * Re-architected to align with PUT updates across atomic math configurations.
+ * Enforces strict English-only code commentary and total Hebrew UI localization support.
  */
 export const parameterService = {
   /**
@@ -18,7 +19,7 @@ export const parameterService = {
   
   /**
    * Create a new parameter definition token asset.
-   * Supports virtual fields: is_virtual, calculation_type, source_parameter_ids, and multiplier.
+   * Supports structural formula components layout matching regular, conversion, and combination models.
    * Path: POST /parameters
    */
   create: async (data) => {
@@ -29,11 +30,12 @@ export const parameterService = {
   
   /**
    * Update an existing parameter configuration matrix rule.
-   * Path: PATCH /parameters/{id}
+   * Converted to PUT execution to enforce atomic payload validation filters in backend scope wrappers.
+   * Path: PUT /parameters/{id}
    */
   update: async (id, data) => {
-    FrontendLogger.info('PARAMETER', `Mutating structural parameter properties for record target id: ${id}`, data);
-    const response = await api.patch(`/parameters/${id}`, data);
+    FrontendLogger.info('PARAMETER', `Mutating structural parameter properties cleanly via PUT for record target id: ${id}`, data);
+    const response = await api.put(`/parameters/${id}`, data);
     return response.data;
   },
   

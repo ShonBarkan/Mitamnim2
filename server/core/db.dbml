@@ -1,0 +1,47 @@
+// Database Schema Mapping for Mitamnim2 Blueprint Context
+// Enforces strict English-only code commentary and verified relational constraints
+
+Table groups {
+  id uuid [pk, not null]
+  name text [not null]
+  group_image text
+  created_at timestamp
+}
+
+Table users {
+  id uuid [pk, not null]
+  first_name text
+  second_name text
+  username text [not null]
+  password text [not null]
+  role text
+  email text
+  phone text
+  profile_picture text
+  created_at timestamp
+  last_login timestamp
+  group_id uuid [ref: > groups.id]
+}
+
+Table messages {
+  id uuid [pk, not null]
+  sender_id uuid [ref: > users.id]
+  recipient_id uuid [ref: > users.id]
+  group_id uuid [ref: > groups.id]
+  content text [not null]
+  message_type varchar [not null]
+  is_main boolean
+  created_at timestamp
+}
+
+Table parameters {
+  id integer [pk, not null]
+  name text [not null]
+  unit text [not null]
+  group_id uuid [ref: > groups.id]
+  aggregation_strategy text
+  is_virtual boolean
+  calculation_type varchar
+  source_parameter_ids ARRAY
+  multiplier "double precision"
+}
