@@ -52,7 +52,7 @@ Table tags {
   id integer [pk, increment, not null]
   name text [not null]
   color text [not null]
-  group_id uuid [ref: > groups.id, not null] // FIXED: Isolated per group partition perimeter
+  group_id uuid [ref: > groups.id, not null]
 }
 
 Table exercises {
@@ -62,22 +62,54 @@ Table exercises {
   created_at timestamp
 }
 
-// Many-to-Many Bridge Join Table: Exercises <-> Parameters
 Table exercise_parameters_map {
   exercise_id integer [ref: > exercises.id, not null]
   parameter_id integer [ref: > parameters.id, not null]
-
-  Indexes {
-    (exercise_id, parameter_id) [pk]
-  }
+  Indexes { (exercise_id, parameter_id) [pk] }
 }
 
-// Many-to-Many Bridge Join Table: Exercises <-> Tags
 Table exercise_tags_map {
   exercise_id integer [ref: > exercises.id, not null]
   tag_id integer [ref: > tags.id, not null]
+  Indexes { (exercise_id, tag_id) [pk] }
+}
 
-  Indexes {
-    (exercise_id, tag_id) [pk]
-  }
+// --- WORKOUT TEMPLATES DOMAIN ---
+
+Table workout_templates {
+  id uuid [pk, not null]
+  name text [not null]
+  description text
+  group_id uuid [ref: > groups.id, not null]
+  estimated_duration integer
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table template_user_assignments {
+  template_id uuid [ref: > workout_templates.id]
+  user_id uuid [ref: > users.id]
+  Indexes { (template_id, user_id) [pk] }
+}
+
+Table template_exercises {
+  id uuid [pk, not null]
+  template_id uuid [ref: > workout_templates.id, not null]
+  exercise_id integer [ref: > exercises.id, not null]
+  position integer [not null]
+  sets integer [default: 3]
+  created_at timestamp
+}
+
+Table template_exercise_params {
+  id uuid [pk, not null]
+  template_exercise_id uuid [ref: > template_exercises.id, not null]
+  parameter_id integer [ref: > parameters.id, not null]
+  default_value "double precision" [not null]
+}
+
+Table template_tags_map {
+  template_id uuid [ref: > workout_templates.id, not null]
+  tag_id integer [ref: > tags.id, not null]
+  Indexes { (template_id, tag_id) [pk] }
 }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-// Providers Wrapper (Injects the complete centralized architecture layer state tree)
+// Providers Wrapper
 import AppProviders from './components/AppProviders';
 
 // Application Structural Layout Components & Guards
@@ -17,82 +17,47 @@ import ChatsPage from './pages/ChatsPage';
 import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
 import ExerciseManagerPage from './pages/ExerciseManagerPage';
+import TemplateManagerPage from './pages/TemplateManagerPage';
 
-// Settings Sub-System Workspace Components Mapped Directly To Core Target Modules
+// Settings Sub-System Workspace Components
 import ParameterManager from './components/SettingsPage/ParameterManager';
 import TagManager from './components/SettingsPage/TagManager';
 
-/**
- * Main Application Configuration Engine
- * Establishes client-side routing structures, privilege layers, and the core global layout wireframe.
- */
 function App() {
   return (
     <AppProviders>
       <Router>
-        {/* Navigation bar is decoupled and consistently available across authenticated route sessions */}
         <Navbar />
-        
-        {/* Unified Viewport Container Layer maintaining Arctic Mirror base configurations */}
-        <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-slate-50 to-zinc-200 font-sans antialiased selection:bg-zinc-900 selection:text-white" dir="rtl">
+        <div className="min-h-screen bg-zinc-50" dir="rtl">
           <Routes>
             {/* Public Authentication Gateways */}
             <Route path="/login" element={<LoginPage />} />
             
-            {/* Authenticated Global Core Views Nodes */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <LandingPage />
-              </ProtectedRoute>
-            } />
+            {/* Protected Routes Wrapper */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/chats" element={<ChatsPage />} />
+              <Route path="/exercises" element={<ExerciseManagerPage />} />
+              
+              {/* Privileged Coach Tools */}
+              <Route element={<ProtectedRoute allowedRoles={['admin', 'trainer']} />}>
+                <Route path="/templates" element={<TemplateManagerPage />} />
+                <Route path="/users" element={<UserPanelPage />} />
+                <Route path="/coach-messages" element={<CoachMessageManager />} />
+                <Route path="/settings" element={<SettingsPage />}>
+                  <Route index element={<Navigate to="parameters" replace />} />
+                  <Route path="parameters" element={<ParameterManager />} />
+                  <Route path="tags" element={<TagManager />} />
+                </Route>
+              </Route>
 
-            {/* Live Instant Communications Real-Time Thread Mesh */}
-            <Route path="/chats" element={
-              <ProtectedRoute>
-                <ChatsPage />
-              </ProtectedRoute>
-            } />
-
-            {/* Exercise Library - Accessible to all authenticated users */}
-            <Route path="/exercises" element={
-              <ProtectedRoute>
-                <ExerciseManagerPage />
-              </ProtectedRoute>
-            } />
-
-            {/* Privileged Squad & Accounts Governance Panels */}
-            <Route path="/users" element={
-              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                <UserPanelPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/groups" element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <GroupPanelPage />
-              </ProtectedRoute>
-            } />
-
-            {/* Broadcast Sticky Announcement Command Dashboards */}
-            <Route path="/coach-messages" element={
-              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                <CoachMessageManager />
-              </ProtectedRoute>
-            } />
-
-            {/* Re-architected Nested Route Grid for Framework Sub-System Workspaces */}
-            <Route path="/settings" element={
-              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                <SettingsPage />
-              </ProtectedRoute>
-            }>
-              {/* Fallback anchor to immediately force redirect onto parameters layout */}
-              <Route index element={<Navigate to="parameters" replace />} />
-              <Route path="parameters" element={<ParameterManager />} />
-              <Route path="tags" element={<TagManager />} />
+              {/* Admin Only */}
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                <Route path="/groups" element={<GroupPanelPage />} />
+              </Route>
             </Route>
 
-            {/* Catch-all global route fallback mapping anchors */}
+            {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

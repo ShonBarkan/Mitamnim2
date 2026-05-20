@@ -8,6 +8,7 @@ import { MessageProvider } from '../contexts/MessageContext';
 import { ParameterProvider } from '../contexts/ParameterContext';
 import { TagProvider } from '../contexts/TagContext';
 import { ExerciseProvider } from '../contexts/ExerciseContext';
+import { TemplateProvider } from '../contexts/TemplateContext'; // הוספת ה-Provider החדש
 import FrontendLogger from '../utils/logger';
 
 /**
@@ -30,7 +31,9 @@ const AppProviders = ({ children }) => {
                 <ParameterProvider>
                   <TagProvider>
                     <ExerciseProvider>
-                      {children}
+                      <TemplateProvider>
+                        {children}
+                      </TemplateProvider>
                     </ExerciseProvider>
                   </TagProvider>
                 </ParameterProvider>

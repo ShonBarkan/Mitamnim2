@@ -1,20 +1,11 @@
 import React, { useContext } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import FrontendLogger from '../utils/logger';
 
-/**
- * ProtectedRoute Component - Guards private client-side routes.
- * Checks for authentication and verifies role-based access control (RBAC) permissions.
- * Re-mapped directly to the centralized AuthContext asset file path.
- */
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useContext(AuthContext);
 
-  /**
-   * While the authentication validation sequence is running, show a 
-   * premium loading state matching the bright Arctic Mirror design rules.
-   */
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-slate-50 to-zinc-200 font-sans">
@@ -28,22 +19,21 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     );
   }
 
-  // Intercept unauthorized requests and force route displacement to login gateway
   if (!user) {
     FrontendLogger.warn('PROTECTED_ROUTE', 'Anonymous user session intercepted. Blocking route and forcing login redirect.');
     return <Navigate to="/login" replace />;
   }
 
-  /**
-   * Role-Based Access Control (RBAC) Gatekeeper:
-   * Re-routes token sessions to root index if permission scope mismatch occurs.
-   */
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    FrontendLogger.warn('PROTECTED_ROUTE', `Privilege mismatch observed. User '${user.username}' [Role: ${user.role}] cannot access an endpoint expecting roles: [${allowedRoles.join(', ')}]. Deflecting to baseline landing hub.`);
-    return <Navigate to="/" replace />;
+  if (allowedRoles && Array.isArray(allowedRoles)) {
+    if (!allowedRoles.includes(user.role)) {
+      FrontendLogger.warn('PROTECTED_ROUTE', `Privilege mismatch for user '${user.username}'.`);
+      return <Navigate to="/" replace />;
+    }
   }
 
-  return children;
+  // אם הועברו children (עטיפה רגילה), נרנדר אותם. 
+  // אם לא, נשתמש ב-Outlet עבור נתיבים מקוננים.
+  return children ? children : <Outlet />;
 };
 
 export default ProtectedRoute;

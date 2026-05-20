@@ -1,6 +1,6 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import FrontendLogger from '../utils/logger';
 
 /**
@@ -8,7 +8,7 @@ import FrontendLogger from '../utils/logger';
  * Aligned strictly with updated flat router paths and premium Arctic Mirror glassmorphic guidelines.
  */
 const Navbar = () => {
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -53,6 +53,7 @@ const Navbar = () => {
             {/* Specialized Privileged Coach Tools Separation Gate */}
             {isTrainer && (
               <div className="flex items-center gap-1.5 mr-6 pr-6 border-r border-white/80">
+                <NavLink to="/templates" active={isActive("/templates")} subtle>שבלונות</NavLink>
                 <NavLink to="/users" active={isActive("/users")} subtle>מתאמנים</NavLink>
                 <NavLink to="/coach-messages" active={isActive("/coach-messages")} subtle>הודעות</NavLink>
                 <NavLink to="/settings" active={isActive("/settings")} subtle>הגדרות</NavLink>
