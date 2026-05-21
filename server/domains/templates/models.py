@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy import Column, Integer, Text, ForeignKey, DateTime, Double, Table
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -83,6 +83,15 @@ class WorkoutTemplateOut(BaseModel):
     exercises: List[TemplateExerciseOut]
     tag_ids: List[int] = []
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('tag_ids', mode='before')
+    @classmethod
+    def extract_tag_ids(cls, v, info):
+        # Extract tag IDs if the 'tags' relationship object exists
+        tags = info.data.get('tags', [])
+        if tags and hasattr(tags, '__iter__'):
+            return [tag.id for tag in tags]
+        return v
 
 class WorkoutTemplateCreate(BaseModel):
     name: str

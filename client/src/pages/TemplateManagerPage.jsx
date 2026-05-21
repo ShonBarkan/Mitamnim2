@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useTemplate } from '../contexts/TemplateContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useTag } from '../contexts/TagContext'; 
 import FrontendLogger from '../utils/logger';
 import TemplateForm from '../components/TemplateManagerPage/TemplateForm';
+import TagDisplay from '../components/common/tags/TagDisplay';
 
 const TemplateManagerPage = () => {
   const { templates, fetchTemplates, loading, removeTemplate } = useTemplate();
+  const { tags } = useTag();
   const { user } = useAuth();
   const [isFormOpen, setIsFormOpen] = useState(false);
 
@@ -25,6 +28,10 @@ const TemplateManagerPage = () => {
         FrontendLogger.error('TEMPLATE_MANAGER_PAGE', `Failed to delete template ${id}`, error);
       }
     }
+  };
+
+  const getTagsByIds = (tagIds) => {
+    return tags.filter(tag => tagIds.includes(tag.id));
   };
 
   return (
@@ -70,12 +77,8 @@ const TemplateManagerPage = () => {
               </div>
               <p className="text-xs text-zinc-500 mt-2 min-h-[3rem]">{template.description}</p>
               
-              <div className="mt-4 flex flex-wrap gap-2">
-                {template.tag_ids?.map(tagId => (
-                  <span key={tagId} className="px-2 py-1 bg-zinc-100 rounded-lg text-[10px] font-bold text-zinc-600">
-                    #{tagId}
-                  </span>
-                ))}
+              <div className="mt-4">
+                <TagDisplay tags={getTagsByIds(template.tag_ids || [])} />
               </div>
             </div>
           ))}
