@@ -1,6 +1,6 @@
 import uuid
 from typing import List
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from core.logger import logger
 from domains.tags.models import Tag
 from .models import WorkoutTemplate, TemplateExercise, TemplateExerciseParam, \
@@ -11,6 +11,7 @@ class TemplateService:
     """
     Service layer for managing workout templates, relational associations,
     user-specific assignments, and tag mappings.
+    Incorporates eager loading to resolve N+1 queries and provide enriched data.
     """
 
     def __init__(self, db: Session):
@@ -66,10 +67,12 @@ class TemplateService:
                 )
                 self.db.add(assignment)
 
+            # Commit the transaction to persist all relations
             self.db.commit()
-            self.db.refresh(new_template)
             logger.info(f"Successfully committed template '{new_template.name}' with ID: {new_template.id}")
-            return new_template
+
+            # Fetch the fully enriched template to return to the client
+            return self._get_enriched_template(new_template.id)
 
         except Exception as e:
             self.db.rollback()
@@ -77,8 +80,20 @@ class TemplateService:
             raise e
 
     def get_group_templates(self, group_id: uuid.UUID) -> List[WorkoutTemplate]:
-        logger.info(f"Retrieving templates catalog for group: {group_id}")
-        return self.db.query(WorkoutTemplate).filter(WorkoutTemplate.group_id == group_id).all()
+        """
+        Retrieves the complete templates catalog for a specific group.
+        Uses selectinload to eagerly load all nested relationships and references
+        to prevent N+1 query performance bottlenecks.
+        """
+        logger.info(f"Retrieving enriched templates catalog for group: {group_id}")
+        return self.db.query(WorkoutTemplate).filter(
+            WorkoutTemplate.group_id == group_id
+        ).options(
+            selectinload(WorkoutTemplate.tags),
+            selectinload(WorkoutTemplate.assigned_users),
+            selectinload(WorkoutTemplate.exercises).selectinload(TemplateExercise.exercise_ref),
+            selectinload(WorkoutTemplate.exercises).selectinload(TemplateExercise.parameters).selectinload(TemplateExerciseParam.parameter_ref)
+        ).all()
 
     def delete_template(self, template_id: uuid.UUID, group_id: uuid.UUID):
         logger.warning(f"Purging template ID: {template_id} from group: {group_id}")
@@ -93,3 +108,17 @@ class TemplateService:
             logger.info(f"Template ID: {template_id} purged successfully.")
         else:
             logger.warning(f"Template ID: {template_id} not found for deletion.")
+
+    def _get_enriched_template(self, template_id: uuid.UUID) -> WorkoutTemplate:
+        """
+        Internal helper method to fetch a single template with all its
+        enriched relational data loaded.
+        """
+        return self.db.query(WorkoutTemplate).filter(
+            WorkoutTemplate.id == template_id
+        ).options(
+            selectinload(WorkoutTemplate.tags),
+            selectinload(WorkoutTemplate.assigned_users),
+            selectinload(WorkoutTemplate.exercises).selectinload(TemplateExercise.exercise_ref),
+            selectinload(WorkoutTemplate.exercises).selectinload(TemplateExercise.parameters).selectinload(TemplateExerciseParam.parameter_ref)
+        ).first()

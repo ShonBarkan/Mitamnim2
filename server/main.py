@@ -24,6 +24,7 @@ from domains.parameters.router import router as parameters_router
 from domains.messages.router import router as messages_router
 from domains.tags.router import router as tags_router
 from domains.exercises.router import router as exercises_router
+from domains.templates.router import router as templates_router
 
 
 # Synchronize SQLAlchemy models with the database schema
@@ -137,6 +138,7 @@ app.include_router(tags_router)
 
 # exercises
 app.include_router(exercises_router)
+app.include_router(templates_router)
 
 @app.get("/")
 async def root():

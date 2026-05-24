@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, useContext } from 'react';
+import React, { createContext, useState, useCallback, useContext, useMemo } from 'react';
 import { templateService } from '../services/templateService';
 import FrontendLogger from '../utils/logger';
 
@@ -29,10 +29,28 @@ export const TemplateProvider = ({ children }) => {
       const newTemplate = await templateService.create(templateData);
       
       setTemplates((prev) => [...prev, newTemplate]);
-      FrontendLogger.info('TEMPLATE_CONTEXT', 'Template structure successfully persisted to local domain state');
+      FrontendLogger.info('TEMPLATE_CONTEXT', 'Template structure successfully persisted to local domain state', { id: newTemplate.id });
       return newTemplate;
     } catch (error) {
       FrontendLogger.error('TEMPLATE_CONTEXT', `Failed to persist template: ${templateData.name}`, error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateTemplate = async (id, templateData) => {
+    setLoading(true);
+    try {
+      FrontendLogger.info('TEMPLATE_CONTEXT', `Updating existing template ID: ${id}`);
+      // Assuming you will implement 'update' in templateService following the same pattern
+      const updatedTemplate = await templateService.update(id, templateData);
+      
+      setTemplates((prev) => prev.map(t => t.id === id ? updatedTemplate : t));
+      FrontendLogger.info('TEMPLATE_CONTEXT', `Template ID: ${id} successfully updated in domain state`);
+      return updatedTemplate;
+    } catch (error) {
+      FrontendLogger.error('TEMPLATE_CONTEXT', `Failed to update template ID: ${id}`, error);
       throw error;
     } finally {
       setLoading(false);
@@ -55,14 +73,18 @@ export const TemplateProvider = ({ children }) => {
     }
   };
 
+  // useMemo ensures that context value is recreated only when dependencies change
+  const value = useMemo(() => ({
+    templates,
+    loading,
+    fetchTemplates,
+    createTemplate,
+    updateTemplate,
+    removeTemplate
+  }), [templates, loading, fetchTemplates]);
+
   return (
-    <TemplateContext.Provider value={{ 
-      templates, 
-      loading, 
-      fetchTemplates, 
-      createTemplate, 
-      removeTemplate 
-    }}>
+    <TemplateContext.Provider value={value}>
       {children}
     </TemplateContext.Provider>
   );

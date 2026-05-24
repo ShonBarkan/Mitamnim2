@@ -17,11 +17,13 @@ import ChatsPage from './pages/ChatsPage';
 import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
 import ExerciseManagerPage from './pages/ExerciseManagerPage';
-import TemplateManagerPage from './pages/TemplateManagerPage';
+// import TemplateManagerPage from './pages/TemplateManagerPage';
 
 // Settings Sub-System Workspace Components
 import ParameterManager from './components/SettingsPage/ParameterManager';
 import TagManager from './components/SettingsPage/TagManager';
+import ShowTemplatesPage from './pages/ShowTemplatesPage';
+import CreateTemplatePage from './pages/CreateTemplatePage';
 
 function App() {
   return (
@@ -38,11 +40,14 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/chats" element={<ChatsPage />} />
               <Route path="/exercises" element={<ExerciseManagerPage />} />
+              <Route path="/templates" element={<ShowTemplatesPage />} />
+
               
               {/* Privileged Coach Tools */}
               <Route element={<ProtectedRoute allowedRoles={['admin', 'trainer']} />}>
-                <Route path="/templates" element={<TemplateManagerPage />} />
+                {/* <Route path="/templates" element={<TemplateManagerPage />} /> */}
                 <Route path="/users" element={<UserPanelPage />} />
+                <Route path="/templates/create" element={<CreateTemplatePage />} />
                 <Route path="/coach-messages" element={<CoachMessageManager />} />
                 <Route path="/settings" element={<SettingsPage />}>
                   <Route index element={<Navigate to="parameters" replace />} />

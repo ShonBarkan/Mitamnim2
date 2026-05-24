@@ -46,14 +46,13 @@ const Navbar = () => {
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
             <NavLink to="/" active={isActive("/")}>דף הבית</NavLink>
             <NavLink to="/chats" active={isActive("/chats")}>צ'אטים</NavLink>
-            
-            {/* Direct access to exercises library for all users */}
             <NavLink to="/exercises" active={isActive("/exercises")}>תרגילים</NavLink>
+            <NavLink to="/templates" active={isActive("/templates")}>אימונים</NavLink>
+
 
             {/* Specialized Privileged Coach Tools Separation Gate */}
             {isTrainer && (
               <div className="flex items-center gap-1.5 mr-6 pr-6 border-r border-white/80">
-                <NavLink to="/templates" active={isActive("/templates")} subtle>שבלונות</NavLink>
                 <NavLink to="/users" active={isActive("/users")} subtle>מתאמנים</NavLink>
                 <NavLink to="/coach-messages" active={isActive("/coach-messages")} subtle>הודעות</NavLink>
                 <NavLink to="/settings" active={isActive("/settings")} subtle>הגדרות</NavLink>
