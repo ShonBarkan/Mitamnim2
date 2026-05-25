@@ -74,8 +74,20 @@ const ShowTemplatesPage = () => {
                   {template.tags?.map(tag => <TagDisplay key={tag.id} name={tag.name} color={tag.color} />)}
                 </div>
               </div>
-              <div className="mt-6 pt-4 border-t border-zinc-100 text-[10px] font-bold text-zinc-400">
-                לחץ לפרטים מלאים ({template.exercises?.length || 0} תרגילים)
+              
+              <div className="mt-6 pt-4 border-t border-zinc-100 flex items-center justify-between gap-4">
+                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">
+                  {template.exercises?.length || 0} תרגילים
+                </span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/ActiveWorkoutPage?template_id=${template.id}`);
+                  }}
+                  className="px-4 py-2 bg-zinc-900 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-cyan-700 transition-all active:scale-95"
+                >
+                  התחל אימון
+                </button>
               </div>
             </div>
           ))}
@@ -107,7 +119,21 @@ const ShowTemplatesPage = () => {
                 </div>
               ))}
             </div>
-            <button onClick={() => setSelectedTemplate(null)} className="mt-8 w-full py-3 bg-zinc-900 text-white rounded-xl font-black">סגור</button>
+            
+            <div className="mt-8 flex gap-3">
+              <button 
+                onClick={() => setSelectedTemplate(null)} 
+                className="flex-1 py-3 bg-zinc-100 text-zinc-600 rounded-xl font-black"
+              >
+                סגור
+              </button>
+              <button 
+                onClick={() => navigate(`/ActiveWorkoutPage?template_id=${selectedTemplate.id}`)} 
+                className="flex-[2] py-3 bg-zinc-900 text-white rounded-xl font-black shadow-lg hover:bg-zinc-800 transition-all active:scale-95"
+              >
+                התחל אימון זה
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -49,6 +49,7 @@ const Navbar = () => {
             <NavLink to="/exercises" active={isActive("/exercises")}>תרגילים</NavLink>
             <NavLink to="/templates" active={isActive("/templates")}>אימונים</NavLink>
             <NavLink to="/ExerciseLogPage" active={isActive("/ExerciseLogPage")}>יומן תרגילים</NavLink>
+            <NavLink to="/WorkoutHistoryPage" active={isActive("/WorkoutHistoryPage")}>היסטוריית אימונים</NavLink>
 
 
             {/* Specialized Privileged Coach Tools Separation Gate */}

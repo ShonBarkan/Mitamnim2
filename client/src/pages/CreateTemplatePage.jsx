@@ -9,7 +9,7 @@ import { useTag } from '../contexts/TagContext';
 import FrontendLogger from '../utils/logger';
 
 import TemplateBasicInfo from '../components/CreateTemplatePage/TemplateBasicInfo';
-import TemplateExerciseBank from '../components/CreateTemplatePage/TemplateExerciseBank';
+import ExerciseBank from '../components/common/Exercise/ExerciseBank';
 import TemplateSelectedExercises from '../components/CreateTemplatePage/TemplateSelectedExercises';
 import TemplateUserSelector from '../components/CreateTemplatePage/TemplateUserSelector';
 import TemplateAiModal from '../components/CreateTemplatePage/TemplateAiModal';
@@ -36,13 +36,16 @@ const CreateTemplatePage = () => {
   const [tagSearch, setTagSearch] = useState('');
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiJsonInput, setAiJsonInput] = useState('');
-  
   const [initializedUsers, setInitializedUsers] = useState(false);
   const isInitialMount = useRef(true);
 
+  const filteredTags = useMemo(() => 
+    (Array.isArray(tags) ? tags.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase())) : []), 
+    [tags, tagSearch]
+  );
+
   useEffect(() => {
     if (isInitialMount.current) {
-      FrontendLogger.info('CREATE_TEMPLATE_PAGE', 'Executing initial data hydration sequence');
       refreshUsers();
       fetchTags();
       fetchExercises();
@@ -52,53 +55,32 @@ const CreateTemplatePage = () => {
   }, [refreshUsers, fetchTags, fetchExercises, fetchTemplates]);
 
   useEffect(() => {
-    if (templateId) {
-      if (templates.length > 0 && !initializedUsers) {
-        FrontendLogger.info('CREATE_TEMPLATE_PAGE', `Loading existing template data for ID: ${templateId}`);
-        const existingTemplate = templates.find(t => t.id === templateId);
-        if (existingTemplate) {
-          const normalizedExercises = Array.isArray(existingTemplate.exercises) 
-            ? existingTemplate.exercises.map(ex => ({
-                 ...ex,
-                 parameters: Array.isArray(ex.parameters) ? ex.parameters.map(p => ({ ...p, parameter_id: p.parameter_id || p.id })) : []
-              }))
-            : [];
-            
-          const mappedTagIds = Array.isArray(existingTemplate.tags) 
-            ? existingTemplate.tags.map(tag => tag.id) 
-            : (existingTemplate.tag_ids || []);
-
-          setFormData({ 
-            ...existingTemplate, 
-            exercises: normalizedExercises,
-            assigned_user_ids: existingTemplate.assigned_user_ids || [],
-            tag_ids: mappedTagIds 
-          });
-          setInitializedUsers(true);
-        }
-      }
-    } else {
-      if (users.length > 0 && !initializedUsers) {
-        FrontendLogger.info('CREATE_TEMPLATE_PAGE', 'Initializing new template with all users assigned by default');
-        setFormData(prev => ({ ...prev, assigned_user_ids: users.map(u => u.id) }));
+    if (templateId && templates.length > 0 && !initializedUsers) {
+      const existingTemplate = templates.find(t => t.id === templateId);
+      if (existingTemplate) {
+        setFormData({ 
+          ...existingTemplate, 
+          exercises: Array.isArray(existingTemplate.exercises) ? existingTemplate.exercises : [],
+          assigned_user_ids: existingTemplate.assigned_user_ids || [],
+          tag_ids: Array.isArray(existingTemplate.tags) ? existingTemplate.tags.map(t => t.id) : (existingTemplate.tag_ids || [])
+        });
         setInitializedUsers(true);
       }
+    } else if (!templateId && users.length > 0 && !initializedUsers) {
+      setFormData(prev => ({ ...prev, assigned_user_ids: users.map(u => u.id) }));
+      setInitializedUsers(true);
     }
   }, [templateId, templates, users, initializedUsers]);
 
-  const filteredTags = useMemo(() => 
-    tags?.filter(t => t.name.toLowerCase().includes(tagSearch.toLowerCase())) || [], 
-    [tags, tagSearch]
-  );
-
   const recalculateVirtualParams = (exercisesArray) => {
+    if (!Array.isArray(exercisesArray)) return [];
     return exercisesArray.map(ex => ({
       ...ex,
       parameters: Array.isArray(ex.parameters) ? ex.parameters.map(p => {
         if (p.is_virtual) {
           const sourceVals = (p.source_parameter_ids || []).map(sId => {
             const sourceParam = ex.parameters.find(src => (src.parameter_id || src.id) === sId);
-            return sourceParam ? (sourceParam.default_value || 0) : 0;
+            return sourceParam ? (parseFloat(sourceParam.default_value) || 0) : 0;
           });
           let calcValue = 0;
           if (p.calculation_type === 'multiply') calcValue = sourceVals.reduce((a, b) => a * b, 1);
@@ -111,13 +93,6 @@ const CreateTemplatePage = () => {
     }));
   };
 
-  const handleTagToggle = (tagId) => {
-    setFormData(prev => {
-      const currentTags = Array.isArray(prev.tag_ids) ? prev.tag_ids : [];
-      return { ...prev, tag_ids: currentTags.includes(tagId) ? currentTags.filter(id => id !== tagId) : [...currentTags, tagId] };
-    });
-  };
-
   const handleAddExercise = (ex) => {
     setFormData(prev => {
       const currentExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
@@ -126,7 +101,11 @@ const CreateTemplatePage = () => {
         name: ex.name,
         position: currentExercises.length,
         sets: 3,
-        parameters: Array.isArray(ex.parameters) ? ex.parameters.map(p => ({ ...p, parameter_id: p.parameter_id || p.id })) : [] 
+        parameters: Array.isArray(ex.parameters) ? ex.parameters.map(p => ({ 
+            ...p, 
+            parameter_id: p.parameter_id || p.id,
+            default_value: p.default_value || 0 
+        })) : [] 
       }];
       return { ...prev, exercises: recalculateVirtualParams(newExercises) };
     });
@@ -176,6 +155,13 @@ const CreateTemplatePage = () => {
     }
   };
 
+  const handleTagToggle = (tagId) => {
+    setFormData(prev => {
+      const currentTags = Array.isArray(prev.tag_ids) ? prev.tag_ids : [];
+      return { ...prev, tag_ids: currentTags.includes(tagId) ? currentTags.filter(id => id !== tagId) : [...currentTags, tagId] };
+    });
+  };
+
   const toggleUserSelection = (userId) => {
     setFormData(prev => {
       const currentUsers = Array.isArray(prev.assigned_user_ids) ? prev.assigned_user_ids : [];
@@ -186,27 +172,8 @@ const CreateTemplatePage = () => {
     });
   };
 
-  const applyAiJson = () => {
-    try {
-      const parsed = JSON.parse(aiJsonInput);
-      const enrichedExercises = (parsed.exercises || []).map((parsedEx, index) => {
-        const baseEx = exercises.find(e => Number(e.id) === Number(parsedEx.exercise_id));
-        if (!baseEx) return null;
-        const enrichedParams = (baseEx.parameters || []).map(baseParam => {
-          const baseParamId = baseParam.parameter_id || baseParam.id;
-          const aiParamValue = parsedEx.parameters?.find(p => Number(p.parameter_id) === Number(baseParamId));
-          return { ...baseParam, parameter_id: baseParamId, default_value: aiParamValue !== undefined ? Number(aiParamValue.default_value) : Number(baseParam.default_value || 0) };
-        });
-        return { exercise_id: baseEx.id, name: baseEx.name, position: parsedEx.position ?? index, sets: parsedEx.sets || 3, parameters: enrichedParams };
-      }).filter(Boolean);
-      setFormData(prev => ({ ...prev, ...parsed, exercises: recalculateVirtualParams(enrichedExercises) }));
-      setIsAiModalOpen(false);
-    } catch (e) { alert('פורמט JSON לא תקין.'); }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     const cleanPayload = {
       name: formData.name,
       description: formData.description,
@@ -227,34 +194,50 @@ const CreateTemplatePage = () => {
     try {
       if (templateId) {
         await updateTemplate(templateId, cleanPayload);
-        FrontendLogger.info('CREATE_TEMPLATE_PAGE', `Template ${templateId} updated`);
       } else {
         await createTemplate(cleanPayload);
-        FrontendLogger.info('CREATE_TEMPLATE_PAGE', 'New template created');
       }
       navigate('/templates');
     } catch (error) {
-      FrontendLogger.error('CREATE_TEMPLATE_PAGE', 'Submission failed', error);
       alert('אירעה שגיאה בשמירת השבלונה.');
     }
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 pb-32">
+    <div className="p-6 max-w-5xl mx-auto space-y-8 pb-32">
       <h1 className="text-2xl font-black text-zinc-900">{templateId ? 'עריכת שבלונה' : 'יצירת שבלונה חדשה'}</h1>
+      
       <form onSubmit={handleSubmit} className="space-y-8">
-        <TemplateBasicInfo formData={formData} setFormData={setFormData} tagSearch={tagSearch} setTagSearch={setTagSearch} filteredTags={filteredTags} handleTagToggle={handleTagToggle} />
-        <div className="bg-white p-8 rounded-3xl border border-zinc-200 shadow-sm space-y-6">
-          <TemplateExerciseBank exercises={exercises} handleAddExercise={handleAddExercise} />
-          <TemplateSelectedExercises exercises={formData.exercises} handleUpdateParam={handleUpdateParam} handleUpdateSets={handleUpdateSets} handleRemoveExercise={handleRemoveExercise} handleDragEnd={handleDragEnd} />
+        {/* Basic Info מופיע ראשון כפי שביקשת */}
+        <TemplateBasicInfo 
+            formData={formData} 
+            setFormData={setFormData} 
+            tagSearch={tagSearch} 
+            setTagSearch={setTagSearch} 
+            filteredTags={filteredTags} 
+            handleTagToggle={handleTagToggle} 
+        />
+        
+        {/* מאגר התרגילים מוגן בתוך הטופס (על ידי type="button" בתוך הקומפוננטה) */}
+        <div className="bg-white p-8 rounded-3xl border border-zinc-200">
+          <ExerciseBank exercises={exercises} onSelect={handleAddExercise} />
+          
+          <TemplateSelectedExercises 
+            exercises={formData.exercises} 
+            handleUpdateParam={handleUpdateParam} 
+            handleUpdateSets={handleUpdateSets} 
+            handleRemoveExercise={handleRemoveExercise} 
+            handleDragEnd={handleDragEnd} 
+          />
         </div>
+        
         <TemplateUserSelector users={users} assignedUserIds={formData.assigned_user_ids} toggleUserSelection={toggleUserSelection} setFormData={setFormData} />
+        
         <div className="flex justify-end gap-4 pt-4">
           <button type="button" onClick={() => navigate('/templates')} className="px-8 py-4 font-bold text-zinc-500 hover:bg-zinc-50 rounded-xl">ביטול</button>
-          <button type="submit" className="px-12 py-4 bg-zinc-900 text-white rounded-xl font-black shadow-xl hover:bg-zinc-800 transition-all active:scale-95">{templateId ? 'עדכן' : 'שמור'}</button>
+          <button type="submit" className="px-12 py-4 bg-zinc-900 text-white rounded-xl font-black shadow-xl hover:bg-zinc-800 transition-all">{templateId ? 'עדכן' : 'שמור'}</button>
         </div>
       </form>
-      <TemplateAiModal isAiModalOpen={isAiModalOpen} setIsAiModalOpen={setIsAiModalOpen} exercises={exercises} tags={tags} aiJsonInput={aiJsonInput} setAiJsonInput={setAiJsonInput} applyAiJson={applyAiJson} />
     </div>
   );
 };

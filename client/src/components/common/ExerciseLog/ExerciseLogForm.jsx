@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useExercise } from '../../../contexts/ExerciseContext';
 import { useExerciseLog } from '../../../contexts/ExerciseLogContext';
 import FrontendLogger from '../../../utils/logger';
+import ExerciseBank from '../../common/Exercise/ExerciseBank'; // ייבוא הקומפוננטה המשותפת
 
 const ExerciseLogForm = ({ selectedUserId, canModifyLogs, editLogToLoad, onEditComplete }) => {
   const { exercises, fetchExercises } = useExercise() || {};
@@ -12,9 +13,6 @@ const ExerciseLogForm = ({ selectedUserId, canModifyLogs, editLogToLoad, onEditC
   const [selectedExerciseId, setSelectedExerciseId] = useState('');
   const [dryParams, setDryParams] = useState({});
   const [editingLogId, setEditingLogId] = useState(null);
-  
-  // Unified Search State
-  const [searchQuery, setSearchQuery] = useState('');
 
   const QUICK_OPTIONS = [5, 10, 20, 50, 100];
 
@@ -28,22 +26,11 @@ const ExerciseLogForm = ({ selectedUserId, canModifyLogs, editLogToLoad, onEditC
     setEditingLogId(null);
     setSelectedExerciseId('');
     setDryParams({});
-    setSearchQuery('');
   }, []);
 
   useEffect(() => {
     resetForm();
   }, [selectedUserId, resetForm]);
-
-  // Unified Filter Logic: Search in name OR tags
-  const filteredExercises = useMemo(() => {
-    const query = searchQuery.toLowerCase();
-    return exercises?.filter(ex => {
-      const nameMatch = ex.name.toLowerCase().includes(query);
-      const tagMatch = ex.tags?.some(t => t.name.toLowerCase().includes(query));
-      return nameMatch || tagMatch;
-    });
-  }, [exercises, searchQuery]);
 
   useEffect(() => {
     if (!editLogToLoad || !canModifyLogs) return;
@@ -130,25 +117,15 @@ const ExerciseLogForm = ({ selectedUserId, canModifyLogs, editLogToLoad, onEditC
 
       {isCreating && (
         <div className="border-t pt-6 space-y-6">
-          {/* Step 0: Search & Selection */}
+          {/* Step 0: Search & Selection - שימוש ב-ExerciseBank המעוצב */}
           {step === 0 && (
-            <div className="space-y-4">
-              <input 
-                type="text" 
-                placeholder="חיפוש תרגיל או תגית..." 
-                className="w-full p-3 border rounded-lg" 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)} 
-              />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                {filteredExercises?.map(ex => (
-                    <button key={ex.id} className="p-3 border rounded hover:bg-blue-50 text-right" onClick={() => { setSelectedExerciseId(ex.id.toString()); setStep(1); }}>
-                        <div className="font-bold">{ex.name}</div>
-                        <div className="text-xs text-blue-600 font-medium">{ex.tags?.map(t => t.name).join(', ')}</div>
-                    </button>
-                ))}
-              </div>
-            </div>
+            <ExerciseBank 
+              exercises={exercises} 
+              onSelect={(ex) => { 
+                setSelectedExerciseId(ex.id.toString()); 
+                setStep(1); 
+              }} 
+            />
           )}
 
           {/* Steps 1..N: Manual Params */}

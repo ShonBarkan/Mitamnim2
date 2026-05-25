@@ -25,6 +25,8 @@ import TagManager from './components/SettingsPage/TagManager';
 import ShowTemplatesPage from './pages/ShowTemplatesPage';
 import CreateTemplatePage from './pages/CreateTemplatePage';
 import ExerciseLogPage from './pages/ExerciseLogPage';
+import WorkoutHistoryPage from './pages/WorkoutHistoryPage';
+import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
 
 function App() {
   return (
@@ -43,6 +45,9 @@ function App() {
               <Route path="/exercises" element={<ExerciseManagerPage />} />
               <Route path="/templates" element={<ShowTemplatesPage />} />
               <Route path="/ExerciseLogPage" element={<ExerciseLogPage />} />
+              <Route path="/WorkoutHistoryPage" element={<WorkoutHistoryPage />} />
+              <Route path="/ActiveWorkoutPage" element={<ActiveWorkoutPage />} />
+
 
               
               {/* Privileged Coach Tools */}

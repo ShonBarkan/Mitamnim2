@@ -4,10 +4,54 @@ import FrontendLogger from '../utils/logger';
 
 export const SessionContext = createContext();
 
+const DRAFT_STORAGE_KEY = 'mitamnim_active_workout_draft';
+const DRAFT_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes in milliseconds
+
 export const SessionProvider = ({ children }) => {
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // --- Local Storage Draft Management ---
+
+  const saveDraft = useCallback((draftData) => {
+    try {
+      const payload = { ...draftData, _timestamp: Date.now() };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    } catch (error) {
+      FrontendLogger.error('SESSION_CONTEXT', 'Failed to save session draft to local storage', error);
+    }
+  }, []);
+
+  const loadDraft = useCallback(() => {
+    try {
+      const draftStr = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!draftStr) return null;
+
+      const draft = JSON.parse(draftStr);
+      const isExpired = (Date.now() - draft._timestamp) > DRAFT_EXPIRY_MS;
+
+      if (isExpired) {
+        FrontendLogger.info('SESSION_CONTEXT', 'Session draft expired. Purging from local storage.');
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+        return null;
+      }
+
+      FrontendLogger.info('SESSION_CONTEXT', 'Recovered active session draft from local storage');
+      return draft;
+    } catch (error) {
+      FrontendLogger.error('SESSION_CONTEXT', 'Failed to parse session draft from local storage', error);
+      return null;
+    }
+  }, []);
+
+  const clearDraft = useCallback(() => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    FrontendLogger.info('SESSION_CONTEXT', 'Session draft cleared from local storage');
+  }, []);
+
+
+  // --- API Communication ---
 
   const fetchMySessions = useCallback(async () => {
     setLoading(true);
@@ -23,23 +67,28 @@ export const SessionProvider = ({ children }) => {
     }
   }, []);
 
-  const startSession = useCallback(async (sessionData) => {
+  const submitSession = useCallback(async (sessionData) => {
     setLoading(true);
     try {
-      FrontendLogger.info('SESSION_CONTEXT', 'Initializing new active session');
-      const newSession = await sessionService.startSession(sessionData);
+      FrontendLogger.info('SESSION_CONTEXT', 'Submitting fat session payload to server');
+      const newSession = await sessionService.submitSession(sessionData);
       
+      // Add the newly created session to the top of the history list
       setSessions((prev) => [newSession, ...prev]);
-      setActiveSession(newSession);
-      FrontendLogger.info('SESSION_CONTEXT', 'New session successfully mounted to state', { id: newSession.id });
+      
+      // Clean up local states since the session is now safely in the DB
+      clearDraft();
+      setActiveSession(null);
+      
+      FrontendLogger.info('SESSION_CONTEXT', 'Fat session successfully mounted to state', { id: newSession.id });
       return newSession;
     } catch (error) {
-      FrontendLogger.error('SESSION_CONTEXT', 'Failed to mount new session', error);
+      FrontendLogger.error('SESSION_CONTEXT', 'Failed to submit fat session', error);
       throw error;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [clearDraft]);
 
   const updateSession = useCallback(async (id, sessionData) => {
     setLoading(true);
@@ -47,12 +96,7 @@ export const SessionProvider = ({ children }) => {
       FrontendLogger.info('SESSION_CONTEXT', `Updating existing session ID: ${id}`);
       const updatedSession = await sessionService.updateSession(id, sessionData);
       
-      setSessions((prev) => prev.map(s => s.id === id ? updatedSession : s));
-      
-      // Update active session if it is the one being modified
-      if (activeSession && activeSession.id === id) {
-        setActiveSession(updatedSession);
-      }
+      setSessions((prev) => prev.map(s => s.id === id ? { ...s, ...updatedSession } : s));
       
       FrontendLogger.info('SESSION_CONTEXT', `Session ID: ${id} successfully updated in state`);
       return updatedSession;
@@ -62,7 +106,7 @@ export const SessionProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [activeSession]);
+  }, []);
 
   const removeSession = useCallback(async (id) => {
     setLoading(true);
@@ -72,10 +116,6 @@ export const SessionProvider = ({ children }) => {
       
       setSessions((prev) => prev.filter((s) => s.id !== id));
       
-      if (activeSession && activeSession.id === id) {
-        setActiveSession(null);
-      }
-      
       FrontendLogger.info('SESSION_CONTEXT', `Session ID: ${id} successfully evicted`);
     } catch (error) {
       FrontendLogger.error('SESSION_CONTEXT', `Failed to purge session ID: ${id}`, error);
@@ -83,7 +123,7 @@ export const SessionProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [activeSession]);
+  }, []);
 
   const value = useMemo(() => ({
     sessions,
@@ -91,10 +131,17 @@ export const SessionProvider = ({ children }) => {
     setActiveSession,
     loading,
     fetchMySessions,
-    startSession,
+    submitSession,
     updateSession,
-    removeSession
-  }), [sessions, activeSession, loading, fetchMySessions, startSession, updateSession, removeSession]);
+    removeSession,
+    saveDraft,
+    loadDraft,
+    clearDraft
+  }), [
+    sessions, activeSession, loading, 
+    fetchMySessions, submitSession, updateSession, removeSession,
+    saveDraft, loadDraft, clearDraft
+  ]);
 
   return (
     <SessionContext.Provider value={value}>
