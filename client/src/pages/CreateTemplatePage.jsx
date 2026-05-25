@@ -105,11 +105,25 @@ const CreateTemplatePage = () => {
         const existingTemplate = templates.find(t => t.id === templateId);
         if (existingTemplate) {
           // Normalize existing template parameters safely
-          const normalizedExercises = existingTemplate.exercises.map(ex => ({
-             ...ex,
-             parameters: ex.parameters.map(p => ({ ...p, parameter_id: p.parameter_id || p.id }))
-          }));
-          setFormData({ ...existingTemplate, exercises: normalizedExercises });
+          const normalizedExercises = Array.isArray(existingTemplate.exercises) 
+            ? existingTemplate.exercises.map(ex => ({
+                 ...ex,
+                 parameters: Array.isArray(ex.parameters) ? ex.parameters.map(p => ({ ...p, parameter_id: p.parameter_id || p.id })) : []
+              }))
+            : [];
+            
+          // Extract just the IDs from the enriched tags array provided by the server
+          const mappedTagIds = Array.isArray(existingTemplate.tags) 
+            ? existingTemplate.tags.map(tag => tag.id) 
+            : (existingTemplate.tag_ids || []);
+
+          setFormData({ 
+            ...existingTemplate, 
+            exercises: normalizedExercises,
+            // Fallbacks in case the server returned null for these arrays
+            assigned_user_ids: existingTemplate.assigned_user_ids || [],
+            tag_ids: mappedTagIds // Use the extracted IDs here
+          });
           setInitializedUsers(true);
         }
       }
@@ -135,7 +149,7 @@ const CreateTemplatePage = () => {
     
     return exercises?.filter(ex => {
       const nameMatch = ex.name.toLowerCase().includes(term);
-      const tagMatch = ex.tag_ids?.some(tagId => {
+      const tagMatch = Array.isArray(ex.tag_ids) && ex.tag_ids.some(tagId => {
         const tagObj = getTagById(tagId);
         return tagObj && tagObj.name.toLowerCase().includes(term);
       });
@@ -147,7 +161,7 @@ const CreateTemplatePage = () => {
   const recalculateVirtualParams = (exercisesArray) => {
     FrontendLogger.info('CREATE_TEMPLATE_PAGE', 'Recalculating virtual parameters');
     return exercisesArray.map(ex => {
-      const updatedParams = ex.parameters.map(p => {
+      const updatedParams = Array.isArray(ex.parameters) ? ex.parameters.map(p => {
         if (p.is_virtual) {
           let calcValue = 0;
           const sourceVals = (p.source_parameter_ids || []).map(sId => {
@@ -166,7 +180,7 @@ const CreateTemplatePage = () => {
           return { ...p, default_value: calcValue * (p.multiplier || 1) };
         }
         return p;
-      });
+      }) : [];
       return { ...ex, parameters: updatedParams };
     });
   };
@@ -174,24 +188,28 @@ const CreateTemplatePage = () => {
   // Handlers
   const handleTagToggle = (tagId) => {
     FrontendLogger.info('CREATE_TEMPLATE_PAGE', `Toggling tag ID: ${tagId}`);
-    setFormData(prev => ({
-      ...prev,
-      tag_ids: prev.tag_ids.includes(tagId)
-        ? prev.tag_ids.filter(id => id !== tagId)
-        : [...prev.tag_ids, tagId]
-    }));
+    setFormData(prev => {
+      const currentTags = Array.isArray(prev.tag_ids) ? prev.tag_ids : [];
+      return {
+        ...prev,
+        tag_ids: currentTags.includes(tagId)
+          ? currentTags.filter(id => id !== tagId)
+          : [...currentTags, tagId]
+      };
+    });
   };
 
   const handleAddExercise = (ex) => {
     FrontendLogger.info('CREATE_TEMPLATE_PAGE', `Adding exercise to template: ${ex.name} (ID: ${ex.id})`);
     setFormData(prev => {
-      const newExercises = [...prev.exercises, {
+      const currentExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+      const newExercises = [...currentExercises, {
         exercise_id: ex.id,
         name: ex.name,
-        position: prev.exercises.length,
+        position: currentExercises.length,
         sets: 3,
         // Normalize parameter_id immediately upon adding
-        parameters: ex.parameters ? ex.parameters.map(p => ({ ...p, parameter_id: p.parameter_id || p.id })) : [] 
+        parameters: Array.isArray(ex.parameters) ? ex.parameters.map(p => ({ ...p, parameter_id: p.parameter_id || p.id })) : [] 
       }];
       return { ...prev, exercises: recalculateVirtualParams(newExercises) };
     });
@@ -200,7 +218,8 @@ const CreateTemplatePage = () => {
   const handleRemoveExercise = (position) => {
     FrontendLogger.info('CREATE_TEMPLATE_PAGE', `Removing exercise at position: ${position}`);
     setFormData(prev => {
-      const filtered = prev.exercises.filter(ex => ex.position !== position);
+      const currentExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+      const filtered = currentExercises.filter(ex => ex.position !== position);
       const reindexed = filtered.map((ex, idx) => ({ ...ex, position: idx }));
       return { ...prev, exercises: reindexed };
     });
@@ -209,11 +228,12 @@ const CreateTemplatePage = () => {
   const handleUpdateParam = (position, paramId, value) => {
     FrontendLogger.info('CREATE_TEMPLATE_PAGE', `Updating param ID ${paramId} at position ${position} to value ${value}`);
     setFormData(prev => {
-      const updatedExercises = prev.exercises.map(ex => {
+      const currentExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+      const updatedExercises = currentExercises.map(ex => {
         if (ex.position === position) {
-          const newParams = ex.parameters.map(p => 
+          const newParams = Array.isArray(ex.parameters) ? ex.parameters.map(p => 
             (p.parameter_id || p.id) === paramId ? { ...p, default_value: value } : p
-          );
+          ) : [];
           return { ...ex, parameters: newParams };
         }
         return ex;
@@ -227,21 +247,25 @@ const CreateTemplatePage = () => {
     if (over && active.id !== over.id) {
       FrontendLogger.info('CREATE_TEMPLATE_PAGE', `Reordering exercise from position ${active.id} to ${over.id}`);
       setFormData(prev => {
-        const oldIndex = prev.exercises.findIndex(i => i.position.toString() === active.id);
-        const newIndex = prev.exercises.findIndex(i => i.position.toString() === over.id);
-        const reordered = arrayMove(prev.exercises, oldIndex, newIndex);
+        const currentExercises = Array.isArray(prev.exercises) ? prev.exercises : [];
+        const oldIndex = currentExercises.findIndex(i => i.position.toString() === active.id);
+        const newIndex = currentExercises.findIndex(i => i.position.toString() === over.id);
+        const reordered = arrayMove(currentExercises, oldIndex, newIndex);
         return { ...prev, exercises: reordered.map((item, idx) => ({ ...item, position: idx })) };
       });
     }
   };
 
   const toggleUserSelection = (userId) => {
-    setFormData(prev => ({
-      ...prev,
-      assigned_user_ids: prev.assigned_user_ids.includes(userId)
-        ? prev.assigned_user_ids.filter(id => id !== userId)
-        : [...prev.assigned_user_ids, userId]
-    }));
+    setFormData(prev => {
+      const currentUsers = Array.isArray(prev.assigned_user_ids) ? prev.assigned_user_ids : [];
+      return {
+        ...prev,
+        assigned_user_ids: currentUsers.includes(userId)
+          ? currentUsers.filter(id => id !== userId)
+          : [...currentUsers, userId]
+      };
+    });
   };
 
   const applyAiJson = () => {
@@ -282,8 +306,8 @@ const CreateTemplatePage = () => {
         name: parsed.name || prev.name,
         description: parsed.description || prev.description,
         estimated_duration: parsed.estimated_duration || prev.estimated_duration,
-        tag_ids: (parsed.tag_ids && parsed.tag_ids.length > 0) ? parsed.tag_ids : prev.tag_ids,
-        assigned_user_ids: (parsed.assigned_user_ids && parsed.assigned_user_ids.length > 0) ? parsed.assigned_user_ids : prev.assigned_user_ids,
+        tag_ids: Array.isArray(parsed.tag_ids) && parsed.tag_ids.length > 0 ? parsed.tag_ids : (Array.isArray(prev.tag_ids) ? prev.tag_ids : []),
+        assigned_user_ids: Array.isArray(parsed.assigned_user_ids) && parsed.assigned_user_ids.length > 0 ? parsed.assigned_user_ids : (Array.isArray(prev.assigned_user_ids) ? prev.assigned_user_ids : []),
         exercises: recalculateVirtualParams(enrichedExercises) 
       }));
       
@@ -304,17 +328,17 @@ const CreateTemplatePage = () => {
       name: formData.name,
       description: formData.description,
       estimated_duration: formData.estimated_duration,
-      tag_ids: formData.tag_ids,
-      assigned_user_ids: formData.assigned_user_ids,
-      exercises: formData.exercises.map(ex => ({
+      tag_ids: Array.isArray(formData.tag_ids) ? formData.tag_ids : [],
+      assigned_user_ids: Array.isArray(formData.assigned_user_ids) ? formData.assigned_user_ids : [],
+      exercises: Array.isArray(formData.exercises) ? formData.exercises.map(ex => ({
         exercise_id: ex.exercise_id,
         position: ex.position,
         sets: ex.sets,
-        parameters: ex.parameters.map(p => ({
+        parameters: Array.isArray(ex.parameters) ? ex.parameters.map(p => ({
           parameter_id: p.parameter_id || p.id, // Absolute safety net to prevent 422
           default_value: p.default_value
-        }))
-      }))
+        })) : []
+      })) : []
     };
 
     FrontendLogger.info('CREATE_TEMPLATE_PAGE', 'Submitting cleaned payload', cleanPayload);
@@ -390,7 +414,7 @@ ${exercises.map(e => `- ${e.name} (ID: ${e.id})`).join('\n')}
             <input type="text" placeholder="סנן תגיות..." className="w-full p-3 bg-zinc-50 rounded-xl text-xs font-bold border border-zinc-200 outline-none" value={tagSearch} onChange={e => setTagSearch(e.target.value)} />
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2">
               {filteredTags.map(tag => {
-                const isSelected = formData.tag_ids.includes(tag.id);
+                const isSelected = Array.isArray(formData.tag_ids) && formData.tag_ids.includes(tag.id);
                 return (
                   <button key={tag.id} type="button" onClick={() => handleTagToggle(tag.id)} className={`transition-all ${isSelected ? 'ring-2 ring-offset-2 ring-zinc-900 rounded-xl' : 'opacity-60 hover:opacity-100'}`}>
                     <TagDisplay name={tag.name} color={tag.color} />
@@ -414,7 +438,7 @@ ${exercises.map(e => `- ${e.name} (ID: ${e.id})`).join('\n')}
               {filteredExercises.length > 0 ? filteredExercises.map(ex => (
                 <button key={ex.id} type="button" onClick={() => handleAddExercise(ex)} className="bg-white p-4 rounded-xl border border-zinc-200 hover:border-cyan-500 hover:shadow-md transition-all text-right group flex flex-col gap-2 justify-between">
                   <span className="font-black text-sm text-zinc-800 group-hover:text-cyan-700">{ex.name}</span>
-                  {ex.tag_ids && ex.tag_ids.length > 0 && (
+                  {Array.isArray(ex.tag_ids) && ex.tag_ids.length > 0 && (
                      <div className="flex flex-wrap gap-1">
                         {ex.tag_ids.slice(0,2).map(tId => {
                           const tObj = getTagById(tId);
@@ -430,7 +454,7 @@ ${exercises.map(e => `- ${e.name} (ID: ${e.id})`).join('\n')}
           {/* Draggable List */}
           <div className="mt-8 border-t border-zinc-100 pt-8 min-h-[100px]">
              <h3 className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">התרגילים שנבחרו לאימון</h3>
-             {formData.exercises.length === 0 ? (
+             {!Array.isArray(formData.exercises) || formData.exercises.length === 0 ? (
                <div className="text-center bg-zinc-50 border border-dashed border-zinc-200 rounded-2xl p-8">
                  <p className="text-zinc-400 text-sm font-bold">טרם נוספו תרגילים לאימון זה.</p>
                  <p className="text-zinc-400 text-xs mt-1">בחר תרגילים מהמאגר למעלה כדי להתחיל.</p>
@@ -472,7 +496,8 @@ ${exercises.map(e => `- ${e.name} (ID: ${e.id})`).join('\n')}
           
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {users.map(u => {
-              const isSelected = formData.assigned_user_ids.includes(u.id);
+              // Strict type checking to prevent undefined property errors
+              const isSelected = Array.isArray(formData.assigned_user_ids) && formData.assigned_user_ids.includes(u.id);
               return (
                 <button key={u.id} type="button" onClick={() => toggleUserSelection(u.id)} className={`flex flex-col items-center p-3 rounded-2xl border transition-all ${isSelected ? 'border-zinc-900 bg-zinc-50 shadow-md' : 'border-transparent hover:bg-zinc-50 opacity-60 hover:opacity-100'}`}>
                   <div className="w-12 h-12 rounded-full bg-zinc-200 mb-2 overflow-hidden">

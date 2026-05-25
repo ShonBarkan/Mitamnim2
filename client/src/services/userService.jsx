@@ -12,7 +12,6 @@ export const userService = {
    * @param {string|null} groupId - The UUID of the group.
    */
   getGroupUsers: async (groupId = null) => {
-    FrontendLogger.info('USER', 'Requesting group membership directory pool tracking array', { groupId });
     const url = groupId ? `/users/group?target_group_id=${groupId}` : '/users/group';
     const response = await api.get(url);
     return response.data;
