@@ -25,6 +25,8 @@ from domains.messages.router import router as messages_router
 from domains.tags.router import router as tags_router
 from domains.exercises.router import router as exercises_router
 from domains.templates.router import router as templates_router
+from domains.ExerciseLog.router import router as logs_router
+from domains.WorkoutSession.router import router as sessions_router
 
 
 # Synchronize SQLAlchemy models with the database schema
@@ -139,7 +141,8 @@ app.include_router(tags_router)
 # exercises
 app.include_router(exercises_router)
 app.include_router(templates_router)
-
+app.include_router(logs_router)
+app.include_router(sessions_router)
 @app.get("/")
 async def root():
     """Server health status check."""
