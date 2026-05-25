@@ -8,8 +8,10 @@ import { MessageProvider } from '../contexts/MessageContext';
 import { ParameterProvider } from '../contexts/ParameterContext';
 import { TagProvider } from '../contexts/TagContext';
 import { ExerciseProvider } from '../contexts/ExerciseContext';
-import { TemplateProvider } from '../contexts/TemplateContext'; // הוספת ה-Provider החדש
+import { TemplateProvider } from '../contexts/TemplateContext';
 import FrontendLogger from '../utils/logger';
+import { SessionProvider } from '../contexts/SessionContext';
+import { ExerciseLogProvider } from '../contexts/ExerciseLogContext';
 
 /**
  * AppProviders Component
@@ -32,7 +34,11 @@ const AppProviders = ({ children }) => {
                   <TagProvider>
                     <ExerciseProvider>
                       <TemplateProvider>
-                        {children}
+                        <SessionProvider>
+                          <ExerciseLogProvider>
+                            {children}
+                          </ExerciseLogProvider>
+                        </SessionProvider>
                       </TemplateProvider>
                     </ExerciseProvider>
                   </TagProvider>

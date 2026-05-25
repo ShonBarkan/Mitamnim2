@@ -23,20 +23,21 @@ class SessionService:
             self.db.add(new_session)
             self.db.commit()
             self.db.refresh(new_session)
-            logger.info(f"Session created: {new_session.id}")
+            logger.info(f"Session created successfully: {new_session.id}")
             return new_session
         except SQLAlchemyError as e:
             self.db.rollback()
-            logger.error(f"Error creating session: {str(e)}")
+            logger.error(f"Database error while creating session for user {user_id}: {str(e)}")
             raise e
 
     def get_user_sessions(self, user_id: uuid.UUID) -> list:
         """Get all sessions for a specific user."""
-        logger.info(f"Retrieving sessions for user: {user_id}")
+        logger.info(f"Retrieving sessions catalog for user: {user_id}")
         return self.db.query(WorkoutSession).filter(WorkoutSession.user_id == user_id).all()
 
     def get_session_by_id(self, session_id: uuid.UUID, user_id: uuid.UUID) -> WorkoutSession:
         """Get a specific session."""
+        logger.info(f"Fetching session ID: {session_id} for user: {user_id}")
         return self.db.query(WorkoutSession).filter(
             WorkoutSession.id == session_id,
             WorkoutSession.user_id == user_id
@@ -44,9 +45,11 @@ class SessionService:
 
     def update_session(self, session_id: uuid.UUID, user_id: uuid.UUID, data: dict) -> WorkoutSession:
         """Update session details (e.g., add note or finish time)."""
-        logger.info(f"Updating session: {session_id}")
+        logger.info(f"Updating session ID: {session_id} for user: {user_id}")
         session = self.get_session_by_id(session_id, user_id)
+
         if not session:
+            logger.warning(f"Session ID: {session_id} not found or unauthorized for update.")
             return None
 
         try:
@@ -55,18 +58,28 @@ class SessionService:
                     setattr(session, key, value)
             self.db.commit()
             self.db.refresh(session)
+            logger.info(f"Session ID: {session_id} updated successfully")
             return session
         except SQLAlchemyError as e:
             self.db.rollback()
-            logger.error(f"Error updating session {session_id}: {str(e)}")
+            logger.error(f"Database error while updating session {session_id}: {str(e)}")
             raise e
 
     def delete_session(self, session_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         """Delete a session."""
-        logger.warning(f"Purging session: {session_id}")
+        logger.warning(f"Attempting to purge session ID: {session_id} for user: {user_id}")
         session = self.get_session_by_id(session_id, user_id)
+
         if session:
-            self.db.delete(session)
-            self.db.commit()
-            return True
+            try:
+                self.db.delete(session)
+                self.db.commit()
+                logger.info(f"Session ID: {session_id} successfully purged")
+                return True
+            except SQLAlchemyError as e:
+                self.db.rollback()
+                logger.error(f"Database error while purging session {session_id}: {str(e)}")
+                raise e
+
+        logger.warning(f"Session ID: {session_id} not found for deletion.")
         return False

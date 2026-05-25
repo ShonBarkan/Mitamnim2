@@ -7,14 +7,14 @@ from sqlalchemy.orm import relationship
 from pydantic import BaseModel, ConfigDict
 from db.database import Base
 
-
 # --- SQLAlchemy Database Model ---
 class WorkoutSession(Base):
     __tablename__ = "workout_sessions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    # template_id יכול להיות ריק במקרה של אימון "חופשי" (Freestyle)
+
+    # Template ID can be null in the case of a Freestyle session
     template_id = Column(UUID(as_uuid=True), ForeignKey("workout_templates.id", ondelete="SET NULL"), nullable=True)
 
     name = Column(Text, nullable=False)
@@ -22,27 +22,21 @@ class WorkoutSession(Base):
     finished_at = Column(DateTime, nullable=True)
     note = Column(Text, nullable=True)
 
-    # Relationship ללוגים (מאפשר לנו לשלוף את כל התרגילים של סשן בקלות)
-    # נגדיר את הקשר ל-ExerciseLog שנמצא בדומיין אחר במידת הצורך
+    # Relationship to logs (allows easy retrieval of all session exercises)
+    # Defines the relationship to ExerciseLog located in the ExerciseLog domain
     logs = relationship("ExerciseLog", back_populates="session", cascade="all, delete-orphan")
-
 
 # --- Pydantic Schemas for CRUD ---
 
-# יצירת אימון (Create)
 class SessionCreate(BaseModel):
     template_id: Optional[uuid.UUID] = None
     name: str
     note: Optional[str] = None
 
-
-# עדכון אימון (Update - למשל סיום אימון או עדכון הערות)
 class SessionUpdate(BaseModel):
     note: Optional[str] = None
     finished_at: Optional[datetime] = None
 
-
-# הצגת אימון (Read - בשימוש ב-GET)
 class SessionOut(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID

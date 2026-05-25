@@ -117,10 +117,12 @@ Table template_tags_map {
 
 // --- NEW WORKOUT SESSIONS & LOGS DOMAIN ---
 
+// --- UPDATED WORKOUT SESSIONS & LOGS DOMAIN ---
+
 Table workout_sessions {
   id uuid [pk, not null]
   user_id uuid [ref: > users.id, not null]
-  template_id uuid [ref: > workout_templates.id, null] // Nullable for freestyle
+  template_id uuid [ref: > workout_templates.id, null]
   name text [not null]
   started_at timestamp [not null]
   finished_at timestamp
@@ -129,9 +131,10 @@ Table workout_sessions {
 
 Table exercise_logs {
   id uuid [pk, not null]
-  session_id uuid [ref: > workout_sessions.id, null] // Nullable for free logs
+  user_id uuid [ref: > users.id, not null] // Added for trainee isolation
+  session_id uuid [ref: > workout_sessions.id, null]
   exercise_id integer [ref: > exercises.id, not null]
-  exercise_name text [not null] // Snapshot for historical accuracy
+  exercise_name text [not null]
   sets integer
   created_at timestamp [default: `now()`]
 }
@@ -139,7 +142,7 @@ Table exercise_logs {
 Table exercise_log_params {
   id uuid [pk, not null]
   log_id uuid [ref: > exercise_logs.id, not null]
-  parameter_name text [not null] // Snapshot
-  parameter_unit text [not null] // Snapshot
+  parameter_name text [not null]
+  parameter_unit text [not null]
   value "double precision" [not null]
 }

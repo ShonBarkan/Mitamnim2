@@ -24,6 +24,7 @@ import ParameterManager from './components/SettingsPage/ParameterManager';
 import TagManager from './components/SettingsPage/TagManager';
 import ShowTemplatesPage from './pages/ShowTemplatesPage';
 import CreateTemplatePage from './pages/CreateTemplatePage';
+import ExerciseLogPage from './pages/ExerciseLogPage';
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
               <Route path="/chats" element={<ChatsPage />} />
               <Route path="/exercises" element={<ExerciseManagerPage />} />
               <Route path="/templates" element={<ShowTemplatesPage />} />
+              <Route path="/ExerciseLogPage" element={<ExerciseLogPage />} />
 
               
               {/* Privileged Coach Tools */}
