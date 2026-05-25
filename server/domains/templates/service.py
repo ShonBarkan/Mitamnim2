@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session, selectinload
 from core.logger import logger
 from domains.tags.models import Tag
@@ -122,3 +122,52 @@ class TemplateService:
             selectinload(WorkoutTemplate.exercises).selectinload(TemplateExercise.exercise_ref),
             selectinload(WorkoutTemplate.exercises).selectinload(TemplateExercise.parameters).selectinload(TemplateExerciseParam.parameter_ref)
         ).first()
+
+    def update_template(self, template_id: uuid.UUID, group_id: uuid.UUID, data: WorkoutTemplateCreate) -> Optional[
+        WorkoutTemplate]:
+        template = self.db.query(WorkoutTemplate).filter(
+            WorkoutTemplate.id == template_id,
+            WorkoutTemplate.group_id == group_id
+        ).first()
+
+        if not template:
+            return None
+
+        try:
+            # 1. עדכון שדות בסיס
+            template.name = data.name
+            template.description = data.description
+            template.estimated_duration = data.estimated_duration
+
+            # 2. עדכון תגיות (ניקוי והוספה מחדש)
+            tags = self.db.query(Tag).filter(Tag.id.in_(data.tag_ids), Tag.group_id == group_id).all()
+            template.tags = tags
+
+            # 3. עדכון משתמשים משויכים
+            self.db.query(TemplateUserAssignment).filter(TemplateUserAssignment.template_id == template_id).delete()
+            for user_id in data.assigned_user_ids:
+                self.db.add(TemplateUserAssignment(template_id=template_id, user_id=user_id))
+
+            # 4. עדכון תרגילים (ניקוי והוספה מחדש - הדרך הקלה והבטוחה ביותר)
+            self.db.query(TemplateExercise).filter(TemplateExercise.template_id == template_id).delete()
+            for ex_data in data.exercises:
+                new_exercise = TemplateExercise(
+                    template_id=template_id,
+                    exercise_id=ex_data.exercise_id,
+                    position=ex_data.position,
+                    sets=ex_data.sets
+                )
+                self.db.add(new_exercise)
+                self.db.flush()
+                for param in ex_data.parameters:
+                    self.db.add(TemplateExerciseParam(
+                        template_exercise_id=new_exercise.id,
+                        parameter_id=param.parameter_id,
+                        default_value=param.default_value
+                    ))
+
+            self.db.commit()
+            return self._get_enriched_template(template_id)
+        except Exception as e:
+            self.db.rollback()
+            raise e

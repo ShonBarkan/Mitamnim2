@@ -57,3 +57,25 @@ async def delete_template(
     except Exception as e:
         logger.error(f"Error purging template {template_id}: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete template.")
+
+
+@router.patch("/{template_id}", response_model=WorkoutTemplateOut, summary="Update existing template")
+async def update_template(
+        template_id: uuid.UUID,
+        template_data: WorkoutTemplateCreate,  # או מודל עדכון ייעודי אם יש לך
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """Updates an existing workout template."""
+    if current_user.role not in ["admin", "trainer"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized")
+
+    service = TemplateService(db)
+
+    # בצע את העדכון בשירות
+    updated_template = service.update_template(template_id, current_user.group_id, template_data)
+
+    if not updated_template:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
+
+    return updated_template

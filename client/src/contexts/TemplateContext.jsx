@@ -22,7 +22,7 @@ export const TemplateProvider = ({ children }) => {
     }
   }, []);
 
-  const createTemplate = async (templateData) => {
+  const createTemplate = useCallback(async (templateData) => {
     setLoading(true);
     try {
       FrontendLogger.info('TEMPLATE_CONTEXT', `Ingesting new complex template structure: ${templateData.name}`);
@@ -37,13 +37,12 @@ export const TemplateProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const updateTemplate = async (id, templateData) => {
+  const updateTemplate = useCallback(async (id, templateData) => {
     setLoading(true);
     try {
       FrontendLogger.info('TEMPLATE_CONTEXT', `Updating existing template ID: ${id}`);
-      // Assuming you will implement 'update' in templateService following the same pattern
       const updatedTemplate = await templateService.update(id, templateData);
       
       setTemplates((prev) => prev.map(t => t.id === id ? updatedTemplate : t));
@@ -55,9 +54,9 @@ export const TemplateProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const removeTemplate = async (id) => {
+  const removeTemplate = useCallback(async (id) => {
     setLoading(true);
     try {
       FrontendLogger.info('TEMPLATE_CONTEXT', `Purging template ID: ${id} from registry`);
@@ -71,7 +70,7 @@ export const TemplateProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // useMemo ensures that context value is recreated only when dependencies change
   const value = useMemo(() => ({
@@ -81,7 +80,7 @@ export const TemplateProvider = ({ children }) => {
     createTemplate,
     updateTemplate,
     removeTemplate
-  }), [templates, loading, fetchTemplates]);
+  }), [templates, loading, fetchTemplates, createTemplate, updateTemplate, removeTemplate]);
 
   return (
     <TemplateContext.Provider value={value}>

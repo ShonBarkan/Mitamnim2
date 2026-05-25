@@ -50,7 +50,18 @@ export const templateService = {
       FrontendLogger.error('TEMPLATE_SERVICE', `Failed to purge template ID: ${id}`, error);
       throw error;
     }
-  }
+  },
+  update: async (id, data) => {
+    FrontendLogger.info('TEMPLATE_SERVICE', `Patching template ID: ${id}`);
+    try {
+      const response = await api.patch(`/templates/${id}`, data);
+      FrontendLogger.info('TEMPLATE_SERVICE', 'Template successfully updated');
+      return response.data;
+    } catch (error) {
+      FrontendLogger.error('TEMPLATE_SERVICE', `Failed to update template ID: ${id}`, error);
+      throw error;
+    }
+  },
 };
 
 export default templateService;
