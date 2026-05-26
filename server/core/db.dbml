@@ -1,5 +1,5 @@
 // Database Schema Mapping for Mitamnim2 Blueprint Context
-// Enforces strict English-only code commentary and verified relational constraints
+// Synchronized with actual database dump and new Dashboard Configuration
 
 Table groups {
   id uuid [pk, not null]
@@ -46,13 +46,26 @@ Table parameters {
   multiplier "double precision"
 }
 
-// --- RE-ARCHITECTED ATHLETIC DOMAIN TABLES WITH GROUP ISOLATION ---
+// --- DASHBOARD CONFIGURATION DOMAIN ---
+
+Table dashboard_configs {
+  id uuid [pk, not null]
+  group_id uuid [ref: > groups.id, not null]
+  parameter_id integer [ref: > parameters.id, not null]
+  exercise_id integer [ref: > exercises.id, null]
+  display_name text [not null]
+  aggregation_type text [not null] // 'SUM', 'MAX', 'AVG'
+  is_higher_better boolean [default: true]
+  position integer [default: 0]
+}
+
+// --- ATHLETIC DOMAIN TABLES WITH GROUP ISOLATION ---
 
 Table tags {
   id integer [pk, increment, not null]
   name text [not null]
   color text [not null]
-  group_id uuid [ref: > groups.id, not null]
+  group_id uuid [ref: > groups.id]
 }
 
 Table exercises {
@@ -87,8 +100,8 @@ Table workout_templates {
 }
 
 Table template_user_assignments {
-  template_id uuid [ref: > workout_templates.id]
-  user_id uuid [ref: > users.id]
+  template_id uuid [ref: > workout_templates.id, not null]
+  user_id uuid [ref: > users.id, not null]
   Indexes { (template_id, user_id) [pk] }
 }
 
@@ -97,7 +110,7 @@ Table template_exercises {
   template_id uuid [ref: > workout_templates.id, not null]
   exercise_id integer [ref: > exercises.id, not null]
   position integer [not null]
-  sets integer [default: 3]
+  sets integer
   created_at timestamp
 }
 
@@ -114,10 +127,7 @@ Table template_tags_map {
   Indexes { (template_id, tag_id) [pk] }
 }
 
-
-// --- NEW WORKOUT SESSIONS & LOGS DOMAIN ---
-
-// --- UPDATED WORKOUT SESSIONS & LOGS DOMAIN ---
+// --- WORKOUT SESSIONS & LOGS DOMAIN ---
 
 Table workout_sessions {
   id uuid [pk, not null]
@@ -131,12 +141,13 @@ Table workout_sessions {
 
 Table exercise_logs {
   id uuid [pk, not null]
-  user_id uuid [ref: > users.id, not null] // Added for trainee isolation
   session_id uuid [ref: > workout_sessions.id, null]
   exercise_id integer [ref: > exercises.id, not null]
   exercise_name text [not null]
   sets integer
-  created_at timestamp [default: `now()`]
+  created_at timestamp
+  user_id uuid [ref: > users.id, not null]
+  position integer [default: 0]
 }
 
 Table exercise_log_params {

@@ -12,6 +12,7 @@ import { TemplateProvider } from '../contexts/TemplateContext';
 import FrontendLogger from '../utils/logger';
 import { SessionProvider } from '../contexts/SessionContext';
 import { ExerciseLogProvider } from '../contexts/ExerciseLogContext';
+import { DashboardConfigProvider } from '../contexts/DashboardConfigContext';
 
 /**
  * AppProviders Component
@@ -36,7 +37,9 @@ const AppProviders = ({ children }) => {
                       <TemplateProvider>
                         <SessionProvider>
                           <ExerciseLogProvider>
-                            {children}
+                            <DashboardConfigProvider>
+                              {children}
+                            </DashboardConfigProvider>
                           </ExerciseLogProvider>
                         </SessionProvider>
                       </TemplateProvider>

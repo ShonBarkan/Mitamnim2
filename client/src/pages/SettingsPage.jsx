@@ -3,35 +3,46 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ParameterManager from '../components/SettingsPage/ParameterManager';
 import TagManager from '../components/SettingsPage/TagManager';
+import DashboardConfigManager from '../components/SettingsPage/DashboardConfigManager';
 import FrontendLogger from '../utils/logger';
 
 /**
  * SettingsPage Component - System Administration and Configuration Engine.
- * Implements a premium tabbed layout managing dynamic rendering scopes between parameters and tags sub-systems.
- * Enforces strict English-only code commentary and total Hebrew UI localization support.
+ * Implements a premium tabbed layout managing dynamic rendering scopes between parameters, tags, and dashboard configs.
  */
 const SettingsPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Active sub-system layout boundary state manager - 'parameters' | 'tags'
+  // Active sub-system layout boundary state manager - 'parameters' | 'tags' | 'dashboard'
   const [activeTab, setActiveTab] = useState('parameters');
 
-  // Access control constraint matrix: Only trainers and admins hold token validation rights
+  // Access control constraint matrix
   const isAuthorized = user?.role === 'trainer' || user?.role === 'admin';
 
   useEffect(() => {
     FrontendLogger.info('SETTINGS_PAGE', 'Mounting system configuration and logic engine dashboard view');
     if (user && !isAuthorized) {
-      FrontendLogger.warn('SETTINGS_PAGE', `Unauthorized asset access attempt by user '${user.username}' [Role: ${user.role}]. Re-routing to index.`);
+      FrontendLogger.warn('SETTINGS_PAGE', `Unauthorized access attempt by '${user.username}'. Re-routing.`);
       navigate('/');
     }
   }, [user, isAuthorized, navigate]);
 
-  // Prevent UI flashing anomalies for unauthenticated/unauthorized request pipelines
   if (!user || !isAuthorized) {
     return null; 
   }
+
+  // Helper to determine title/subtitle based on tab
+  const getTabInfo = () => {
+    switch (activeTab) {
+      case 'parameters': return { title: 'ניהול פרמטרי מדידה', desc: 'כאן ניתן לערוך, להקים ולשלב פרמטרי מדידה פעילים ונוסחאות.' };
+      case 'tags': return { title: 'ניהול תגים קבוצתיים', desc: 'כאן ניתן לנהל קטגוריות ותגים מותאמים אישית לצורך סינון מדדים ותרגילים.' };
+      case 'dashboard': return { title: 'הגדרות תצוגת דשבורד', desc: 'כאן ניתן לקבוע אילו מדדים יופיעו בדשבורד הקבוצתי ואיך הם יחושבו.' };
+      default: return { title: '', desc: '' };
+    }
+  };
+
+  const tabInfo = getTabInfo();
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-slate-50 to-zinc-200 p-6 md:p-12 font-sans" dir="rtl">
@@ -54,32 +65,32 @@ const SettingsPage = () => {
             <div className="bg-white/50 backdrop-blur-md border border-white/80 p-2 rounded-3xl flex items-center gap-2 shadow-inner max-w-max self-start md:self-auto select-none">
               <button
                 type="button"
-                onClick={() => {
-                  FrontendLogger.info('SETTINGS_PAGE', 'Shifting systemic workspace boundary context to Parameters Manager');
-                  setActiveTab('parameters');
-                }}
+                onClick={() => { setActiveTab('parameters'); }}
                 className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'parameters' 
-                    ? 'bg-zinc-900 text-white shadow-lg' 
-                    : 'text-zinc-500 hover:text-zinc-900 hover:bg-white/40'
+                  activeTab === 'parameters' ? 'bg-zinc-900 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-900 hover:bg-white/40'
                 }`}
               >
-                📊 ניהול פרמטרים
+                📊 פרמטרים
               </button>
               
               <button
                 type="button"
-                onClick={() => {
-                  FrontendLogger.info('SETTINGS_PAGE', 'Shifting systemic workspace boundary context to Group Tags Manager');
-                  setActiveTab('tags');
-                }}
+                onClick={() => { setActiveTab('tags'); }}
                 className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                  activeTab === 'tags' 
-                    ? 'bg-zinc-900 text-white shadow-lg' 
-                    : 'text-zinc-500 hover:text-zinc-900 hover:bg-white/40'
+                  activeTab === 'tags' ? 'bg-zinc-900 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-900 hover:bg-white/40'
                 }`}
               >
-                🏷️ ניהול תגים קבוצתיים
+                🏷️ תגים
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setActiveTab('dashboard'); }}
+                className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                  activeTab === 'dashboard' ? 'bg-zinc-900 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-900 hover:bg-white/40'
+                }`}
+              >
+                📈 דשבורד
               </button>
             </div>
           </div>
@@ -90,18 +101,16 @@ const SettingsPage = () => {
           <div className="bg-white/60 backdrop-blur-3xl rounded-[3.5rem] border border-white shadow-[0_32px_64px_-12px_rgba(0,0,0,0.06)] overflow-hidden">
             
             <div className="p-8 border-b border-zinc-100/50 bg-white/30 select-none">
-              <h2 className="text-2xl font-black tracking-tight text-zinc-900">
-                {activeTab === 'parameters' ? 'ניהול פרמטרי מדידה' : 'ניהול תגים קבוצתיים'}
-              </h2>
+              <h2 className="text-2xl font-black tracking-tight text-zinc-900">{tabInfo.title}</h2>
               <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mt-1">
-                {activeTab === 'parameters' 
-                  ? 'כאן ניתן לערוך, להקים ולשלב פרמטרי מדידה פעילים ונוסחאות.' 
-                  : 'כאן ניתן לנהל קטגוריות ותגים מותאמים אישית לצורך סינון מדדים ותרגילים.'}
+                {tabInfo.desc}
               </p>
             </div>
 
             <div className="p-8">
-              {activeTab === 'parameters' ? <ParameterManager /> : <TagManager />}
+              {activeTab === 'parameters' && <ParameterManager />}
+              {activeTab === 'tags' && <TagManager />}
+              {activeTab === 'dashboard' && <DashboardConfigManager />}
             </div>
 
           </div>
