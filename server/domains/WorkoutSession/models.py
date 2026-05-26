@@ -20,8 +20,7 @@ class WorkoutSession(Base):
     finished_at = Column(DateTime, nullable=True)
     note = Column(Text, nullable=True)
 
-    # String reference to ExerciseLog prevents circular/double imports
-    # lazy="selectin" handles the bulk loading optimization
+    # Relationship to ExerciseLog
     logs = relationship(
         "ExerciseLog",
         back_populates="session",
@@ -51,7 +50,6 @@ class SessionCreateFat(BaseModel):
     note: Optional[str] = None
     logs: List[ExerciseLogCreate] = []
 
-
 # Schema for partial updates to top-level session fields
 class SessionUpdate(BaseModel):
     template_id: Optional[uuid.UUID] = None
@@ -59,7 +57,6 @@ class SessionUpdate(BaseModel):
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     note: Optional[str] = None
-
 
 # --- Nested Pydantic Schemas for Detailed View (Output) ---
 
@@ -76,6 +73,7 @@ class ExerciseLogOut(BaseModel):
     exercise_id: int
     exercise_name: str
     sets: Optional[int]
+    position: int # Ensure this matches DB model
     created_at: datetime
     params: List[LogParamOut] = []
 

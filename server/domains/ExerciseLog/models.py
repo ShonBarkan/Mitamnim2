@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional, List
 from sqlalchemy import Column, Integer, Text, ForeignKey, Double, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -14,14 +14,17 @@ class ExerciseLog(Base):
     __tablename__ = "exercise_logs"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # Required: Added user_id to identify which user performed the exercise
+    # Added user_id to identify which user performed the exercise
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-
     session_id = Column(UUID(as_uuid=True), ForeignKey("workout_sessions.id", ondelete="CASCADE"), nullable=True)
+
     exercise_id = Column(Integer, nullable=False)
     exercise_name = Column(Text, nullable=False)
     sets = Column(Integer, default=1)
-    # Changed from datetime.utcnow to datetime.now for local Israel time
+
+    # ADDED: The missing position field
+    position = Column(Integer, default=0)
+
     created_at = Column(DateTime, default=datetime.now)
 
     session = relationship("WorkoutSession", back_populates="logs")
@@ -53,12 +56,14 @@ class ExerciseLogCreate(BaseModel):
     exercise_id: int
     exercise_name: str
     sets: int
-    params: List[LogParamSchema]
+    position: Optional[int] = 0
+    params: List[LogParamSchema] = []
 
 
 class ExerciseLogUpdate(BaseModel):
     sets: Optional[int] = None
-    created_at: Optional[datetime] = None  # Added to allow updating the log time
+    position: Optional[int] = None
+    created_at: Optional[datetime] = None
     params: Optional[List[LogParamSchema]] = None
 
 
@@ -74,6 +79,8 @@ class ExerciseLogOut(BaseModel):
     exercise_id: int
     exercise_name: str
     sets: int
+    position: int  # Updated to reflect database model
     created_at: datetime
-    params: List[LogParamOut]
+    params: List[LogParamOut] = []
+
     model_config = ConfigDict(from_attributes=True)

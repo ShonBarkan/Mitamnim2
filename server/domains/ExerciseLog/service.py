@@ -15,7 +15,7 @@ class ExerciseLogService:
         self.db = db
 
     def create_log(self, data: dict) -> ExerciseLog:
-        """Creates a new exercise log with nested parameter snapshots."""
+        """Creates a new exercise log with nested parameter snapshots and position tracking."""
         logger.info(f"Persisting new exercise log for exercise ID: {data.get('exercise_id')}")
         try:
             new_log = ExerciseLog(
@@ -23,10 +23,11 @@ class ExerciseLogService:
                 session_id=data.get("session_id"),
                 exercise_id=data["exercise_id"],
                 exercise_name=data["exercise_name"],
-                sets=data.get("sets", 1)
+                sets=data.get("sets", 1),
+                position=data.get("position", 0)  # Added position mapping
             )
             self.db.add(new_log)
-            self.db.flush()
+            self.db.flush() # Ensure ID is generated for params
 
             for p in data.get("params", []):
                 new_param = ExerciseLogParam(
@@ -39,7 +40,7 @@ class ExerciseLogService:
 
             self.db.commit()
             self.db.refresh(new_log)
-            logger.info(f"Successfully created exercise log ID: {new_log.id}")
+            logger.info(f"Successfully created exercise log ID: {new_log.id} at position: {new_log.position}")
             return new_log
         except SQLAlchemyError as e:
             self.db.rollback()
@@ -47,17 +48,20 @@ class ExerciseLogService:
             raise e
 
     def get_session_logs(self, session_id: uuid.UUID) -> list:
-        """Retrieves all logs bounded to a specific active session."""
+        """Retrieves all logs bounded to a specific active session, ordered by position."""
         logger.info(f"Fetching logs bounded to session: {session_id}")
-        return self.db.query(ExerciseLog).filter(ExerciseLog.session_id == session_id).all()
+        return self.db.query(ExerciseLog)\
+            .filter(ExerciseLog.session_id == session_id)\
+            .order_by(ExerciseLog.position.asc())\
+            .all()
 
     def get_user_logs(self, user_id: uuid.UUID) -> list:
-        """Retrieves all exercise logs for a specific user across all sessions and freestyles."""
+        """Retrieves all exercise logs for a specific user."""
         logger.info(f"Fetching logs for user: {user_id}")
         return self.db.query(ExerciseLog).filter(ExerciseLog.user_id == user_id).all()
 
     def update_log(self, log_id: uuid.UUID, data: dict) -> ExerciseLog:
-        """Updates base values, created_at, and completely re-syncs parameter snapshots."""
+        """Updates base values, position, and re-syncs parameter snapshots."""
         logger.info(f"Updating exercise log ID: {log_id}")
         log = self.db.query(ExerciseLog).filter(ExerciseLog.id == log_id).first()
         if not log:
@@ -67,14 +71,16 @@ class ExerciseLogService:
             # Update base fields
             if "sets" in data:
                 log.sets = data["sets"]
-
-            # Update created_at if provided in the data dictionary
+            if "position" in data:
+                log.position = data["position"] # Sync position update
             if "created_at" in data:
                 log.created_at = data["created_at"]
 
             # Update parameters
             if "params" in data:
+                # Remove old parameters
                 self.db.query(ExerciseLogParam).filter(ExerciseLogParam.log_id == log_id).delete()
+                # Add updated parameters
                 for p in data["params"]:
                     new_param = ExerciseLogParam(
                         log_id=log_id,
@@ -94,12 +100,11 @@ class ExerciseLogService:
             raise e
 
     def delete_log(self, log_id: uuid.UUID) -> bool:
-        """Purges an exercise log and automatically cascades deletion to parameter snapshots."""
+        """Purges an exercise log and cascades to parameter snapshots."""
         logger.warning(f"Purging exercise log ID: {log_id}")
         log = self.db.query(ExerciseLog).filter(ExerciseLog.id == log_id).first()
         if log:
             self.db.delete(log)
             self.db.commit()
-            logger.info(f"Exercise log ID: {log_id} deleted successfully")
             return True
         return False

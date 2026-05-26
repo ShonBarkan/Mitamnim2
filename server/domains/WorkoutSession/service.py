@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import SQLAlchemyError
 from core.logger import logger
 from .models import WorkoutSession
-# ExerciseLog and ExerciseLogParam are defined in the sibling ExerciseLog domain
-# Import them using a relative import to avoid circular import issues
-from ..ExerciseLog.models import ExerciseLog, ExerciseLogParam
+# Import models from the sibling domain safely
+from domains.ExerciseLog.models import ExerciseLog, ExerciseLogParam
+
 
 class SessionService:
     def __init__(self, db: Session):
@@ -26,20 +26,27 @@ class SessionService:
                 note=data.get("note")
             )
             self.db.add(new_session)
-            # flush() assigns an ID to new_session without committing the transaction
             self.db.flush()
 
             # Step 2: Iterate and create associated exercise logs
             logs_data = data.get("logs", [])
             for idx, log_data in enumerate(logs_data):
-                new_log = ExerciseLog(
-                    user_id=user_id,
-                    session_id=new_session.id,
-                    exercise_id=log_data.get("exercise_id"),
-                    exercise_name=log_data.get("exercise_name"),
-                    sets=log_data.get("sets", 1),
-                    position=log_data.get("position", idx)
-                )
+                # We build the dictionary explicitly to avoid passing invalid keyword arguments
+                log_payload = {
+                    "user_id": user_id,
+                    "session_id": new_session.id,
+                    "exercise_id": log_data.get("exercise_id"),
+                    "exercise_name": log_data.get("exercise_name"),
+                    "sets": log_data.get("sets", 1)
+                }
+
+                # Check if 'position' exists in the log data, only add if your Model supports it
+                if "position" in log_data:
+                    log_payload["position"] = log_data["position"]
+                else:
+                    log_payload["position"] = idx
+
+                new_log = ExerciseLog(**log_payload)
                 self.db.add(new_log)
                 self.db.flush()
 
@@ -66,18 +73,15 @@ class SessionService:
             raise e
 
     def get_user_sessions(self, user_id: uuid.UUID) -> list:
-        """Get all sessions for a specific user with eager loading for optimization."""
-        logger.info(f"Retrieving nested sessions catalog for user: {user_id}")
+        """Get all sessions for a specific user."""
         return self.db.query(WorkoutSession).filter(
             WorkoutSession.user_id == user_id
         ).options(
-            # Explicit eager loading prevents N+1 queries issue
             selectinload(WorkoutSession.logs).selectinload(ExerciseLog.params)
         ).order_by(WorkoutSession.started_at.desc()).all()
 
     def get_session_by_id(self, session_id: uuid.UUID, user_id: uuid.UUID) -> WorkoutSession:
         """Get a specific session with full nested details."""
-        logger.info(f"Fetching complete session ID: {session_id} for user: {user_id}")
         return self.db.query(WorkoutSession).filter(
             WorkoutSession.id == session_id,
             WorkoutSession.user_id == user_id
@@ -87,12 +91,8 @@ class SessionService:
 
     def update_session(self, session_id: uuid.UUID, user_id: uuid.UUID, data: dict) -> WorkoutSession:
         """Update top-level session details."""
-        logger.info(f"Updating top-level details for session ID: {session_id}")
         session = self.get_session_by_id(session_id, user_id)
-
-        if not session:
-            logger.warning(f"Session ID: {session_id} not found or unauthorized for update.")
-            return None
+        if not session: return None
 
         try:
             for key, value in data.items():
@@ -100,28 +100,20 @@ class SessionService:
                     setattr(session, key, value)
             self.db.commit()
             self.db.refresh(session)
-            logger.info(f"Session ID: {session_id} top-level details updated")
             return session
         except SQLAlchemyError as e:
             self.db.rollback()
-            logger.error(f"Database error while updating session {session_id}: {str(e)}")
             raise e
 
     def delete_session(self, session_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-        """Delete a session (Cascades down to logs and params based on model definition)."""
-        logger.warning(f"Attempting to purge session ID: {session_id} for user: {user_id}")
+        """Delete a session."""
         session = self.get_session_by_id(session_id, user_id)
-
         if session:
             try:
                 self.db.delete(session)
                 self.db.commit()
-                logger.info(f"Session ID: {session_id} successfully purged")
                 return True
-            except SQLAlchemyError as e:
+            except SQLAlchemyError:
                 self.db.rollback()
-                logger.error(f"Database error while purging session {session_id}: {str(e)}")
-                raise e
-
-        logger.warning(f"Session ID: {session_id} not found for deletion.")
+                return False
         return False
