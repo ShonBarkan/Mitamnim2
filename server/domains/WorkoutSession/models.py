@@ -16,7 +16,8 @@ class WorkoutSession(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     template_id = Column(UUID(as_uuid=True), ForeignKey("workout_templates.id", ondelete="SET NULL"), nullable=True)
     name = Column(Text, nullable=False)
-    started_at = Column(DateTime, default=datetime.utcnow)
+    # Using datetime.now for local time consistency
+    started_at = Column(DateTime, default=datetime.now)
     finished_at = Column(DateTime, nullable=True)
     note = Column(Text, nullable=True)
 
@@ -73,7 +74,7 @@ class ExerciseLogOut(BaseModel):
     exercise_id: int
     exercise_name: str
     sets: Optional[int]
-    position: int # Ensure this matches DB model
+    position: int
     created_at: datetime
     params: List[LogParamOut] = []
 

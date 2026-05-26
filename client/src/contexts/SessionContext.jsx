@@ -53,15 +53,17 @@ export const SessionProvider = ({ children }) => {
 
   // --- API Communication ---
 
-  const fetchMySessions = useCallback(async () => {
+  const fetchSessions = useCallback(async (userId) => {
+    if (!userId) return;
+    
     setLoading(true);
     try {
-      FrontendLogger.info('SESSION_CONTEXT', 'Hydrating user workout sessions history');
-      const data = await sessionService.getMySessions();
+      FrontendLogger.info('SESSION_CONTEXT', `Hydrating workout sessions history for user: ${userId}`);
+      const data = await sessionService.getSessions(userId);
       setSessions(data);
       FrontendLogger.info('SESSION_CONTEXT', `Successfully synchronized ${data.length} sessions`);
     } catch (error) {
-      FrontendLogger.error('SESSION_CONTEXT', 'Failed to hydrate sessions registry', error);
+      FrontendLogger.error('SESSION_CONTEXT', `Failed to hydrate sessions registry for user: ${userId}`, error);
     } finally {
       setLoading(false);
     }
@@ -73,10 +75,8 @@ export const SessionProvider = ({ children }) => {
       FrontendLogger.info('SESSION_CONTEXT', 'Submitting fat session payload to server');
       const newSession = await sessionService.submitSession(sessionData);
       
-      // Add the newly created session to the top of the history list
       setSessions((prev) => [newSession, ...prev]);
       
-      // Clean up local states since the session is now safely in the DB
       clearDraft();
       setActiveSession(null);
       
@@ -130,7 +130,7 @@ export const SessionProvider = ({ children }) => {
     activeSession,
     setActiveSession,
     loading,
-    fetchMySessions,
+    fetchSessions, // Changed from fetchMySessions
     submitSession,
     updateSession,
     removeSession,
@@ -139,7 +139,7 @@ export const SessionProvider = ({ children }) => {
     clearDraft
   }), [
     sessions, activeSession, loading, 
-    fetchMySessions, submitSession, updateSession, removeSession,
+    fetchSessions, submitSession, updateSession, removeSession,
     saveDraft, loadDraft, clearDraft
   ]);
 

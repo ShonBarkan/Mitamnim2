@@ -17,6 +17,7 @@ import ChatsPage from './pages/ChatsPage';
 import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
 import ExerciseManagerPage from './pages/ExerciseManagerPage';
+import LogDiaryPage from './pages/LogDiaryPage'; // Unified Diary Page
 
 // Settings Sub-System Workspace Components
 import ParameterManager from './components/SettingsPage/ParameterManager';
@@ -25,7 +26,6 @@ import TagManager from './components/SettingsPage/TagManager';
 // Workout & Template Ecosystem
 import ShowTemplatesPage from './pages/ShowTemplatesPage';
 import CreateTemplatePage from './pages/CreateTemplatePage';
-import WorkoutHistoryPage from './pages/WorkoutHistoryPage';
 import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
 
 function App() {
@@ -45,11 +45,11 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/chats" element={<ChatsPage />} />
               <Route path="/exercises" element={<ExerciseManagerPage />} />
-              
-              {/* Active Workout & History Architecture */}
               <Route path="/templates" element={<ShowTemplatesPage />} />
-              <Route path="/WorkoutHistoryPage" element={<WorkoutHistoryPage />} />
               <Route path="/ActiveWorkoutPage" element={<ActiveWorkoutPage />} />
+              
+              {/* Unified Diary Route */}
+              <Route path="/log-diary" element={<LogDiaryPage />} />
               
               {/* Privileged Coach Tools */}
               <Route element={<ProtectedRoute allowedRoles={['admin', 'trainer']} />}>

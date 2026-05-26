@@ -21,7 +21,7 @@ class SessionService:
                 user_id=user_id,
                 template_id=data.get("template_id"),
                 name=data.get("name"),
-                started_at=data.get("started_at", datetime.utcnow()),
+                started_at=data.get("started_at", datetime.now()),
                 finished_at=data.get("finished_at"),
                 note=data.get("note")
             )
@@ -31,20 +31,15 @@ class SessionService:
             # Step 2: Iterate and create associated exercise logs
             logs_data = data.get("logs", [])
             for idx, log_data in enumerate(logs_data):
-                # We build the dictionary explicitly to avoid passing invalid keyword arguments
+                # Build payload explicitly to avoid invalid keyword arguments
                 log_payload = {
                     "user_id": user_id,
                     "session_id": new_session.id,
                     "exercise_id": log_data.get("exercise_id"),
                     "exercise_name": log_data.get("exercise_name"),
-                    "sets": log_data.get("sets", 1)
+                    "sets": log_data.get("sets", 1),
+                    "position": log_data.get("position", idx)
                 }
-
-                # Check if 'position' exists in the log data, only add if your Model supports it
-                if "position" in log_data:
-                    log_payload["position"] = log_data["position"]
-                else:
-                    log_payload["position"] = idx
 
                 new_log = ExerciseLog(**log_payload)
                 self.db.add(new_log)
@@ -73,10 +68,16 @@ class SessionService:
             raise e
 
     def get_user_sessions(self, user_id: uuid.UUID) -> list:
-        """Get all sessions for a specific user."""
+        """
+        Get all sessions for a specific user.
+        The service logic here relies on the router to pass the correct target user_id,
+        whether it's the current user or a trainee managed by a trainer.
+        """
+        logger.info(f"Retrieving nested sessions catalog for user: {user_id}")
         return self.db.query(WorkoutSession).filter(
             WorkoutSession.user_id == user_id
         ).options(
+            # Eager load logs and params to avoid N+1 queries
             selectinload(WorkoutSession.logs).selectinload(ExerciseLog.params)
         ).order_by(WorkoutSession.started_at.desc()).all()
 
@@ -92,7 +93,8 @@ class SessionService:
     def update_session(self, session_id: uuid.UUID, user_id: uuid.UUID, data: dict) -> WorkoutSession:
         """Update top-level session details."""
         session = self.get_session_by_id(session_id, user_id)
-        if not session: return None
+        if not session:
+            return None
 
         try:
             for key, value in data.items():

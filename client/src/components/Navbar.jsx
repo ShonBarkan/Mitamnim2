@@ -89,7 +89,6 @@ const Navbar = () => {
                 </span>
               </>
             ) : (
-              // Fallback UI structure mapping while data is resolving
               <>
                 <div className="w-10 h-10 bg-zinc-200 rounded-xl animate-pulse flex items-center justify-center text-xs text-zinc-400 font-black shadow-sm">
                   M
@@ -117,7 +116,9 @@ const Navbar = () => {
             <NavLink to="/chats" active={isActive("/chats")}>צ'אטים</NavLink>
             <NavLink to="/exercises" active={isActive("/exercises")}>תרגילים</NavLink>
             <NavLink to="/templates" active={isActive("/templates")}>אימונים</NavLink>
-            <NavLink to="/WorkoutHistoryPage" active={isActive("/WorkoutHistoryPage")}>היסטוריית אימונים</NavLink>
+            
+            {/* New Unified Diary Link */}
+            <NavLink to="/log-diary?tab=history" active={isActive("/log-diary")}>יומן תיעודים</NavLink>
 
             {isTrainer && (
               <div className="flex items-center gap-2 mr-4 pr-4 border-r border-zinc-300/50">
@@ -218,7 +219,9 @@ const Navbar = () => {
           <NavLink to="/chats" active={isActive("/chats")} className="w-full text-right">צ'אטים</NavLink>
           <NavLink to="/exercises" active={isActive("/exercises")} className="w-full text-right">תרגילים</NavLink>
           <NavLink to="/templates" active={isActive("/templates")} className="w-full text-right">אימונים</NavLink>
-          <NavLink to="/WorkoutHistoryPage" active={isActive("/WorkoutHistoryPage")} className="w-full text-right">היסטוריית אימונים</NavLink>
+          
+          {/* Mobile Link for Unified Diary */}
+          <NavLink to="/log-diary?tab=history" active={isActive("/log-diary")} className="w-full text-right">יומן תיעודים</NavLink>
 
           {isTrainer && (
             <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-zinc-100">
@@ -253,7 +256,7 @@ const Navbar = () => {
 };
 
 /**
- * Reusable NavLink Sub-Component for absolute glassmorphic interface continuity.
+ * Reusable NavLink Sub-Component
  */
 const NavLink = ({ to, children, active, subtle, onClick, className = '' }) => (
   <Link 

@@ -6,15 +6,7 @@ import FrontendLogger from '../utils/logger';
  */
 export const sessionService = {
   /**
-   * Submits a complete, finished workout session (Fat Payload) to the server.
-   * This includes the session details, all exercise logs, and their parameters.
-   * * @param {Object} data - The fat payload object.
-   * @param {string} [data.template_id] - Optional template UUID.
-   * @param {string} data.name - Session name.
-   * @param {string} data.started_at - ISO timestamp of when the session started.
-   * @param {string} data.finished_at - ISO timestamp of when the session ended.
-   * @param {string} [data.note] - Optional session note.
-   * @param {Array} data.logs - Array of exercise logs with their nested params.
+   * Submits a complete, finished workout session.
    */
   submitSession: async (data) => {
     FrontendLogger.info('SESSION_SERVICE', `Submitting fat session payload: '${data.name}'`);
@@ -29,24 +21,25 @@ export const sessionService = {
   },
 
   /**
-   * Retrieves all workout sessions for the currently authenticated user.
-   * Returns fully nested data (Session -> Logs -> Params) due to backend eager loading.
+   * Retrieves workout sessions for a specific user.
+   * @param {string} userId - The UUID of the user to fetch sessions for.
    */
-  getMySessions: async () => {
-    FrontendLogger.info('SESSION_SERVICE', 'Fetching detailed user sessions history');
+  getSessions: async (userId) => {
+    FrontendLogger.info('SESSION_SERVICE', `Fetching detailed sessions for user: ${userId}`);
     try {
-      const response = await api.get('/sessions');
+      // Pass userId as a query parameter so the backend can filter by the correct user
+      const response = await api.get('/sessions', { 
+        params: { user_id: userId } 
+      });
       return response.data;
     } catch (error) {
-      FrontendLogger.error('SESSION_SERVICE', 'Error fetching detailed sessions', error);
+      FrontendLogger.error('SESSION_SERVICE', `Error fetching sessions for user: ${userId}`, error);
       throw error;
     }
   },
 
   /**
-   * Updates an existing session's top-level details (e.g., updating notes).
-   * @param {string} id - The session UUID
-   * @param {Object} data - { note, name }
+   * Updates an existing session's top-level details.
    */
   updateSession: async (id, data) => {
     FrontendLogger.info('SESSION_SERVICE', `Updating session ID: ${id}`);
@@ -61,8 +54,7 @@ export const sessionService = {
   },
 
   /**
-   * Permanently deletes a workout session and cascades deletion to its logs and params.
-   * @param {string} id - The session UUID
+   * Permanently deletes a workout session.
    */
   deleteSession: async (id) => {
     FrontendLogger.info('SESSION_SERVICE', `Purging session record ID: ${id}`);

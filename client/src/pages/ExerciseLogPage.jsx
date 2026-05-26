@@ -6,21 +6,26 @@ import TrainerSidebar from '../components/common/users/TrainerSidebar';
 import ExerciseLogForm from '../components/common/ExerciseLog/ExerciseLogForm';
 import LogDiaryHistory from '../components/ExerciseLogPage/LogDiaryHistory';
 
-const ExerciseLogPage = () => {
+/**
+ * ExerciseLogPage Component
+ * Refactored to support standalone view or embedded view within LogDiaryPage.
+ */
+const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
   const authContext = useAuth() || {};
   const activeUser = authContext.currentUser || authContext.user;
 
   const { fetchExercises } = useExercise() || {};
   const { users, refreshUsers } = useUsers() || {};
 
-  const [selectedUserId, setSelectedUserId] = useState(null);
+  // If embedded, use forcedUserId; otherwise use current user's ID
+  const effectiveUserId = forcedUserId || activeUser?.id;
   const [editLogToLoad, setEditLogToLoad] = useState(null);
 
-  const isTrainer = activeUser?.role === 'trainer';
-  const isSelf = activeUser?.id === selectedUserId;
+  const isTrainer = activeUser?.role === 'trainer' || activeUser?.role === 'admin';
+  const isSelf = activeUser?.id === effectiveUserId;
   
-  const canModifyLogs = isSelf;
-
+  // Trainers can modify logs for their trainees, users can modify their own
+  const canModifyLogs = isTrainer || isSelf;
   const shouldShowForm = isSelf;
 
   useEffect(() => {
@@ -29,12 +34,6 @@ const ExerciseLogPage = () => {
       refreshUsers();
     }
   }, [fetchExercises, refreshUsers, isTrainer]);
-
-  useEffect(() => {
-    if (activeUser?.id && !selectedUserId) {
-      setSelectedUserId(activeUser.id);
-    }
-  }, [activeUser, selectedUserId]);
 
   const handleEditClick = useCallback((log) => {
     if (canModifyLogs) {
@@ -54,41 +53,53 @@ const ExerciseLogPage = () => {
     );
   }
 
+  // Content to render
+  const renderContent = () => (
+    <div className="max-w-4xl mx-auto">
+      {!embedded && (
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">יומן אימונים</h1>
+          <p className="text-gray-500 mt-1">תיעוד ומעקב אחר התקדמות</p>
+        </header>
+      )}
+
+      {effectiveUserId && shouldShowForm && (
+        <ExerciseLogForm
+          selectedUserId={effectiveUserId}
+          canModifyLogs={canModifyLogs}
+          editLogToLoad={editLogToLoad}
+          onEditComplete={handleEditComplete}
+        />
+      )}
+
+      {effectiveUserId && (
+        <LogDiaryHistory
+          selectedUserId={effectiveUserId}
+          canModifyLogs={canModifyLogs}
+          onEditClick={handleEditClick}
+        />
+      )}
+    </div>
+  );
+
+  // Return structure based on view mode
+  if (embedded) {
+    return <div className="w-full">{renderContent()}</div>;
+  }
+
   return (
     <div className="flex h-screen bg-gray-50" dir="rtl">
       {isTrainer && (
         <TrainerSidebar
           activeUser={activeUser}
           users={users}
-          selectedUserId={selectedUserId}
-          setSelectedUserId={setSelectedUserId}
+          selectedUserId={effectiveUserId}
+          setSelectedUserId={() => {}} // In non-embedded mode, we might need a setter, here we use props
         />
       )}
 
       <main className="flex-1 overflow-y-auto p-6 md:p-10">
-        <div className="max-w-4xl mx-auto">
-          <header className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">יומן אימונים</h1>
-            <p className="text-gray-500 mt-1">תיעוד ומעקב אחר התקדמות</p>
-          </header>
-
-          {selectedUserId && shouldShowForm && (
-            <ExerciseLogForm
-              selectedUserId={selectedUserId}
-              canModifyLogs={canModifyLogs}
-              editLogToLoad={editLogToLoad}
-              onEditComplete={handleEditComplete}
-            />
-          )}
-
-          {selectedUserId && (
-            <LogDiaryHistory
-              selectedUserId={selectedUserId}
-              canModifyLogs={canModifyLogs}
-              onEditClick={handleEditClick}
-            />
-          )}
-        </div>
+        {renderContent()}
       </main>
     </div>
   );
