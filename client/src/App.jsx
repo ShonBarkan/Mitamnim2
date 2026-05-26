@@ -18,7 +18,7 @@ import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
 import ExerciseManagerPage from './pages/ExerciseManagerPage';
 import LogDiaryPage from './pages/LogDiaryPage';
-import AthleteStatsPage from './pages/AthleteStatsPage';
+// import AthleteStatsPage from './pages/AthleteStatsPage';
 
 // Settings Sub-System Workspace Components
 import ParameterManager from './components/SettingsPage/ParameterManager';
@@ -48,7 +48,8 @@ function App() {
               <Route path="/exercises" element={<ExerciseManagerPage />} />
               <Route path="/templates" element={<ShowTemplatesPage />} />
               <Route path="/ActiveWorkoutPage" element={<ActiveWorkoutPage />} />
-              <Route path="/statistics" element={<AthleteStatsPage />} />
+              {/* <Route path="/statistics" element={<AthleteStatsPage />} /> */}
+              {/* <Route path="/statistics/athlete/:athleteId" element={<AthleteStatsPage />} /> */}
               
               {/* Unified Diary Route */}
               <Route path="/log-diary" element={<LogDiaryPage />} />

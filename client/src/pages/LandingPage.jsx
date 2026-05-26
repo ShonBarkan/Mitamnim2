@@ -91,19 +91,8 @@ const LandingPage = () => {
 
             {/* Social Intelligence Room: Live Non-Intrusive Bulletin Board */}
             <div className="bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3.5rem] shadow-2xl overflow-hidden sticky top-32">
-              <div className="p-10 border-b border-white bg-white/20 flex justify-between items-center select-none">
-                <div className="space-y-1">
-                   <h2 className="text-3xl font-black tracking-tighter uppercase m-0">לוח מודעות</h2>
-                   <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none font-mono mt-1">Real-time Group Feed</p>
-                </div>
-                <div className="flex items-center gap-2.5">
-                   <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                   <span className="text-zinc-400 text-[10px] font-black uppercase tracking-widest font-mono">Active</span>
-                </div>
-              </div>
               
               {/* Cleaned container bounds with zero operational window hook side-effects */}
-              <div className="p-8 max-h-[600px] overflow-y-auto scrollbar-hide">
                 <MessageFeed 
                   title="" 
                   targetId={user?.group_id} 
@@ -112,7 +101,6 @@ const LandingPage = () => {
                   userRole={user?.role} 
                   disableAutoScrollFocus={true} 
                 />
-              </div>
             </div>
           </aside>
 
