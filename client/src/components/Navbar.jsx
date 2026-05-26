@@ -6,6 +6,27 @@ import { useGroups } from '../contexts/GroupContext';
 import FrontendLogger from '../utils/logger';
 
 /**
+ * Navigation Configuration
+ * Add, edit, or remove links here to update both Desktop and Mobile views globally.
+ */
+const NAV_CONFIG = {
+  mainLinks: [
+    { path: '/', label: 'דף הבית' },
+    { path: '/chats', label: "צ'אטים" },
+    { path: '/exercises', label: 'תרגילים' },
+    { path: '/templates', label: 'אימונים' },
+    { path: '/statistics', label: 'סטטיסטיקה' },
+    { path: '/log-diary?tab=history', matchPath: '/log-diary', label: 'יומן תיעודים' }
+  ],
+  managementLinks: [
+    { path: '/users', label: 'מתאמנים', allowedRoles: ['trainer', 'admin'] },
+    { path: '/coach-messages', label: 'הודעות', allowedRoles: ['trainer', 'admin'] },
+    { path: '/settings', label: 'הגדרות', allowedRoles: ['trainer', 'admin'] },
+    { path: '/groups', label: 'קבוצות', allowedRoles: ['admin'] }
+  ]
+};
+
+/**
  * Navbar Component - Global application navigation suite.
  * Aligned strictly with updated flat router paths and premium Arctic Mirror glassmorphic guidelines.
  * Includes dynamic active workout detection, responsive mobile sidebar, and dynamic group branding.
@@ -58,11 +79,13 @@ const Navbar = () => {
     navigate('/login');
   };
 
-  const isAdmin = user.role === 'admin';
-  const isTrainer = user.role === 'trainer' || isAdmin;
-
   // Evaluate stateful activation matching tokens across current router maps
-  const isActive = (path) => location.pathname === path;
+  const checkActive = (path, matchPath) => location.pathname === (matchPath || path);
+
+  // Filter management links based on the current user's role
+  const visibleManagementLinks = NAV_CONFIG.managementLinks.filter(link => 
+    link.allowedRoles.includes(user.role)
+  );
 
   return (
     <>
@@ -112,22 +135,30 @@ const Navbar = () => {
               </Link>
             )}
 
-            <NavLink to="/" active={isActive("/")}>דף הבית</NavLink>
-            <NavLink to="/chats" active={isActive("/chats")}>צ'אטים</NavLink>
-            <NavLink to="/exercises" active={isActive("/exercises")}>תרגילים</NavLink>
-            <NavLink to="/templates" active={isActive("/templates")}>אימונים</NavLink>
-            
-            {/* New Unified Diary Link */}
-            <NavLink to="/log-diary?tab=history" active={isActive("/log-diary")}>יומן תיעודים</NavLink>
+            {/* Main Navigation Links */}
+            {NAV_CONFIG.mainLinks.map((link) => (
+              <NavLink 
+                key={link.path} 
+                to={link.path} 
+                active={checkActive(link.path, link.matchPath)}
+              >
+                {link.label}
+              </NavLink>
+            ))}
 
-            {isTrainer && (
+            {/* Management Links (Trainers / Admins) */}
+            {visibleManagementLinks.length > 0 && (
               <div className="flex items-center gap-2 mr-4 pr-4 border-r border-zinc-300/50">
-                <NavLink to="/users" active={isActive("/users")} subtle>מתאמנים</NavLink>
-                <NavLink to="/coach-messages" active={isActive("/coach-messages")} subtle>הודעות</NavLink>
-                <NavLink to="/settings" active={isActive("/settings")} subtle>הגדרות</NavLink>
-                {isAdmin && (
-                  <NavLink to="/groups" active={isActive("/groups")} subtle>קבוצות</NavLink>
-                )}
+                {visibleManagementLinks.map((link) => (
+                  <NavLink 
+                    key={link.path} 
+                    to={link.path} 
+                    active={checkActive(link.path, link.matchPath)} 
+                    subtle
+                  >
+                    {link.label}
+                  </NavLink>
+                ))}
               </div>
             )}
           </div>
@@ -215,24 +246,33 @@ const Navbar = () => {
             </Link>
           )}
 
-          <NavLink to="/" active={isActive("/")} className="w-full text-right">דף הבית</NavLink>
-          <NavLink to="/chats" active={isActive("/chats")} className="w-full text-right">צ'אטים</NavLink>
-          <NavLink to="/exercises" active={isActive("/exercises")} className="w-full text-right">תרגילים</NavLink>
-          <NavLink to="/templates" active={isActive("/templates")} className="w-full text-right">אימונים</NavLink>
-          
-          {/* Mobile Link for Unified Diary */}
-          <NavLink to="/log-diary?tab=history" active={isActive("/log-diary")} className="w-full text-right">יומן תיעודים</NavLink>
+          {/* Main Navigation Links (Mobile) */}
+          {NAV_CONFIG.mainLinks.map((link) => (
+            <NavLink 
+              key={link.path} 
+              to={link.path} 
+              active={checkActive(link.path, link.matchPath)} 
+              className="w-full text-right"
+            >
+              {link.label}
+            </NavLink>
+          ))}
 
-          {isTrainer && (
+          {/* Management Links (Mobile) */}
+          {visibleManagementLinks.length > 0 && (
             <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-zinc-100">
               <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest px-4 mb-1">ניהול אימונים</span>
-              <NavLink to="/users" active={isActive("/users")} subtle className="w-full text-right">מתאמנים</NavLink>
-              <NavLink to="/coach-messages" active={isActive("/coach-messages")} subtle className="w-full text-right">הודעות</NavLink>
-              <NavLink to="/settings" active={isActive("/settings")} subtle className="w-full text-right">הגדרות</NavLink>
-              
-              {isAdmin && (
-                <NavLink to="/groups" active={isActive("/groups")} subtle className="w-full text-right">קבוצות</NavLink>
-              )}
+              {visibleManagementLinks.map((link) => (
+                <NavLink 
+                  key={link.path} 
+                  to={link.path} 
+                  active={checkActive(link.path, link.matchPath)} 
+                  subtle 
+                  className="w-full text-right"
+                >
+                  {link.label}
+                </NavLink>
+              ))}
             </div>
           )}
         </div>

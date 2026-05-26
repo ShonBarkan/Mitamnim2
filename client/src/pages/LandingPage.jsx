@@ -9,6 +9,7 @@ import PersonalInfo from '../components/LandingPage/PersonalInfo';
 import MainBanners from '../components/LandingPage/MainBanners';
 import TrainingSchedule from '../components/LandingPage/TrainingSchedule';
 import MessageFeed from '../components/MessageFeed';
+import DashboardLeaderboard from '../components/LandingPage/DashboardLeaderboard'; // <-- ADDED IMPORT
 
 /**
  * LandingPage Component - The primary athlete command dashboard.
@@ -77,12 +78,9 @@ const LandingPage = () => {
         {/* --- PERFORMANCE ANALYTICS & SOCIAL INTEL GRID --- */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           
-          {/* Competitive Arena placeholder while leaderboard module is removed */}
+          {/* Competitive Arena: Dynamic Dashboard Leaderboard */}
           <div className="lg:col-span-9 space-y-10 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
-            <div className="bg-white/70 backdrop-blur-3xl rounded-[3rem] border border-white/70 shadow-2xl shadow-zinc-200/40 p-10 min-h-[400px] flex flex-col justify-center items-center text-center">
-              <h2 className="text-3xl font-black text-zinc-900">לוח דירוג קבוצתי לא זמין</h2>
-              <p className="mt-4 text-sm text-zinc-500 max-w-xl">הרכיב שנדרש להצגת דירוג קבוצה הוסר. עדיין ניתן להציג הודעות ופרטי משתמש נכונים בעמוד הבית.</p>
-            </div>
+            <DashboardLeaderboard /> {/* <-- IMPLEMENTED COMPONENT */}
           </div>
 
           {/* Intel Sidebar: Scheduled Trackers & Bulletins (25% Screen Width) */}

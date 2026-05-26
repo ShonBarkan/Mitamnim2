@@ -8,7 +8,6 @@ import { useParameter } from '../../contexts/ParameterContext';
 import { useExercise } from '../../contexts/ExerciseContext';
 import { useToast } from '../../contexts/ToastContext';
 
-// Sortable item wrapper
 const SortableConfigItem = ({ config, exercises, onDelete }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: config.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -49,7 +48,8 @@ const SortableConfigItem = ({ config, exercises, onDelete }) => {
 };
 
 const DashboardConfigManager = () => {
-  const { configs, createConfig, deleteConfig, reorderConfigs, loading } = useDashboardConfig();
+  // Pull fetchConfigs from the context
+  const { configs, createConfig, deleteConfig, reorderConfigs, fetchConfigs, loading } = useDashboardConfig();
   const { parameters } = useParameter();
   const { exercises } = useExercise();
   const { showToast } = useToast();
@@ -60,6 +60,11 @@ const DashboardConfigManager = () => {
     is_higher_better: true,
     position: 0
   });
+
+  // Fetch configs when the component mounts
+  useEffect(() => {
+    fetchConfigs();
+  }, [fetchConfigs]);
 
   const selectedParam = useMemo(() => 
     parameters.find(p => p.id === parseInt(formData.parameter_id)), 
@@ -101,11 +106,9 @@ const DashboardConfigManager = () => {
     const oldIndex = configs.findIndex((c) => c.id === active.id);
     const newIndex = configs.findIndex((c) => c.id === over.id);
     
-    // Create the new array order
     const newOrder = arrayMove(configs, oldIndex, newIndex);
     
     try {
-      // Pass the entire reordered array to the context function
       await reorderConfigs(newOrder);
       showToast('סדר העדיפויות עודכן בהצלחה', 'success');
     } catch (err) {
@@ -143,15 +146,21 @@ const DashboardConfigManager = () => {
         </div>
       </form>
 
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={configs} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2">
-            {configs.map((config) => (
-              <SortableConfigItem key={config.id} config={config} exercises={exercises} onDelete={deleteConfig} />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+      {loading && configs.length === 0 ? (
+        <div className="text-center p-4 text-zinc-500 font-bold animate-pulse">
+          טוען הגדרות...
+        </div>
+      ) : (
+        <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={configs} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {configs.map((config) => (
+                <SortableConfigItem key={config.id} config={config} exercises={exercises} onDelete={deleteConfig} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
     </div>
   );
 };
