@@ -1,6 +1,16 @@
 import React from 'react';
 
-const TrainerSidebar = ({ activeUser, users, selectedUserId, setSelectedUserId }) => {
+const TrainerSidebar = ({ activeUser, activeUserId, users = [], selectedUserId, setSelectedUserId, onUserSelect }) => {
+  const activeId = activeUser?.id ?? activeUserId;
+
+  const handleSelect = (id) => {
+    if (typeof onUserSelect === 'function') {
+      onUserSelect({ id });
+    } else if (typeof setSelectedUserId === 'function') {
+      setSelectedUserId(id);
+    }
+  };
+
   return (
     <aside className="w-72 bg-white border-l border-gray-200 overflow-y-auto flex flex-col shadow-sm z-10">
       <div className="p-4 border-b border-gray-100 bg-gray-50 sticky top-0">
@@ -8,8 +18,9 @@ const TrainerSidebar = ({ activeUser, users, selectedUserId, setSelectedUserId }
       </div>
       <div className="flex flex-col p-2 gap-1">
         <button
-          onClick={() => setSelectedUserId(activeUser.id)}
-          className={`flex items-center gap-3 p-3 rounded-lg transition-colors text-right ${selectedUserId === activeUser.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'}`}
+          onClick={() => activeId && handleSelect(activeId)}
+          disabled={!activeId}
+          className={`flex items-center gap-3 p-3 rounded-lg transition-colors text-right ${selectedUserId === activeId ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'}`}
         >
           <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
             שלי
@@ -23,7 +34,7 @@ const TrainerSidebar = ({ activeUser, users, selectedUserId, setSelectedUserId }
         {Array.isArray(users) && users.map((u) => (
           <button
             key={u.id}
-            onClick={() => setSelectedUserId(u.id)}
+            onClick={() => handleSelect(u.id)}
             className={`flex items-center gap-3 p-3 rounded-lg transition-colors text-right ${selectedUserId === u.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'}`}
           >
             <img

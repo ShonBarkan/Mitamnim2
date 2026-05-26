@@ -6,7 +6,6 @@ from sqlalchemy import func, cast, Float
 from sqlalchemy.orm import Session
 from core.logger import logger
 
-from domains.WorkoutSession.models import WorkoutSession
 from domains.ExerciseLog.models import ExerciseLog, ExerciseLogParam
 from domains.dashboard_configs.models import DashboardConfig
 from domains.users.models import User
@@ -28,12 +27,10 @@ class StatisticsService:
             # Assuming the week starts on Sunday
             days_since_sunday = (now.weekday() + 1) % 7
             start_date = (now - timedelta(days=days_since_sunday)).replace(hour=0, minute=0, second=0, microsecond=0)
-            # Add 6 days to get to Saturday night, then replace time to end of day
             end_date = (start_date + timedelta(days=6)).replace(hour=23, minute=59, second=59, microsecond=999999)
 
         else:  # month
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            # Find the last day of the current month
             last_day = calendar.monthrange(now.year, now.month)[1]
             end_date = now.replace(day=last_day, hour=23, minute=59, second=59, microsecond=999999)
 
@@ -53,12 +50,10 @@ class StatisticsService:
                     func.avg(cast(ExerciseLogParam.value, Float)).label("avg_val")
                 )
                 .join(ExerciseLogParam, ExerciseLogParam.log_id == ExerciseLog.id)
-                .join(WorkoutSession, ExerciseLog.session_id == WorkoutSession.id)
-                .filter(WorkoutSession.started_at.between(start_date, end_date))
+                .filter(ExerciseLog.created_at.between(start_date, end_date))
                 .filter(ExerciseLogParam.parameter_name == config.parameter.name)
             )
 
-            # If exercise_id exists, filter by it. Otherwise, covers ALL exercises for the parameter.
             if config.exercise_id:
                 query = query.filter(ExerciseLog.exercise_id == config.exercise_id)
 
@@ -68,13 +63,17 @@ class StatisticsService:
             agg_key = f"{config.aggregation_type.lower()}_val"
             user_results = {str(s.user_id): round(getattr(s, agg_key) or 0, 2) for s in stats}
 
+            # Retrieve unit from the parameter relationship
+            unit = getattr(config.parameter, 'unit', 'units')
+
             results[config.display_name] = {
                 "user_data": user_results,
                 "config": {
                     "aggregation": config.aggregation_type,
                     "higher_better": config.is_higher_better,
                     "exercise_id": config.exercise_id,
-                    "position": config.position
+                    "position": config.position,
+                    "parameter_unit": unit
                 }
             }
 
@@ -89,30 +88,32 @@ class StatisticsService:
     ) -> dict:
         """
         Retrieves historical trend data for a specific athlete.
-        Efficient JOIN aggregating max values per session.
         """
         end_date = datetime.now()
         start_date = end_date - timedelta(days=30 * months_back)
 
         query = (
             self.db.query(
-                func.date_trunc('day', WorkoutSession.started_at).label('session_date'),
-                func.max(cast(ExerciseLogParam.value, Float)).label('best_value')
+                func.date_trunc('day', ExerciseLog.created_at).label('log_date'),
+                func.max(cast(ExerciseLogParam.value, Float)).label('best_value'),
+                func.max(ExerciseLogParam.parameter_unit).label('unit')  # Aggregate unit
             )
-            .join(ExerciseLog, ExerciseLog.session_id == WorkoutSession.id)
             .join(ExerciseLogParam, ExerciseLogParam.log_id == ExerciseLog.id)
             .filter(ExerciseLog.user_id == user_id)
             .filter(ExerciseLogParam.parameter_name == parameter_name)
-            .filter(WorkoutSession.started_at.between(start_date, end_date))
+            .filter(ExerciseLog.created_at.between(start_date, end_date))
         )
 
         if exercise_id:
             query = query.filter(ExerciseLog.exercise_id == exercise_id)
 
-        query = query.group_by('session_date').order_by('session_date')
+        query = query.group_by('log_date').order_by('log_date')
         records = query.all()
 
-        trends = [{"date": r.session_date, "value": float(r.best_value)} for r in records if r.best_value is not None]
+        trends = [{"date": r.log_date, "value": float(r.best_value)} for r in records if r.best_value is not None]
+
+        # Get unit from the first record found
+        unit = records[0].unit if records else ""
 
         values = [t["value"] for t in trends]
         max_val = max(values) if values else None
@@ -122,6 +123,7 @@ class StatisticsService:
             "user_id": user_id,
             "exercise_id": exercise_id,
             "parameter_name": parameter_name,
+            "parameter_unit": unit,
             "trends": trends,
             "max_value": round(max_val, 2) if max_val else None,
             "avg_value": round(avg_val, 2) if avg_val else None
@@ -135,34 +137,36 @@ class StatisticsService:
             months_back: int = 3
     ) -> dict:
         """
-        Aggregates trends across all users in a group to show group average and group max over time.
+        Aggregates trends across all users in a group.
         """
         end_date = datetime.now()
         start_date = end_date - timedelta(days=30 * months_back)
 
         query = (
             self.db.query(
-                func.date_trunc('day', WorkoutSession.started_at).label('session_date'),
+                func.date_trunc('day', ExerciseLog.created_at).label('log_date'),
                 func.avg(cast(ExerciseLogParam.value, Float)).label('avg_val'),
-                func.max(cast(ExerciseLogParam.value, Float)).label('max_val')
+                func.max(cast(ExerciseLogParam.value, Float)).label('max_val'),
+                func.max(ExerciseLogParam.parameter_unit).label('unit')  # Aggregate unit
             )
-            .join(ExerciseLog, ExerciseLog.session_id == WorkoutSession.id)
             .join(ExerciseLogParam, ExerciseLogParam.log_id == ExerciseLog.id)
             .join(User, ExerciseLog.user_id == User.id)
             .filter(User.group_id == group_id)
             .filter(ExerciseLogParam.parameter_name == parameter_name)
-            .filter(WorkoutSession.started_at.between(start_date, end_date))
+            .filter(ExerciseLog.created_at.between(start_date, end_date))
         )
 
         if exercise_id:
             query = query.filter(ExerciseLog.exercise_id == exercise_id)
 
-        query = query.group_by('session_date').order_by('session_date')
+        query = query.group_by('log_date').order_by('log_date')
         records = query.all()
+
+        unit = records[0].unit if records else ""
 
         trends = [
             {
-                "date": r.session_date,
+                "date": r.log_date,
                 "avg_value": round(float(r.avg_val), 2),
                 "max_value": float(r.max_val)
             }
@@ -173,5 +177,6 @@ class StatisticsService:
             "group_id": group_id,
             "exercise_id": exercise_id,
             "parameter_name": parameter_name,
+            "parameter_unit": unit,
             "trends": trends
         }

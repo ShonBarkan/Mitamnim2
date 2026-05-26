@@ -17,11 +17,13 @@ class SessionService:
         logger.info(f"Creating new fat workout session for user: {user_id}")
         try:
             # Step 1: Create the main session record
+            session_started_at = data.get("started_at", datetime.now())
+
             new_session = WorkoutSession(
                 user_id=user_id,
                 template_id=data.get("template_id"),
                 name=data.get("name"),
-                started_at=data.get("started_at", datetime.now()),
+                started_at=session_started_at,
                 finished_at=data.get("finished_at"),
                 note=data.get("note")
             )
@@ -38,7 +40,8 @@ class SessionService:
                     "exercise_id": log_data.get("exercise_id"),
                     "exercise_name": log_data.get("exercise_name"),
                     "sets": log_data.get("sets", 1),
-                    "position": log_data.get("position", idx)
+                    "position": log_data.get("position", idx),
+                    "created_at": session_started_at  # Automatically sync log time to session time
                 }
 
                 new_log = ExerciseLog(**log_payload)
@@ -91,15 +94,28 @@ class SessionService:
         ).first()
 
     def update_session(self, session_id: uuid.UUID, user_id: uuid.UUID, data: dict) -> WorkoutSession:
-        """Update top-level session details."""
+        """Update top-level session details and cascade time changes to logs."""
         session = self.get_session_by_id(session_id, user_id)
         if not session:
             return None
 
         try:
+            time_changed = False
+            new_time = None
+
             for key, value in data.items():
                 if hasattr(session, key) and value is not None:
                     setattr(session, key, value)
+                    if key == "started_at":
+                        time_changed = True
+                        new_time = value
+
+            # Cascade the new timestamp to all nested logs automatically
+            if time_changed and new_time:
+                for log in session.logs:
+                    log.created_at = new_time
+                logger.info(f"Cascaded session timestamp update to all nested logs for session: {session_id}")
+
             self.db.commit()
             self.db.refresh(session)
             return session

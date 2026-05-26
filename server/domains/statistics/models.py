@@ -10,6 +10,7 @@ class DashboardConfigInfo(BaseModel):
     higher_better: bool
     exercise_id: Optional[int]
     position: int
+    parameter_unit: str  # Added unit of measurement
 
 class DashboardStatItem(BaseModel):
     user_data: Dict[str, float]
@@ -29,6 +30,7 @@ class AthleteStatsOut(BaseModel):
     user_id: uuid.UUID
     exercise_id: Optional[int]
     parameter_name: str
+    parameter_unit: str  # Added unit of measurement
     trends: List[TrendDataPoint]
     max_value: Optional[float]
     avg_value: Optional[float]
@@ -45,4 +47,5 @@ class GroupStatsOut(BaseModel):
     group_id: uuid.UUID
     exercise_id: Optional[int]
     parameter_name: str
+    parameter_unit: str  # Added unit of measurement
     trends: List[GroupTrendDataPoint]

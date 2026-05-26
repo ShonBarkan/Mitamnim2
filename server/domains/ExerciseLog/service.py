@@ -24,7 +24,8 @@ class ExerciseLogService:
                 exercise_id=data["exercise_id"],
                 exercise_name=data["exercise_name"],
                 sets=data.get("sets", 1),
-                position=data.get("position", 0)  # Added position mapping
+                position=data.get("position", 0),
+                created_at=data.get("created_at")  # Support creating independent logs with custom dates
             )
             self.db.add(new_log)
             self.db.flush() # Ensure ID is generated for params
@@ -58,7 +59,7 @@ class ExerciseLogService:
     def get_user_logs(self, user_id: uuid.UUID) -> list:
         """Retrieves all exercise logs for a specific user."""
         logger.info(f"Fetching logs for user: {user_id}")
-        return self.db.query(ExerciseLog).filter(ExerciseLog.user_id == user_id).all()
+        return self.db.query(ExerciseLog).filter(ExerciseLog.user_id == user_id).order_by(ExerciseLog.created_at.desc()).all()
 
     def update_log(self, log_id: uuid.UUID, data: dict) -> ExerciseLog:
         """Updates base values, position, and re-syncs parameter snapshots."""
@@ -72,9 +73,13 @@ class ExerciseLogService:
             if "sets" in data:
                 log.sets = data["sets"]
             if "position" in data:
-                log.position = data["position"] # Sync position update
-            if "created_at" in data:
+                log.position = data["position"]
+
+            # Disconnect from session if created_at (timestamp) is explicitly modified
+            if "created_at" in data and data["created_at"] is not None:
                 log.created_at = data["created_at"]
+                log.session_id = None
+                logger.info(f"Log ID: {log_id} detached from session due to explicit timestamp modification.")
 
             # Update parameters
             if "params" in data:
