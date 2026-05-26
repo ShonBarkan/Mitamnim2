@@ -14,7 +14,8 @@ from .service import GroupService
 router = APIRouter(prefix="/groups", tags=["Groups"])
 
 
-@router.post("/", response_model=GroupOut, status_code=status.HTTP_201_CREATED)
+# Changed "/" to "" to avoid 307 Redirects that drop the Auth token
+@router.post("", response_model=GroupOut, status_code=status.HTTP_201_CREATED)
 async def create_new_group(
     group_data: GroupCreate,
     db: Session = Depends(get_db),
@@ -41,7 +42,8 @@ async def create_new_group(
     return service.create_group(group_data)
 
 
-@router.get("/", response_model=List[GroupOut])
+# Changed "/" to "" to avoid 307 Redirects that drop the Auth token
+@router.get("", response_model=List[GroupOut])
 async def get_available_groups(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -56,11 +58,9 @@ async def get_available_groups(
     if current_user.role == "admin":
         return service.get_all_groups()
 
+    # Gracefully return an empty array for the frontend Navbar instead of 404
     if not current_user.group_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User is not assigned to any group"
-        )
+        return []
 
     group = service.get_group_by_id(current_user.group_id)
     return [group] if group else []

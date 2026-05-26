@@ -17,14 +17,14 @@ import ChatsPage from './pages/ChatsPage';
 import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
 import ExerciseManagerPage from './pages/ExerciseManagerPage';
-// import TemplateManagerPage from './pages/TemplateManagerPage';
 
 // Settings Sub-System Workspace Components
 import ParameterManager from './components/SettingsPage/ParameterManager';
 import TagManager from './components/SettingsPage/TagManager';
+
+// Workout & Template Ecosystem
 import ShowTemplatesPage from './pages/ShowTemplatesPage';
 import CreateTemplatePage from './pages/CreateTemplatePage';
-import ExerciseLogPage from './pages/ExerciseLogPage';
 import WorkoutHistoryPage from './pages/WorkoutHistoryPage';
 import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
 
@@ -40,22 +40,24 @@ function App() {
             
             {/* Protected Routes Wrapper */}
             <Route element={<ProtectedRoute />}>
+              
+              {/* General Authenticated Member Routes */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/chats" element={<ChatsPage />} />
               <Route path="/exercises" element={<ExerciseManagerPage />} />
+              
+              {/* Active Workout & History Architecture */}
               <Route path="/templates" element={<ShowTemplatesPage />} />
-              <Route path="/ExerciseLogPage" element={<ExerciseLogPage />} />
               <Route path="/WorkoutHistoryPage" element={<WorkoutHistoryPage />} />
               <Route path="/ActiveWorkoutPage" element={<ActiveWorkoutPage />} />
-
-
               
               {/* Privileged Coach Tools */}
               <Route element={<ProtectedRoute allowedRoles={['admin', 'trainer']} />}>
-                {/* <Route path="/templates" element={<TemplateManagerPage />} /> */}
                 <Route path="/users" element={<UserPanelPage />} />
                 <Route path="/templates/create" element={<CreateTemplatePage />} />
                 <Route path="/coach-messages" element={<CoachMessageManager />} />
+                
+                {/* Settings Nested Routes */}
                 <Route path="/settings" element={<SettingsPage />}>
                   <Route index element={<Navigate to="parameters" replace />} />
                   <Route path="parameters" element={<ParameterManager />} />
@@ -63,13 +65,13 @@ function App() {
                 </Route>
               </Route>
 
-              {/* Admin Only */}
+              {/* System Admin Tools */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
                 <Route path="/groups" element={<GroupPanelPage />} />
               </Route>
             </Route>
 
-            {/* Fallback */}
+            {/* Fallback Gateway */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
