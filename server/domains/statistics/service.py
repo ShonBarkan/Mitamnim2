@@ -9,6 +9,9 @@ from domains.ExerciseLog.models import ExerciseLog, ExerciseLogParam
 from domains.WorkoutSession.models import WorkoutSession
 from domains.dashboard_configs.models import DashboardConfig
 from domains.users.models import User
+from domains.exercises.models import Exercise
+from domains.tags.models import Tag
+from domains.parameters.models import Parameter
 
 
 class StatisticsService:
@@ -50,7 +53,8 @@ class StatisticsService:
             agg_key = f"{config.aggregation_type.lower()}_val"
             user_results = {str(s.user_id): round(getattr(s, agg_key) or 0, 2) for s in stats}
 
-            unit = getattr(config.parameter, 'unit', 'units') if hasattr(config, 'parameter') and config.parameter else ""
+            unit = getattr(config.parameter, 'unit', 'units') if hasattr(config,
+                                                                         'parameter') and config.parameter else ""
 
             results[config.display_name] = {
                 "user_data": user_results,
@@ -70,11 +74,15 @@ class StatisticsService:
         Specific endpoint for an athlete to view their own raw statistics.
         """
         result = self._fetch_raw_stats_internal(user.group_id, [user.id], start_date, end_date)
-        # Extract the single user object from the list to match AthleteStatsOut model
         if result["data"]:
             return result["data"][0]
-        return {"user_id": user.id, "first_name": user.first_name, "second_name": user.second_name,
-                "profile_picture": user.profile_picture, "stats": {"total_sessions": 0, "total_duration_minutes": 0, "logs": []}}
+        return {
+            "user_id": user.id,
+            "first_name": user.first_name,
+            "second_name": user.second_name,
+            "profile_picture": user.profile_picture,
+            "stats": {"total_sessions": 0, "total_duration_minutes": 0, "logs": []}
+        }
 
     def get_group_statistics(self, user: User, start_date: datetime, end_date: datetime,
                              user_ids: Optional[List[uuid.UUID]] = None) -> dict:
@@ -94,6 +102,20 @@ class StatisticsService:
         Internal helper to fetch and construct raw statistics data.
         """
         logger.info(f"Fetching raw statistics for group {group_id}")
+
+        # Pre-fetch parameter definitions for display_method mapping
+        param_defs = {p.name: p for p in self.db.query(Parameter).filter(Parameter.group_id == group_id).all()}
+
+        # Build exercise tags lookup map safely to avoid ORM relationship issues
+        try:
+            group_exercises = self.db.query(Exercise).options(selectinload(Exercise.tags)).filter(Exercise.group_id == group_id).all()
+        except Exception:
+            group_exercises = self.db.query(Exercise).filter(Exercise.group_id == group_id).all()
+
+        exercise_tags_lookup = {}
+        for ex in group_exercises:
+            tags = getattr(ex, 'tags', [])
+            exercise_tags_lookup[ex.id] = [{"id": t.id, "name": t.name, "color": t.color} for t in tags]
 
         users_query = self.db.query(User).filter(User.group_id == group_id)
         if target_user_ids:
@@ -121,18 +143,48 @@ class StatisticsService:
         stats_map = {s.user_id: {"sessions": s.total_sessions, "duration": round(s.total_duration or 0.0, 2)} for s in
                      session_stats}
 
+        # Query logs directly without referencing the unmapped Exercise relationship
         logs_query = (
             self.db.query(ExerciseLog)
             .filter(ExerciseLog.created_at.between(start_date, end_date))
             .filter(ExerciseLog.user_id.in_([u.id for u in users]))
+            .options(selectinload(ExerciseLog.params))
         )
 
-        all_logs = logs_query.options(selectinload(ExerciseLog.params)).order_by(ExerciseLog.created_at.desc()).all()
+        all_logs = logs_query.order_by(ExerciseLog.created_at.desc()).all()
 
         logs_map = {}
         for log in all_logs:
             if log.user_id not in logs_map: logs_map[log.user_id] = []
-            logs_map[log.user_id].append(log)
+
+            # Map log params with display methods
+            processed_params = []
+            for p in log.params:
+                param_def = param_defs.get(p.parameter_name)
+                processed_params.append({
+                    "id": p.id,
+                    "parameter_name": p.parameter_name,
+                    "parameter_unit": p.parameter_unit,
+                    "value": p.value,
+                    "display_method": param_def.aggregation_strategy if param_def else None,
+                    "tags": []  # Empty array for parameter tags setup
+                })
+
+            # Fetch tags dynamically from our lookup dictionary
+            exercise_tags = exercise_tags_lookup.get(log.exercise_id, [])
+
+            logs_map[log.user_id].append({
+                "id": log.id,
+                "session_id": log.session_id,
+                "exercise_id": log.exercise_id,
+                "exercise_name": log.exercise_name,
+                "sets": log.sets,
+                "created_at": log.created_at,
+                "user_id": log.user_id,
+                "position": log.position,
+                "params": processed_params,
+                "tags": exercise_tags
+            })
 
         data = []
         for user in users:

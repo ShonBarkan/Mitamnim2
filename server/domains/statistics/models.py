@@ -3,6 +3,16 @@ from typing import List, Dict, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
+# --- Common Schemas ---
+
+class TagOut(BaseModel):
+    id: int
+    name: str
+    color: str
+
+    class Config:
+        from_attributes = True
+
 # --- Dashboard Stats Schemas ---
 
 class DashboardConfigInfo(BaseModel):
@@ -27,6 +37,8 @@ class ExerciseLogParamOut(BaseModel):
     parameter_name: str
     parameter_unit: str
     value: float
+    display_method: Optional[str] = None  # Aggregation strategy (e.g., SUM, MAX, AVG)
+    tags: List[TagOut] = []               # Tags associated with the parameter
 
     class Config:
         from_attributes = True
@@ -41,6 +53,7 @@ class ExerciseLogOut(BaseModel):
     user_id: uuid.UUID
     position: int
     params: List[ExerciseLogParamOut] = []
+    tags: List[TagOut] = []               # Tags associated with the exercise
 
     class Config:
         from_attributes = True
