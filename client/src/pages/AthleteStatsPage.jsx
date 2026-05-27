@@ -7,6 +7,8 @@ import React, {
 } from "react";
 
 import { useStatistics } from "../contexts/StatisticsContext";
+import { useAuth } from "../contexts/AuthContext";
+import { useUsers } from "../contexts/UserContext";
 
 import Header from "../components/AthleteStatsPage/Header";
 import OverviewCards from "../components/AthleteStatsPage/OverviewCards";
@@ -19,6 +21,7 @@ import EmptyState from "../components/AthleteStatsPage/EmptyState";
 import EmptySelectionState from "../components/AthleteStatsPage/EmptySelectionState";
 import LoadingSkeleton from "../components/AthleteStatsPage/LoadingSkeleton";
 import LoadingOverlay from "../components/AthleteStatsPage/LoadingOverlay";
+import TrainerAthleteSelector from "../components/AthleteStatsPage/TrainerAthleteSelector";
 
 const AthleteStatsPage = () => {
   /**
@@ -28,6 +31,10 @@ const AthleteStatsPage = () => {
  */
 
 const { loadingStats, fetchRawStatistics } = useStatistics();
+const { user } = useAuth();
+const { users, refreshUsers } = useUsers();
+
+const isTrainerUser = user?.role === 'trainer' || user?.role === 'admin';
 
 /**
  * ============================================================================
@@ -36,12 +43,19 @@ const { loadingStats, fetchRawStatistics } = useStatistics();
  */
 
 const [statsData, setStatsData] = useState(null);
+const [masterGroupStatsData, setMasterGroupStatsData] = useState([]); // Holds ALL athletes stats
 const [error, setError] = useState(null);
+
+const [selectedUsers, setSelectedUsers] = useState([]);
+const isTrainerMode = isTrainerUser && selectedUsers.length > 0;
 
 const [analyticsMode, setAnalyticsMode] = useState("parameters");
 
 const [selectedExercise, setSelectedExercise] = useState(null);
 const [selectedParameter, setSelectedParameter] = useState(null);
+
+const [trainerSubExercise, setTrainerSubExercise] = useState("all");
+const [trainerSubParameter, setTrainerSubParameter] = useState("all");
 
 const [visibleExercises, setVisibleExercises] = useState({});
 const [visibleParameters, setVisibleParameters] = useState({});
@@ -57,9 +71,41 @@ const isInitialLoadRef = useRef(true);
 
 /**
  * ============================================================================
+ * FILTERED DATA
+ * ============================================================================
+ */
+
+const filteredGroupStatsData = useMemo(() => {
+  if (!isTrainerMode || selectedUsers.length === 0) return [];
+  return masterGroupStatsData.filter(user => selectedUsers.includes(user.user_id));
+}, [masterGroupStatsData, isTrainerMode, selectedUsers]);
+
+/**
+ * ============================================================================
+ * USER AVATAR MAPPING
+ * ============================================================================
+ */
+
+const userAvatarMap = useMemo(() => {
+  const map = {};
+  filteredGroupStatsData.forEach(user => {
+    const userName = user.first_name + (user.last_name ? ` ${user.last_name}` : (user.second_name ? ` ${user.second_name}` : ''));
+    map[userName] = user.profile_picture || null;
+  });
+  return map;
+}, [filteredGroupStatsData]);
+
+/**
+ * ============================================================================
  * EFFECTS
  * ============================================================================
  */
+
+useEffect(() => {
+  if (isTrainerUser && users.length === 0) {
+    refreshUsers();
+  }
+}, [isTrainerUser, users.length, refreshUsers]);
 
 useEffect(() => {
   const timer = setTimeout(() => {
@@ -73,6 +119,8 @@ useEffect(() => {
   loadStatistics();
 }, []);
 
+// Only reload statistics from API if the date filter changes.
+// We no longer reload when selectedUsers change, as we filter locally.
 useEffect(() => {
   if (isInitialLoadRef.current) {
     isInitialLoadRef.current = false;
@@ -92,14 +140,29 @@ const loadStatistics = useCallback(async () => {
   try {
     setError(null);
 
-    const response = await fetchRawStatistics(dateFilter);
+    // If it's a trainer, fetch ALL users' stats for this date filter once.
+    // If it's a trainee, just fetch their own stats.
+    const fetchTrainerMode = isTrainerUser; 
+    
+    // We pass null for user_ids so the backend returns everyone in the group
+    const response = await fetchRawStatistics(
+      dateFilter,
+      fetchTrainerMode,
+      null 
+    );
 
-    setStatsData(response);
+    if (fetchTrainerMode) {
+      setMasterGroupStatsData(response.data || []);
+      setStatsData(null);
+    } else {
+      setStatsData(response);
+      setMasterGroupStatsData([]);
+    }
   } catch (err) {
     console.error(err);
     setError("אירעה שגיאה בטעינת הנתונים");
   }
-}, [dateFilter, fetchRawStatistics]);
+}, [dateFilter, fetchRawStatistics, isTrainerUser]);
   /**
    * ============================================================================
    * HELPERS
@@ -128,10 +191,15 @@ const loadStatistics = useCallback(async () => {
       "#6366f1",
     ];
 
-    let hash = 0;
+    if (typeof seed === 'number') {
+      return colors[Math.abs(seed) % colors.length];
+    }
 
-    for (let i = 0; i < seed.length; i++) {
-      hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+    let hash = 0;
+    const strSeed = String(seed);
+
+    for (let i = 0; i < strSeed.length; i++) {
+      hash = strSeed.charCodeAt(i) + ((hash << 5) - hash);
     }
 
     return colors[Math.abs(hash) % colors.length];
@@ -216,8 +284,21 @@ const loadStatistics = useCallback(async () => {
    * ============================================================================
    */
 
-  const stats = statsData?.stats || {};
-  const logs = stats.logs || [];
+  const stats = isTrainerMode ? null : (statsData?.stats || {});
+  const logs = stats?.logs || [];
+
+  const combinedStats = useMemo(() => {
+    if (!isTrainerMode) return stats;
+    return {
+      total_sessions: filteredGroupStatsData.reduce((sum, u) => sum + (u.stats?.total_sessions || 0), 0),
+      total_duration_minutes: filteredGroupStatsData.reduce((sum, u) => sum + (u.stats?.total_duration_minutes || 0), 0),
+      breakdown: filteredGroupStatsData.map(u => ({
+        name: u.first_name + (u.last_name ? ` ${u.last_name}` : (u.second_name ? ` ${u.second_name}` : '')),
+        sessions: u.stats?.total_sessions || 0,
+        duration: u.stats?.total_duration_minutes || 0
+      })).filter(u => u.sessions > 0)
+    };
+  }, [stats, filteredGroupStatsData, isTrainerMode]);
 
   /**
    * ============================================================================
@@ -225,13 +306,25 @@ const loadStatistics = useCallback(async () => {
    * ============================================================================
    */
 
+  const sortedGroupData = useMemo(() => {
+    if (!isTrainerMode) return [];
+    return filteredGroupStatsData.map((user) => {
+      const sorted = [...(user.stats?.logs || [])].sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      return { ...user, sortedLogs: sorted };
+    });
+  }, [filteredGroupStatsData, isTrainerMode]);
+
   const sortedLogs = useMemo(() => {
+    if (isTrainerMode) return [];
     return [...logs].sort(
       (a, b) =>
         new Date(a.created_at).getTime() -
         new Date(b.created_at).getTime()
     );
-  }, [logs]);
+  }, [logs, isTrainerMode]);
 
   /**
    * ============================================================================
@@ -239,70 +332,75 @@ const loadStatistics = useCallback(async () => {
    * ============================================================================
    */
 
+  const processLogIntoExercisesMap = (log, map) => {
+    if (!map.has(log.exercise_id)) {
+      map.set(log.exercise_id, {
+        id: log.exercise_id,
+        name: log.exercise_name,
+        logs: [],
+        appearances: 0,
+        tags: log.tags || [],
+      });
+    }
+    const current = map.get(log.exercise_id);
+    current.logs.push(log);
+    current.appearances += 1;
+  };
+
   const exercisesMap = useMemo(() => {
     const map = new Map();
 
-    sortedLogs.forEach((log) => {
-      if (!map.has(log.exercise_id)) {
-        map.set(log.exercise_id, {
-          id: log.exercise_id,
-          name: log.exercise_name,
-          logs: [],
+    if (isTrainerMode) {
+      sortedGroupData.forEach((user) => {
+        user.sortedLogs.forEach((log) => processLogIntoExercisesMap(log, map));
+      });
+    } else {
+      sortedLogs.forEach((log) => processLogIntoExercisesMap(log, map));
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (b.appearances !== a.appearances) return b.appearances - a.appearances;
+      return a.name.localeCompare(b.name, "he");
+    });
+  }, [sortedLogs, sortedGroupData, isTrainerMode]);
+
+  const processLogIntoParametersMap = (log, map) => {
+    log.params?.forEach((param) => {
+      const key = param.parameter_name;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          name: param.parameter_name,
+          unit: param.parameter_unit,
+          method: param.display_method,
+          values: [],
           appearances: 0,
-          tags: log.tags || [],
+          logs: [],
         });
       }
-
-      const current = map.get(log.exercise_id);
-
+      const current = map.get(key);
+      current.values.push(Number(param.value));
       current.logs.push(log);
       current.appearances += 1;
     });
-
-    return Array.from(map.values()).sort((a, b) => {
-      if (b.appearances !== a.appearances) {
-        return b.appearances - a.appearances;
-      }
-
-      return a.name.localeCompare(b.name, "he");
-    });
-  }, [sortedLogs]);
+  };
 
   const parametersMap = useMemo(() => {
     const map = new Map();
 
-    sortedLogs.forEach((log) => {
-      log.params?.forEach((param) => {
-        const key = param.parameter_name;
-
-        if (!map.has(key)) {
-          map.set(key, {
-            id: key,
-            name: param.parameter_name,
-            unit: param.parameter_unit,
-            method: param.display_method,
-            values: [],
-            appearances: 0,
-            logs: [],
-          });
-        }
-
-        const current = map.get(key);
-
-        current.values.push(Number(param.value));
-        current.logs.push(log);
-        current.appearances += 1;
+    if (isTrainerMode) {
+      sortedGroupData.forEach((user) => {
+        user.sortedLogs.forEach((log) => processLogIntoParametersMap(log, map));
       });
-    });
+    } else {
+      sortedLogs.forEach((log) => processLogIntoParametersMap(log, map));
+    }
 
     return Array.from(map.values()).sort((a, b) => {
-      if (b.appearances !== a.appearances) {
-        return b.appearances - a.appearances;
-      }
-
+      if (b.appearances !== a.appearances) return b.appearances - a.appearances;
       return a.name.localeCompare(b.name, "he");
     });
-  }, [sortedLogs]);
+  }, [sortedLogs, sortedGroupData, isTrainerMode]);
 
   /**
    * ============================================================================
@@ -340,44 +438,52 @@ const loadStatistics = useCallback(async () => {
   const selectedParameterData = useMemo(() => {
     if (!selectedParameter) return null;
 
-    const logsContainingParameter = sortedLogs.filter((log) =>
-      log.params.some(
-        (param) => param.parameter_name === selectedParameter.name
-      )
-    );
-
     const values = [];
+    const valuesByAthlete = [];
+    let count = 0;
+    
+    if (isTrainerMode) {
+      sortedGroupData.forEach((user) => {
+        const userValues = [];
+        user.sortedLogs.forEach((log) => {
+          const param = log.params.find(p => p.parameter_name === selectedParameter.name);
+          if (param) {
+            const numVal = Number(param.value);
+            values.push(numVal);
+            userValues.push(numVal);
+            count++;
+          }
+        });
 
-    logsContainingParameter.forEach((log) => {
-      const param = log.params.find(
-        (p) => p.parameter_name === selectedParameter.name
-      );
+        if (userValues.length > 0) {
+          const userName = user.first_name + (user.last_name ? ` ${user.last_name}` : (user.second_name ? ` ${user.second_name}` : ''));
+          valuesByAthlete.push({
+            name: userName,
+            aggregate: aggregateParameterValues(userValues, selectedParameter.method)
+          });
+        }
+      });
+    } else {
+      sortedLogs.forEach((log) => {
+        const param = log.params.find(p => p.parameter_name === selectedParameter.name);
+        if (param) {
+          values.push(Number(param.value));
+          count++;
+        }
+      });
+    }
 
-      if (param) {
-        values.push(Number(param.value));
-      }
-    });
-
-    const aggregate = aggregateParameterValues(
-      values,
-      selectedParameter.method
-    );
+    if (count === 0) return null;
 
     return {
-      aggregate,
-      average:
-        values.reduce((acc, curr) => acc + curr, 0) /
-        (values.length || 1),
+      aggregate: aggregateParameterValues(values, selectedParameter.method),
+      average: values.reduce((a, b) => a + b, 0) / count,
       max: Math.max(...values),
-      count: values.length,
+      count,
       values,
-      logs: logsContainingParameter,
+      valuesByAthlete
     };
-  }, [
-    selectedParameter,
-    sortedLogs,
-    aggregateParameterValues,
-  ]);
+  }, [selectedParameter, sortedLogs, sortedGroupData, isTrainerMode, aggregateParameterValues]);
 
   /**
    * ============================================================================
@@ -390,46 +496,50 @@ const loadStatistics = useCallback(async () => {
 
     const map = new Map();
 
-    sortedLogs.forEach((log) => {
-      const param = log.params.find(
-        (p) => p.parameter_name === selectedParameter.name
-      );
-
-      if (!param) return;
-
-      if (!map.has(log.exercise_name)) {
-        map.set(log.exercise_name, []);
-      }
-
-      map.get(log.exercise_name).push(Number(param.value));
-    });
+    if (isTrainerMode) {
+      // In trainer mode, still break down by exercise, but aggregate across all users
+      // to populate the cards and the sub-filter dropdown.
+      sortedGroupData.forEach((user) => {
+        user.sortedLogs.forEach((log) => {
+          const param = log.params.find(p => p.parameter_name === selectedParameter.name);
+          if (!param) return;
+          if (!map.has(log.exercise_name)) map.set(log.exercise_name, []);
+          map.get(log.exercise_name).push(Number(param.value));
+        });
+      });
+    } else {
+      sortedLogs.forEach((log) => {
+        const param = log.params.find((p) => p.parameter_name === selectedParameter.name);
+        if (!param) return;
+        if (!map.has(log.exercise_name)) map.set(log.exercise_name, []);
+        map.get(log.exercise_name).push(Number(param.value));
+      });
+    }
 
     const breakdown = Array.from(map.entries()).map(
       ([exerciseName, values]) => ({
         exerciseName,
-        value: aggregateParameterValues(
-          values,
-          selectedParameter.method
-        ),
+        value: aggregateParameterValues(values, selectedParameter.method),
         unit: selectedParameter.unit,
       })
     );
 
-    const maxValue = Math.max(
-      ...breakdown.map((item) => item.value)
-    );
+    if (!breakdown.length) return [];
+    const maxValue = Math.max(...breakdown.map((item) => item.value));
 
     return breakdown
-      .map((item) => ({
-        ...item,
-        percentage: (item.value / maxValue) * 100,
-      }))
+      .map((item) => ({ ...item, percentage: (item.value / maxValue) * 100 }))
       .sort((a, b) => b.value - a.value);
-  }, [
-    selectedParameter,
-    sortedLogs,
-    aggregateParameterValues,
-  ]);
+  }, [selectedParameter, sortedLogs, sortedGroupData, isTrainerMode, aggregateParameterValues]);
+
+  // Handle setting default sub-filters when parameter or exercise changes
+  useEffect(() => {
+    if (isTrainerMode && parameterExerciseBreakdown.length > 0) {
+      if (!parameterExerciseBreakdown.some(e => e.exerciseName === trainerSubExercise)) {
+        setTrainerSubExercise(parameterExerciseBreakdown[0].exerciseName);
+      }
+    }
+  }, [parameterExerciseBreakdown, isTrainerMode, trainerSubExercise]);
 
   /**
    * ============================================================================
@@ -440,26 +550,37 @@ const loadStatistics = useCallback(async () => {
   const parameterTimelineData = useMemo(() => {
     if (!selectedParameter) return [];
 
-    return buildTimelineDataset(
-      sortedLogs.filter((log) =>
-        log.params.some(
-          (param) =>
-            param.parameter_name === selectedParameter.name
-        )
-      ),
-      (log, row) => {
-        const param = log.params.find(
-          (p) => p.parameter_name === selectedParameter.name
-        );
-
-        row[log.exercise_name] = Number(param.value);
-      }
-    );
-  }, [
-    selectedParameter,
-    sortedLogs,
-    buildTimelineDataset,
-  ]);
+    if (isTrainerMode) {
+      const dateMap = new Map();
+      
+      sortedGroupData.forEach((user) => {
+        const userName = user.first_name + (user.second_name ? ` ${user.second_name}` : '');
+        user.sortedLogs.forEach((log) => {
+          if (trainerSubExercise && trainerSubExercise !== "all" && log.exercise_name !== trainerSubExercise) {
+            return;
+          }
+          const param = log.params.find(p => p.parameter_name === selectedParameter.name);
+          if (!param) return;
+          
+          const dateStr = new Date(log.created_at).toLocaleDateString("he-IL");
+          if (!dateMap.has(dateStr)) {
+            dateMap.set(dateStr, { date: dateStr, timestamp: new Date(log.created_at).getTime() });
+          }
+          const row = dateMap.get(dateStr);
+          row[userName] = row[userName] ? Math.max(row[userName], Number(param.value)) : Number(param.value);
+        });
+      });
+      return Array.from(dateMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+    } else {
+      return buildTimelineDataset(
+        sortedLogs.filter((log) => log.params.some((param) => param.parameter_name === selectedParameter.name)),
+        (log, row) => {
+          const param = log.params.find((p) => p.parameter_name === selectedParameter.name);
+          row[log.exercise_name] = Number(param.value);
+        }
+      );
+    }
+  }, [selectedParameter, sortedLogs, sortedGroupData, isTrainerMode, buildTimelineDataset, trainerSubExercise]);
 
   /**
    * ============================================================================
@@ -469,6 +590,36 @@ const loadStatistics = useCallback(async () => {
 
   const selectedExerciseData = useMemo(() => {
     if (!selectedExercise) return null;
+
+    if (isTrainerMode) {
+      // In trainer mode, break down by parameter for the selected exercise, 
+      // aggregating across all users.
+      const paramMap = new Map();
+      sortedGroupData.forEach((user) => {
+        const relevantLogs = user.sortedLogs.filter((log) => log.exercise_id === selectedExercise.id);
+        relevantLogs.forEach((log) => {
+          log.params.forEach((param) => {
+            const key = param.parameter_name;
+            if (!paramMap.has(key)) {
+              paramMap.set(key, {
+                name: param.parameter_name,
+                unit: param.parameter_unit,
+                method: param.display_method,
+                values: [],
+              });
+            }
+            paramMap.get(key).values.push(Number(param.value));
+          });
+        });
+      });
+
+      return Array.from(paramMap.values()).map((param) => ({
+        ...param,
+        aggregate: aggregateParameterValues(param.values, param.method),
+        max: Math.max(...param.values),
+        avg: param.values.reduce((a, b) => a + b, 0) / param.values.length,
+      }));
+    }
 
     const relevantLogs = sortedLogs.filter(
       (log) => log.exercise_id === selectedExercise.id
@@ -507,8 +658,18 @@ const loadStatistics = useCallback(async () => {
   }, [
     selectedExercise,
     sortedLogs,
+    sortedGroupData,
+    isTrainerMode,
     aggregateParameterValues,
   ]);
+
+  useEffect(() => {
+    if (isTrainerMode && selectedExerciseData && selectedExerciseData.length > 0) {
+      if (!selectedExerciseData.some(p => p.name === trainerSubParameter)) {
+        setTrainerSubParameter(selectedExerciseData[0].name);
+      }
+    }
+  }, [selectedExerciseData, isTrainerMode, trainerSubParameter]);
 
   /**
    * ============================================================================
@@ -519,28 +680,59 @@ const loadStatistics = useCallback(async () => {
   const exerciseTimelineData = useMemo(() => {
     if (!selectedExercise) return [];
 
-    const exerciseLogs = sortedLogs.filter(
-      (log) => log.exercise_id === selectedExercise.id
-    );
-
-    const rows = buildTimelineDataset(
-      exerciseLogs,
-      (log, row) => {
-        log.params.forEach((param) => {
-          row[param.parameter_name] = Number(param.value);
+    let rows;
+    if (isTrainerMode) {
+      const dateMap = new Map();
+      sortedGroupData.forEach((user) => {
+        const userName = user.first_name + (user.last_name ? ` ${user.last_name}` : (user.second_name ? ` ${user.second_name}` : ''));
+        const exerciseLogs = user.sortedLogs.filter((log) => log.exercise_id === selectedExercise.id);
+        exerciseLogs.forEach((log) => {
+          const dateStr = new Date(log.created_at).toLocaleDateString("he-IL");
+          if (!dateMap.has(dateStr)) {
+            dateMap.set(dateStr, { date: dateStr, timestamp: new Date(log.created_at).getTime() });
+          }
+          const row = dateMap.get(dateStr);
+          
+          if (trainerSubParameter && trainerSubParameter !== "all") {
+             const param = log.params.find(p => p.parameter_name === trainerSubParameter);
+             if (param) {
+                 row[userName] = row[userName] ? Math.max(row[userName], Number(param.value)) : Number(param.value);
+             }
+          } else {
+             // Fallback if somehow nothing is selected: sum of all parameters? Not useful, but keeps it safe
+             let sum = 0;
+             log.params.forEach(p => sum += Number(p.value));
+             row[userName] = row[userName] ? Math.max(row[userName], sum) : sum;
+          }
         });
-      }
-    );
+      });
+      return Array.from(dateMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+    } else {
+      const exerciseLogs = sortedLogs.filter(
+        (log) => log.exercise_id === selectedExercise.id
+      );
 
-    if (!normalizeChart) return rows;
+      rows = buildTimelineDataset(
+        exerciseLogs,
+        (log, row) => {
+          log.params.forEach((param) => {
+            row[param.parameter_name] = Number(param.value);
+          });
+        }
+      );
 
-    const keys = selectedExerciseData?.map((p) => p.name) || [];
+      if (!normalizeChart) return rows;
 
-    return normalizeChartData(rows, keys);
+      const keys = selectedExerciseData?.map((p) => p.name) || [];
+
+      return normalizeChartData(rows, keys);
+    }
   }, [
     selectedExercise,
     selectedExerciseData,
     sortedLogs,
+    sortedGroupData,
+    isTrainerMode,
     buildTimelineDataset,
     normalizeChart,
     normalizeChartData,
@@ -596,6 +788,10 @@ const loadStatistics = useCallback(async () => {
     return <ErrorState loadStatistics={loadStatistics} />;
   }
 
+  const hasDataToDisplay = isTrainerMode 
+    ? filteredGroupStatsData.length > 0
+    : logs.length > 0;
+
   return (
     <div dir="rtl" className="min-h-screen bg-[#09090B] text-white">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -611,15 +807,28 @@ const loadStatistics = useCallback(async () => {
           loadingStats={loadingStats}
         />
 
+        {isTrainerUser && (
+          <TrainerAthleteSelector
+            users={users}
+            selectedUsers={selectedUsers}
+            setSelectedUsers={setSelectedUsers}
+          />
+        )}
+
         {loadingStats && <LoadingSkeleton />}
 
         {!loadingStats && (
           <>
-            {!logs.length ? (
+            {!hasDataToDisplay ? (
               <EmptyState />
             ) : (
               <>
-                <OverviewCards stats={stats} formatNumber={formatNumber} />
+                <OverviewCards 
+                  stats={combinedStats} 
+                  formatNumber={formatNumber} 
+                  isTrainerMode={isTrainerMode}
+                  userAvatarMap={userAvatarMap}
+                />
 
                 <ModeTabs
                   analyticsMode={analyticsMode}
@@ -659,6 +868,10 @@ const loadStatistics = useCallback(async () => {
                       visibleExercises={visibleExercises}
                       setVisibleExercises={setVisibleExercises}
                       generateStableColor={generateStableColor}
+                      isTrainerMode={isTrainerMode}
+                      userAvatarMap={userAvatarMap}
+                      trainerSubExercise={trainerSubExercise}
+                      setTrainerSubExercise={setTrainerSubExercise}
                     />
                   )}
 
@@ -674,6 +887,10 @@ const loadStatistics = useCallback(async () => {
                       visibleParameters={visibleParameters}
                       setVisibleParameters={setVisibleParameters}
                       generateStableColor={generateStableColor}
+                      isTrainerMode={isTrainerMode}
+                      userAvatarMap={userAvatarMap}
+                      trainerSubParameter={trainerSubParameter}
+                      setTrainerSubParameter={setTrainerSubParameter}
                     />
                   )}
               </>

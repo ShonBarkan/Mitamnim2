@@ -57,12 +57,18 @@ export const statisticsService = {
   getGroupStatistics: async (startDate, endDate, userIds = null) => {
     FrontendLogger.info('STATISTICS_SERVICE', `Fetching group-stats for range ${startDate} - ${endDate}`);
     try {
+      const params = new URLSearchParams();
+      params.append('start_date', startDate);
+      params.append('end_date', endDate);
+      
+      if (userIds && Array.isArray(userIds) && userIds.length > 0) {
+        userIds.forEach(id => {
+          params.append('user_ids', id);
+        });
+      }
+
       const response = await api.get('/statistics/group-stats', {
-        params: { 
-          start_date: startDate,
-          end_date: endDate,
-          user_ids: userIds
-        }
+        params: params
       });
       return response.data;
     } catch (error) {
