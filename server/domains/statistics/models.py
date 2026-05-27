@@ -10,7 +10,7 @@ class DashboardConfigInfo(BaseModel):
     higher_better: bool
     exercise_id: Optional[int]
     position: int
-    parameter_unit: str  # Added unit of measurement
+    parameter_unit: str
 
 class DashboardStatItem(BaseModel):
     user_data: Dict[str, float]
@@ -20,32 +20,44 @@ class DashboardStatsOut(BaseModel):
     stats: Dict[str, DashboardStatItem]
 
 
-# --- Personal/Athlete Stats Schemas ---
+# --- Raw Statistics Schemas ---
 
-class TrendDataPoint(BaseModel):
-    date: datetime
+class ExerciseLogParamOut(BaseModel):
+    id: uuid.UUID
+    parameter_name: str
+    parameter_unit: str
     value: float
 
+    class Config:
+        from_attributes = True
+
+class ExerciseLogOut(BaseModel):
+    id: uuid.UUID
+    session_id: Optional[uuid.UUID]
+    exercise_id: int
+    exercise_name: str
+    sets: Optional[int]
+    created_at: datetime
+    user_id: uuid.UUID
+    position: int
+    params: List[ExerciseLogParamOut] = []
+
+    class Config:
+        from_attributes = True
+
+class RawStatisticsData(BaseModel):
+    total_sessions: int
+    total_duration_minutes: float
+    logs: List[ExerciseLogOut]
+
+# Athlete endpoint model (Single user profile + stats)
 class AthleteStatsOut(BaseModel):
     user_id: uuid.UUID
-    exercise_id: Optional[int]
-    parameter_name: str
-    parameter_unit: str  # Added unit of measurement
-    trends: List[TrendDataPoint]
-    max_value: Optional[float]
-    avg_value: Optional[float]
+    first_name: Optional[str]
+    second_name: Optional[str]
+    profile_picture: Optional[str]
+    stats: RawStatisticsData
 
-
-# --- Group Trends Schemas ---
-
-class GroupTrendDataPoint(BaseModel):
-    date: datetime
-    avg_value: float
-    max_value: float
-
-class GroupStatsOut(BaseModel):
-    group_id: uuid.UUID
-    exercise_id: Optional[int]
-    parameter_name: str
-    parameter_unit: str  # Added unit of measurement
-    trends: List[GroupTrendDataPoint]
+# Trainer endpoint model (Group stats list)
+class TrainerGroupStatsOut(BaseModel):
+    data: List[AthleteStatsOut]

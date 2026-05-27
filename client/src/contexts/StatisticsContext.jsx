@@ -8,13 +8,32 @@ export const StatisticsProvider = ({ children }) => {
   const [dashboardStats, setDashboardStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
-  /**
-   * Fetch and store dashboard statistics in the context state.
-   */
   const fetchDashboardStats = useCallback(async (period = 'today') => {
     setLoadingStats(true);
     try {
-      const data = await statisticsService.getDashboardStats(period);
+      const now = new Date();
+      let startDate = new Date();
+      let endDate = new Date();
+      endDate.setHours(23, 59, 59, 999);
+
+      if (period === 'today') {
+        startDate.setHours(0, 0, 0, 0);
+      } else if (period === 'week') {
+        const daysSinceSunday = now.getDay();
+        startDate.setDate(now.getDate() - daysSinceSunday);
+        startDate.setHours(0, 0, 0, 0);
+      } else if (period === 'month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
+      }
+
+      const data = await statisticsService.getDashboardStats(
+        startDate.toISOString(), 
+        endDate.toISOString()
+      );
+      
       setDashboardStats(data);
       return data;
     } catch (error) {
@@ -25,34 +44,19 @@ export const StatisticsProvider = ({ children }) => {
     }
   }, []);
 
-  /**
-   * Fetch athlete specific stats. 
-   * Returns data directly to be used in local component state (e.g., inside a chart modal).
-   */
-  const fetchAthleteStats = useCallback(async (athleteId, parameterName, exerciseId = null, monthsBack = 3) => {
+  const fetchRawStatistics = useCallback(async (startDate, endDate, isTrainer = false, userIds = null) => {
     setLoadingStats(true);
     try {
-      const data = await statisticsService.getAthleteStats(athleteId, parameterName, exerciseId, monthsBack);
+      // כאן התיקון: ניתוב לפי סוג המשתמש
+      let data;
+      if (isTrainer) {
+        data = await statisticsService.getGroupStatistics(startDate, endDate, userIds);
+      } else {
+        data = await statisticsService.getMyStatistics(startDate, endDate);
+      }
       return data;
     } catch (error) {
-      FrontendLogger.error('STATISTICS_CONTEXT', `Error fetching stats for athlete: ${athleteId}`, error);
-      throw error;
-    } finally {
-      setLoadingStats(false);
-    }
-  }, []);
-
-  /**
-   * Fetch group trend stats.
-   * Returns data directly to be used in local component state.
-   */
-  const fetchGroupTrends = useCallback(async (parameterName, exerciseId = null, monthsBack = 3) => {
-    setLoadingStats(true);
-    try {
-      const data = await statisticsService.getGroupTrends(parameterName, exerciseId, monthsBack);
-      return data;
-    } catch (error) {
-      FrontendLogger.error('STATISTICS_CONTEXT', 'Error fetching group trends', error);
+      FrontendLogger.error('STATISTICS_CONTEXT', 'Error fetching raw statistics', error);
       throw error;
     } finally {
       setLoadingStats(false);
@@ -63,14 +67,12 @@ export const StatisticsProvider = ({ children }) => {
     dashboardStats,
     loadingStats,
     fetchDashboardStats,
-    fetchAthleteStats,
-    fetchGroupTrends
+    fetchRawStatistics
   }), [
     dashboardStats, 
     loadingStats, 
     fetchDashboardStats, 
-    fetchAthleteStats, 
-    fetchGroupTrends
+    fetchRawStatistics
   ]);
 
   return (

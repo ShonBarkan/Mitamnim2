@@ -8,64 +8,65 @@ export const statisticsService = {
   
   /**
    * Fetches aggregated stats for the group dashboard.
-   * @param {string} period - 'today', 'week', or 'month'
+   * @param {string} startDate - ISO date string.
+   * @param {string} endDate - ISO date string.
    */
-  getDashboardStats: async (period = 'today') => {
-    FrontendLogger.info('STATISTICS_SERVICE', `Fetching dashboard stats for period: ${period}`);
+  getDashboardStats: async (startDate, endDate) => {
+    FrontendLogger.info('STATISTICS_SERVICE', `Fetching dashboard stats from ${startDate} to ${endDate}`);
     try {
       const response = await api.get('/statistics/dashboard', {
-        params: { period }
+        params: { 
+          start_date: startDate,
+          end_date: endDate
+        }
       });
       return response.data;
     } catch (error) {
-      FrontendLogger.error('STATISTICS_SERVICE', `Failed to fetch dashboard stats for period: ${period}`, error);
+      FrontendLogger.error('STATISTICS_SERVICE', 'Failed to fetch dashboard stats', error);
       throw error;
     }
   },
 
   /**
-   * Fetches historical trend data for a specific athlete.
-   * @param {string} athleteId - The UUID of the athlete
-   * @param {string} parameterName - e.g., 'Weight', 'Reps'
-   * @param {number|null} exerciseId - Optional exercise filter
-   * @param {number} monthsBack - Number of months of history to retrieve
+   * Fetches raw statistics for the current athlete.
+   * @param {string} startDate - ISO date string.
+   * @param {string} endDate - ISO date string.
    */
-  getAthleteStats: async (athleteId, parameterName, exerciseId = null, monthsBack = 3) => {
-    FrontendLogger.info('STATISTICS_SERVICE', `Fetching stats for athlete: ${athleteId}`);
+  getMyStatistics: async (startDate, endDate) => {
+    FrontendLogger.info('STATISTICS_SERVICE', `Fetching my-stats from ${startDate} to ${endDate}`);
     try {
-      const response = await api.get(`/statistics/athlete/${athleteId}`, {
+      const response = await api.get('/statistics/my-stats', {
         params: { 
-          parameter_name: parameterName, 
-          exercise_id: exerciseId, 
-          months_back: monthsBack 
+          start_date: startDate,
+          end_date: endDate
         }
       });
       return response.data;
     } catch (error) {
-      FrontendLogger.error('STATISTICS_SERVICE', `Failed to fetch stats for athlete: ${athleteId}`, error);
+      FrontendLogger.error('STATISTICS_SERVICE', 'Failed to fetch my-stats', error);
       throw error;
     }
   },
 
   /**
-   * Fetches aggregated trend data for the entire group.
-   * @param {string} parameterName - e.g., 'Weight', 'Reps'
-   * @param {number|null} exerciseId - Optional exercise filter
-   * @param {number} monthsBack - Number of months of history to retrieve
+   * Fetches raw statistics for group/users (Trainer only).
+   * @param {string} startDate - ISO date string.
+   * @param {string} endDate - ISO date string.
+   * @param {Array<string>} [userIds] - Optional list of user IDs.
    */
-  getGroupTrends: async (parameterName, exerciseId = null, monthsBack = 3) => {
-    FrontendLogger.info('STATISTICS_SERVICE', 'Fetching group trend statistics');
+  getGroupStatistics: async (startDate, endDate, userIds = null) => {
+    FrontendLogger.info('STATISTICS_SERVICE', `Fetching group-stats for range ${startDate} - ${endDate}`);
     try {
-      const response = await api.get('/statistics/group', {
+      const response = await api.get('/statistics/group-stats', {
         params: { 
-          parameter_name: parameterName, 
-          exercise_id: exerciseId, 
-          months_back: monthsBack 
+          start_date: startDate,
+          end_date: endDate,
+          user_ids: userIds
         }
       });
       return response.data;
     } catch (error) {
-      FrontendLogger.error('STATISTICS_SERVICE', 'Failed to fetch group trends', error);
+      FrontendLogger.error('STATISTICS_SERVICE', 'Failed to fetch group-stats', error);
       throw error;
     }
   }

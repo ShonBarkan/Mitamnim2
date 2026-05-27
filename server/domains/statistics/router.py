@@ -1,67 +1,74 @@
 import uuid
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from db.database import get_db
 from middlewares.auth import get_current_user
 from domains.users.models import User
 from .service import StatisticsService
-from .models import DashboardStatsOut, AthleteStatsOut, GroupStatsOut
+from .models import DashboardStatsOut, TrainerGroupStatsOut, AthleteStatsOut
 
 router = APIRouter(prefix="/statistics", tags=["Statistics & Analytics"])
 
+
 @router.get("/dashboard", response_model=DashboardStatsOut)
 async def get_dashboard_statistics(
-        period: str = Query("today", description="Can be 'today', 'week', 'month'"),
+        start_date: datetime = Query(..., description="Start boundary for the leaderboard"),
+        end_date: datetime = Query(..., description="End boundary for the leaderboard"),
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="start_date cannot be after end_date.")
+
+    service = StatisticsService(db)
+    return service.get_dashboard_stats(current_user.group_id, start_date, end_date)
+
+
+@router.get("/my-stats", response_model=AthleteStatsOut)
+async def get_my_statistics(
+        start_date: datetime = Query(...),
+        end_date: datetime = Query(...),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
-    Returns aggregated dashboard stats based on the configured DashboardConfigs for the user's group.
+    Athlete endpoint: Returns only the authenticated user's statistics.
     """
-    if period not in ['today', 'week', 'month']:
-        raise HTTPException(status_code=400, detail="Invalid period.")
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="start_date cannot be after end_date.")
 
     service = StatisticsService(db)
-    return service.get_dashboard_stats(current_user.group_id, period)
+    return service.get_athlete_statistics(current_user, start_date, end_date)
 
 
-@router.get("/athlete/{athlete_id}", response_model=AthleteStatsOut)
-async def get_athlete_statistics(
-        athlete_id: uuid.UUID,
-        parameter_name: str = Query(..., description="Parameter to track (e.g. 'Weight', 'Reps')"),
-        exercise_id: Optional[int] = Query(None, description="Optional exercise filter"),
-        months_back: int = Query(3, description="Months of history to retrieve"),
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """
-    Returns trend data and personal bests for a specific athlete.
-    Trainers can query any athlete in their group; athletes can only query themselves.
-    """
-    if current_user.role == 'athlete' and current_user.id != athlete_id:
-        raise HTTPException(status_code=403, detail="Can only view personal statistics.")
-
-    # Note: In a production app, verify the trainer and athlete share the same group_id here.
-
-    service = StatisticsService(db)
-    return service.get_athlete_stats(athlete_id, parameter_name, exercise_id, months_back)
-
-
-@router.get("/group", response_model=GroupStatsOut)
+@router.get("/group-stats", response_model=TrainerGroupStatsOut)
 async def get_group_statistics(
-        parameter_name: str = Query(..., description="Parameter to track (e.g. 'Weight', 'Reps')"),
-        exercise_id: Optional[int] = Query(None, description="Optional exercise filter"),
-        months_back: int = Query(3, description="Months of history to retrieve"),
+        start_date: datetime = Query(...),
+        end_date: datetime = Query(...),
+        user_ids: Optional[List[uuid.UUID]] = Query(None),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
     """
-    Returns aggregated trend data for the entire group (Trainer only).
+    Trainer endpoint: Returns statistics for all or specific users in the group.
     """
-    if current_user.role not in ['admin', 'trainer']:
-        raise HTTPException(status_code=403, detail="Only trainers can view group-wide statistics.")
+    if str(getattr(current_user, 'role', '')).lower() == 'athlete':
+        raise HTTPException(status_code=403, detail="Athletes cannot access group statistics.")
+
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="start_date cannot be after end_date.")
+
+    # Validate that requested user_ids belong to the trainer's group
+    if user_ids:
+        valid_count = db.query(User.id) \
+            .filter(User.group_id == current_user.group_id) \
+            .filter(User.id.in_(user_ids)) \
+            .count()
+        if valid_count != len(user_ids):
+            raise HTTPException(status_code=403, detail="Requested user_ids must belong to your group.")
 
     service = StatisticsService(db)
-    return service.get_group_trends(current_user.group_id, parameter_name, exercise_id, months_back)
+    return service.get_group_statistics(current_user, start_date, end_date, user_ids)
