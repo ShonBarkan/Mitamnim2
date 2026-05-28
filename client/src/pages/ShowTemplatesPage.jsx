@@ -40,11 +40,24 @@ const ShowTemplatesPage = () => {
           <h1 className="text-2xl font-black text-zinc-900">שבלונות אימון</h1>
           <p className="text-sm text-zinc-500 font-bold">ניהול וצפייה בתבניות אימון קבוצתיות</p>
         </div>
-        {isTrainer && (
-          <button onClick={() => navigate('/templates/create')} className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95">
-            צור שבלונה חדשה +
+        <div className="flex gap-3">
+          {/* Add this button for Free Workout */}
+          <button 
+            onClick={() => navigate('/ActiveWorkoutPage')} 
+            className="px-6 py-3 bg-zinc-100 text-zinc-900 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all active:scale-95"
+          >
+           התחל אימון ריק
           </button>
-        )}
+
+          {isTrainer && (
+            <button 
+              onClick={() => navigate('/templates/create')} 
+              className="px-6 py-3 bg-zinc-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-all active:scale-95"
+            >
+              צור שבלונה חדשה +
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
