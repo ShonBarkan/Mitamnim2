@@ -29,25 +29,24 @@ const ExerciseBank = ({ exercises, onSelect, className = "" }) => {
             <button 
               key={ex.id} 
               type="button"
-              className="flex items-center justify-between gap-3 p-3 bg-white border border-zinc-200 rounded-xl hover:border-zinc-900 hover:shadow-sm transition-all text-right group" 
+              /* Switched to flex-col to ensure name always has full row priority */
+              className="flex flex-col items-start gap-2 p-3 bg-white border border-zinc-200 rounded-xl hover:border-zinc-900 hover:shadow-sm transition-all text-right group w-full" 
               onClick={(e) => {
                 e.preventDefault();
                 onSelect(ex);
               }}
             >
-              <span className="font-black text-sm text-zinc-900 truncate flex-1">
+              {/* Name is now full width */}
+              <span className="font-black text-sm text-zinc-900 w-full truncate">
                 {ex.name}
               </span>
               
-              {/* מכולה שדוחפת את התגים לצד שמאל וצמודה */}
+              {/* Tags wrap automatically if there isn't enough space */}
               {Array.isArray(ex.tags) && ex.tags.length > 0 && (
-                <div className="flex flex-row-reverse gap-1 flex-shrink-0">
-                  {ex.tags.slice(0, 2).map(tag => (
-                    <div key={tag.id} className="inline-block transform translate-y-0.5">
-                       {/* כאן הנחת העבודה היא ש-TagDisplay מגיב לגודל פונט או שיש לו עיצוב פנימי. אם הוא גדול מדי, מומלץ להוסיף לו class של text-xs */}
-                       <div className="text-[10px]"> 
-                         <TagDisplay name={tag.name} color={tag.color} />
-                       </div>
+                <div className="flex flex-wrap gap-1">
+                  {ex.tags.slice(0, 3).map(tag => (
+                    <div key={tag.id} className="text-[10px]"> 
+                      <TagDisplay name={tag.name} color={tag.color} />
                     </div>
                   ))}
                 </div>

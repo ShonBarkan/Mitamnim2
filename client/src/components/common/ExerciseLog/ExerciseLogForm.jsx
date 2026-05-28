@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useExercise } from '../../../contexts/ExerciseContext';
 import { useExerciseLog } from '../../../contexts/ExerciseLogContext';
 import FrontendLogger from '../../../utils/logger';
-import ExerciseBank from '../../common/Exercise/ExerciseBank'; // ייבוא הקומפוננטה המשותפת
+import ExerciseBank from '../../common/Exercise/ExerciseBank';
 
 const ExerciseLogForm = ({ selectedUserId, canModifyLogs, editLogToLoad, onEditComplete }) => {
   const { exercises, fetchExercises } = useExercise() || {};
   const { createLog, updateLog, loading: logsLoading } = useExerciseLog() || {};
 
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreating, setIsCreating] = useState(true);
   const [step, setStep] = useState(0); 
   const [selectedExerciseId, setSelectedExerciseId] = useState('');
   const [dryParams, setDryParams] = useState({});
@@ -21,7 +21,7 @@ const ExerciseLogForm = ({ selectedUserId, canModifyLogs, editLogToLoad, onEditC
   }, [fetchExercises]);
 
   const resetForm = useCallback(() => {
-    setIsCreating(false);
+    setIsCreating(true);
     setStep(0);
     setEditingLogId(null);
     setSelectedExerciseId('');
@@ -110,14 +110,18 @@ const ExerciseLogForm = ({ selectedUserId, canModifyLogs, editLogToLoad, onEditC
     <div className="mb-8 p-6 bg-white rounded-xl shadow-sm border border-gray-200">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-gray-800">{editingLogId ? 'עריכת סט' : 'תיעוד סט חדש'}</h2>
-        <button className={`px-4 py-2 text-white font-medium rounded-lg ${isCreating ? 'bg-gray-500' : 'bg-blue-600'}`} onClick={() => isCreating ? resetForm() : setIsCreating(true)}>
-          {isCreating ? 'ביטול' : '+ הוסף סט'}
+        {step > 0 && (
+        <button 
+          className={`px-4 py-2 text-white font-medium rounded-lg ${isCreating ? 'bg-gray-500' : 'bg-blue-600'}`} 
+          onClick={() => isCreating ? resetForm() : setIsCreating(true)}
+        >
+          {isCreating ? 'בטל' : '+ הוסף סט'}
         </button>
+        )}
       </div>
 
       {isCreating && (
         <div className="border-t pt-6 space-y-6">
-          {/* Step 0: Search & Selection - שימוש ב-ExerciseBank המעוצב */}
           {step === 0 && (
             <ExerciseBank 
               exercises={exercises} 
@@ -128,7 +132,6 @@ const ExerciseLogForm = ({ selectedUserId, canModifyLogs, editLogToLoad, onEditC
             />
           )}
 
-          {/* Steps 1..N: Manual Params */}
           {step > 0 && step <= manualParams.length && (
             <div>
               <h3 className="text-lg font-bold mb-4">
@@ -148,7 +151,6 @@ const ExerciseLogForm = ({ selectedUserId, canModifyLogs, editLogToLoad, onEditC
             </div>
           )}
 
-          {/* Summary Step */}
           {step > manualParams.length && (
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="font-bold mb-2">סיכום סט: {activeExercise?.name}</h3>
@@ -157,17 +159,19 @@ const ExerciseLogForm = ({ selectedUserId, canModifyLogs, editLogToLoad, onEditC
             </div>
           )}
 
-          {/* Navigation */}
-          <div className="flex justify-between pt-4">
-            <button disabled={step === 0} onClick={() => setStep(s => s - 1)} className="px-4 py-2 border rounded">אחורה</button>
-            {step < manualParams.length ? (
-              <button onClick={() => setStep(s => s + 1)} className="px-6 py-2 bg-blue-600 text-white rounded">הבא</button>
-            ) : step === manualParams.length ? (
-              <button onClick={() => setStep(s => s + 1)} className="px-6 py-2 bg-blue-600 text-white rounded">סיכום</button>
-            ) : (
-              <button onClick={handleSubmit} className="px-6 py-2 bg-green-600 text-white rounded">{logsLoading ? 'שומר...' : 'סיום ושליחה'}</button>
-            )}
-          </div>
+          {/* Navigation - Only visible if an exercise is selected */}
+          {step > 0 && (
+            <div className="flex justify-between pt-4">
+              <button disabled={step === 0} onClick={() => setStep(s => s - 1)} className="px-4 py-2 border rounded">אחורה</button>
+              {step < manualParams.length ? (
+                <button onClick={() => setStep(s => s + 1)} className="px-6 py-2 bg-blue-600 text-white rounded">הבא</button>
+              ) : step === manualParams.length ? (
+                <button onClick={() => setStep(s => s + 1)} className="px-6 py-2 bg-blue-600 text-white rounded">סיכום</button>
+              ) : (
+                <button onClick={handleSubmit} className="px-6 py-2 bg-green-600 text-white rounded">{logsLoading ? 'שומר...' : 'סיום ושליחה'}</button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
