@@ -1,13 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useUsers } from '../hooks/useUsers';
-import { useGroups } from '../hooks/useGroups';
-import { useToast } from '../hooks/useToast';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useUsers } from '../contexts/UserContext';
+import { useGroups } from '../contexts/GroupContext';
+import { useToast } from '../contexts/ToastContext';
+import { uploadToCloudinary } from '../utils/cloudinary';
+import FrontendLogger from '../utils/logger';
 
+/**
+ * UserPanelPage Component - Administrative dashboard for team and athlete account management.
+ * Fully features the bright "Arctic Mirror" design layout and Cloudinary file streaming.
+ */
 const UserPanelPage = () => {
   const { user: currentUser } = useAuth();
   const { users, loading, refreshUsers, addUser, deleteUser, updateUser } = useUsers();
-  const { groups, refreshGroups } = useGroups();
+  const { groups, refreshGroups } = useGroups(); // Kept context instance strictly to populate creation select forms
   const { showToast } = useToast();
 
   const initialFormState = {
@@ -18,14 +25,25 @@ const UserPanelPage = () => {
     second_name: '',
     email: '',
     phone: '',
-    group_id: ''
+    group_id: '',
+    profile_picture: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   const [editingUserId, setEditingUserId] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
+  const fileInputRef = useRef(null);
+
+  // Synchronize system user registry matrices based on role privileges
   useEffect(() => {
-    refreshUsers(currentUser.role === 'trainer' ? currentUser.group_id : null);
+    FrontendLogger.info('USER_PANEL', 'Mounting user management administrative dashboard view');
+    const targetGroupId = currentUser.role === 'trainer' ? currentUser.group_id : null;
+    refreshUsers(targetGroupId);
+    
+    // Groups lookup network request is now required only for global admin creation contexts
     if (currentUser.role === 'admin') {
       refreshGroups();
     }
@@ -36,142 +54,315 @@ const UserPanelPage = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  /**
+   * Triggers file input stream change and caches instant local visual preview tokens
+   */
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      FrontendLogger.info('USER_PANEL', `Local image file selected for user profile avatar: ${file.name}`);
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  /**
+   * Pre-fills the form parameters context boundary to transition into Edit Mode.
+   */
   const startEdit = (user) => {
+    FrontendLogger.info('USER_PANEL', `Transitioning into account inline edit mode for target record user ID: ${user.id}`);
     setEditingUserId(user.id);
     setFormData({
       username: user.username,
-      password: '', // Leave password empty for security, handle as optional in update
+      password: '',
       role: user.role,
       first_name: user.first_name || '',
       second_name: user.second_name || '',
       email: user.email || '',
       phone: user.phone || '',
-      group_id: user.group_id || ''
+      group_id: user.group_id || '',
+      profile_picture: user.profile_picture || ''
     });
+    setPreviewUrl(user.profile_picture || '');
+    setSelectedFile(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  /**
+   * Purges active form memory properties and safely restores Create Mode constraints.
+   */
   const cancelEdit = () => {
+    FrontendLogger.info('USER_PANEL', 'Evicting active profile form properties, falling back to create boundaries');
     setEditingUserId(null);
     setFormData(initialFormState);
+    setSelectedFile(null);
+    setPreviewUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  /**
+   * Handles Form Submission Pipeline (Processes lazy image uploads, then creates or modifies record).
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    FrontendLogger.info('USER_PANEL', 'Intercepted account profiles mutation form submission trigger');
+
+    setIsUploading(true);
     try {
-      // Logic for group_id: Trainer's users always go to trainer's group
+      let finalImageUrl = formData.profile_picture;
+
+      // Stream media assets asynchronously via Cloudinary global pipeline utilities if selected
+      if (selectedFile) {
+        finalImageUrl = await uploadToCloudinary(selectedFile);
+      }
+
       const finalData = {
         ...formData,
-        group_id: currentUser.role === 'trainer' ? currentUser.group_id : formData.group_id
+        profile_picture: finalImageUrl || null,
+        group_id: currentUser.role === 'trainer' ? currentUser.group_id : formData.group_id || null
       };
 
       if (editingUserId) {
-        // Update mode: Only send password if it was filled
         const updatePayload = { ...finalData };
         if (!updatePayload.password) delete updatePayload.password;
-        
         await updateUser(editingUserId, updatePayload);
         showToast("המשתמש עודכן בהצלחה", "success");
       } else {
-        // Create mode
+        if (!finalData.password) {
+          showToast("אנא הזן סיסמה עבור משתמש חדש", "error");
+          setIsUploading(false);
+          return;
+        }
         await addUser(finalData);
         showToast("משתמש נוסף בהצלחה", "success");
       }
       cancelEdit();
     } catch (error) {
+      FrontendLogger.error('USER_PANEL', 'Exception observed while committing system identity profile changes', error);
       showToast("שגיאה בפעולה: " + (error.response?.data?.detail || "נסה שוב"), "error");
+    } finally {
+      setIsUploading(false);
     }
   };
 
+  /**
+   * Deletes a user profile with confirmation verification boundaries.
+   */
   const handleDelete = async (userId) => {
+    FrontendLogger.warn('USER_PANEL', `Prompting identity destruction sequence validation for target user ID: ${userId}`);
     if (window.confirm("האם אתה בטוח שברצונך למחוק משתמש זה?")) {
       try {
         await deleteUser(userId);
         showToast("משתמש נמחק", "success");
+        if (editingUserId === userId) cancelEdit();
       } catch (error) {
+        FrontendLogger.error('USER_PANEL', `Failed to apply absolute eviction loop rules on user entity node: ${userId}`, error);
         showToast("שגיאה במחיקה", "error");
       }
     }
   };
 
   return (
-    <div style={{ direction: 'rtl' }}>
-      <h2>ניהול משתמשים</h2>
-
-      {/* 1. Dynamic Form */}
-      <section style={{ border: '1px solid black', padding: '15px', marginBottom: '20px', backgroundColor: editingUserId ? '#f0f8ff' : 'transparent' }}>
-        <h3>{editingUserId ? 'עריכת משתמש' : 'הוספת משתמש חדש'}</h3>
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <input name="username" placeholder="שם משתמש" value={formData.username} onChange={handleInputChange} required />
-          <input name="password" type="password" placeholder={editingUserId ? "סיסמה חדשה (אופציונלי)" : "סיסמה"} value={formData.password} onChange={handleInputChange} required={!editingUserId} />
-          <input name="first_name" placeholder="שם פרטי" value={formData.first_name} onChange={handleInputChange} />
-          <input name="second_name" placeholder="שם משפחה" value={formData.second_name} onChange={handleInputChange} />
-          <input name="email" type="email" placeholder="אימייל" value={formData.email} onChange={handleInputChange} />
-          <input name="phone" placeholder="טלפון" value={formData.phone} onChange={handleInputChange} />
-          
-          <select 
-            name="role" 
-            value={formData.role} 
-            onChange={handleInputChange}
-            disabled={editingUserId && currentUser.role !== 'admin'} // ONLY admin can change roles during edit
-          >
-            <option value="trainee">מתאמן</option>
-            {currentUser.role === 'admin' && <option value="trainer">מאמן</option>}
-            {currentUser.role === 'admin' && <option value="admin">מנהל</option>}
-          </select>
-
-          {currentUser.role === 'admin' && (
-            <select name="group_id" value={formData.group_id} onChange={handleInputChange}>
-              <option value="">ללא קבוצה</option>
-              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          )}
-
-          <div style={{ gridColumn: 'span 2' }}>
-            <button type="submit">{editingUserId ? 'עדכן משתמש' : 'הוסף משתמש'}</button>
-            {editingUserId && <button type="button" onClick={cancelEdit} style={{ marginRight: '10px' }}>ביטול</button>}
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-slate-100 to-zinc-200 p-6 md:p-12 font-sans" dir="rtl">
+      <div className="max-w-[1400px] mx-auto space-y-12">
+        
+        {/* Header Block */}
+        <header className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
+          <div className="space-y-2">
+            <h1 className="text-5xl font-black tracking-tighter text-zinc-900">ניהול משתמשים</h1>
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-[0.3em]">Mitamnim2 Administration Suite</p>
           </div>
-        </form>
-      </section>
+          {editingUserId && (
+            <button onClick={cancelEdit} disabled={isUploading} className="px-6 py-2 bg-white/40 backdrop-blur-md border border-zinc-200 rounded-full text-zinc-600 font-bold text-sm hover:bg-white/60 transition-all">
+              ביטול עריכה
+            </button>
+          )}
+        </header>
 
-      {/* 2. Enhanced Users Table */}
-      <section style={{ overflowX: 'auto' }}>
-        <h3>רשימת משתמשים</h3>
-        {loading ? <p>טוען...</p> : (
-          <table border="1" style={{ width: '100%', textAlign: 'right', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f2f2f2' }}>
-                <th>שם משתמש</th>
-                <th>שם מלא</th>
-                <th>אימייל</th>
-                <th>טלפון</th>
-                <th>תפקיד</th>
-                <th>קבוצה</th>
-                <th>פעולות</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.id} style={{ backgroundColor: editingUserId === u.id ? '#f0f8ff' : 'transparent' }}>
-                  <td>{u.username}</td>
-                  <td>{u.first_name} {u.second_name}</td>
-                  <td>{u.email || '-'}</td>
-                  <td>{u.phone || '-'}</td>
-                  <td>{u.role}</td>
-                  <td>{groups.find(g => g.id === u.group_id)?.name || 'ללא'}</td>
-                  <td>
-                    <button onClick={() => startEdit(u)} style={{ color: 'blue', marginLeft: '10px' }}>ערוך</button>
-                    <button onClick={() => handleDelete(u.id)} style={{ color: 'red', marginLeft: '10px' }}>מחק</button>
-                    {u.role === 'trainee' && (
-                      <Link to={`/stats-page/${u.id}`} style={{ color: 'green', textDecoration: 'none' }}>סטטיסטיקה</Link>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+        {/* Form Configuration Card */}
+        <section className={`transition-all duration-700 bg-white/40 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/60 shadow-2xl ${editingUserId ? 'ring-4 ring-blue-500/20 border-blue-200/50' : ''}`}>
+          <div className="flex items-center gap-6 mb-10">
+            <div className="relative">
+              {previewUrl ? (
+                <img src={previewUrl} alt="Preview" className="w-20 h-20 rounded-3xl object-cover border-4 border-white shadow-xl" />
+              ) : (
+                <div className="w-20 h-20 rounded-3xl bg-zinc-900 flex items-center justify-center text-white text-2xl font-black shadow-xl">
+                  {formData.username?.[0]?.toUpperCase() || '?'}
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="text-2xl font-black tracking-tight">{editingUserId ? 'עריכת פרטי משתמש קיימים' : 'הוספת חבר צוות חדש'}</h3>
+              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">User Profile Configuration</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              
+              {/* Credentials Fields Group */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שם משתמש</label>
+                <input name="username" placeholder="Username" value={formData.username} onChange={handleInputChange} required disabled={isUploading || editingUserId} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">
+                  {editingUserId ? 'סיסמה חדשה (אופציונלי)' : 'סיסמת כניסה'}
+                </label>
+                <input type="password" name="password" placeholder={editingUserId ? "••••••••" : "Password"} value={formData.password} onChange={handleInputChange} required={!editingUserId} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+              </div>
+
+              {/* Identity Details Fields */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שם פרטי</label>
+                <input name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שם משפחה</label>
+                <input name="second_name" placeholder="Last Name" value={formData.second_name} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+              </div>
+
+              {/* Communication Details Fields */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">כתובת אימייל</label>
+                <input type="email" name="email" placeholder="athlete@example.com" value={formData.email} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">מספר טלפון</label>
+                <input type="tel" name="phone" placeholder="05X-XXXXXXX" value={formData.phone} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+              </div>
+
+              {/* Account Privilege Level Dropdown */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">תפקיד והרשאות מערכת</label>
+                <select name="role" value={formData.role} onChange={handleInputChange} disabled={isUploading || currentUser.role !== 'admin'} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 appearance-none transition-all">
+                  <option value="trainee">ספורטאי / מתאמן (Trainee)</option>
+                  <option value="trainer">מאמן צוות (Trainer)</option>
+                  <option value="admin">מנהל מערכת ראשי (Admin)</option>
+                </select>
+              </div>
+
+              {/* Dynamic Group Boundaries Association Field */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שיוך לקבוצת פעילות</label>
+                {currentUser.role === 'trainer' ? (
+                  <input type="text" readOnly value={currentUser.group_name || 'קבוצת המאמן'} className="w-full bg-zinc-200/50 border border-zinc-300 rounded-2xl px-6 py-4 text-sm font-bold outline-none cursor-not-allowed opacity-70" />
+                ) : (
+                  <select name="group_id" value={formData.group_id} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 appearance-none transition-all">
+                    <option value="">-- בחר קבוצה מהרשימה --</option>
+                    {groups.map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Glassmorphic Media Selection Block */}
+              <div className="lg:col-span-4 space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">תמונת פרופיל / אוואטר</label>
+                <div className="flex items-center gap-4 max-w-md">
+                  <button type="button" disabled={isUploading} onClick={() => fileInputRef.current?.click()} className="w-full bg-white/70 backdrop-blur-md border border-white/90 rounded-2xl py-4 px-6 text-sm font-black text-zinc-700 hover:bg-white/90 active:scale-95 transition-all shadow-sm">
+                    {selectedFile ? 'החלף קובץ נבחר 🔄' : 'העלה תמונת פרופיל 📸'}
+                  </button>
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Submit Control Row */}
+            <div className="pt-4 border-t border-zinc-900/5 flex justify-end gap-3">
+              <button type="submit" disabled={isUploading} className={`px-12 py-5 rounded-[2rem] font-black text-sm uppercase tracking-widest transition-all shadow-xl flex items-center gap-3 active:scale-95 ${editingUserId ? 'bg-blue-600 text-white shadow-blue-200 hover:bg-blue-700' : 'bg-zinc-900 text-white shadow-zinc-200 hover:bg-zinc-800'}`}>
+                {isUploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    מעבד נתוני סגל...
+                  </>
+                ) : editingUserId ? (
+                  'עדכון משתמש קיים'
+                ) : (
+                  'הוספת משתמש למאגר'
+                )}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        {/* Directory surveillance list view */}
+        <section className="bg-white/80 backdrop-blur-xl rounded-[3rem] shadow-2xl border border-white overflow-hidden">
+          <div className="p-8 border-b border-zinc-100 flex justify-between items-center bg-white/30">
+            <h3 className="text-2xl font-black tracking-tight">רשימת חברי ארגון וספורטאים</h3>
+            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-100 px-4 py-1.5 rounded-full">{users.length} Users Total</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="p-20 text-center text-zinc-400 font-bold uppercase animate-pulse">Synchronizing Registry Data...</div>
+            ) : (
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="bg-zinc-50/50 text-zinc-400 uppercase text-[11px] font-black tracking-widest border-b border-zinc-100">
+                    <th className="px-8 py-6">משתמש</th>
+                    <th className="px-8 py-6">שם מלא</th>
+                    <th className="px-8 py-6">אימייל / טלפון</th>
+                    <th className="px-8 py-6">תפקיד</th>
+                    <th className="px-8 py-6">קבוצה</th>
+                    <th className="px-8 py-6 text-left">פעולות</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {users.map(u => (
+                    <tr key={u.id} className={`transition-all group hover:bg-white/50 ${editingUserId === u.id ? 'bg-blue-50/50' : ''}`}>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className="relative">
+                            {u.profile_picture ? (
+                              <img src={u.profile_picture} alt={u.username} className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-md group-hover:scale-110 transition-transform" />
+                            ) : (
+                              <div className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center text-white text-[10px] font-black border-2 border-white shadow-md">
+                                {u.username?.[0]?.toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <span className="font-black text-zinc-900">{u.username}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 font-bold text-zinc-600">{u.first_name || '-'} {u.second_name || '-'}</td>
+                      <td className="px-8 py-6">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-zinc-900">{u.email || '-'}</span>
+                          <span className="text-[10px] font-black text-zinc-400 uppercase">{u.phone || '-'}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase ${u.role === 'admin' ? 'bg-zinc-900 text-white' : u.role === 'trainer' ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 font-bold text-zinc-500">
+                        {/* Streamed efficiently straight from server parameters instead of local map arrays loops */}
+                        {u.group_name || <span className="opacity-30 italic">ללא שיוך</span>}
+                      </td>
+                      <td className="px-8 py-6 text-left">
+                        <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {u.role === 'trainee' && (
+                            <Link to={`/stats-page/${u.id}`} className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all active:scale-90">📊</Link>
+                          )}
+                          <button onClick={() => startEdit(u)} disabled={isUploading} className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all active:scale-90">✏️</button>
+                          <button onClick={() => handleDelete(u.id)} disabled={isUploading} className="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-all active:scale-90">🗑️</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 };

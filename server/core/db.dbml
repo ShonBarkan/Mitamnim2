@@ -1,0 +1,159 @@
+// Database Schema Mapping for Mitamnim2 Blueprint Context
+// Synchronized with actual database dump and new Dashboard Configuration
+
+Table groups {
+  id uuid [pk, not null]
+  name text [not null]
+  group_image text
+  created_at timestamp
+}
+
+Table users {
+  id uuid [pk, not null]
+  first_name text
+  second_name text
+  username text [not null]
+  password text [not null]
+  role text
+  email text
+  phone text
+  profile_picture text
+  created_at timestamp
+  last_login timestamp
+  group_id uuid [ref: > groups.id]
+}
+
+Table messages {
+  id uuid [pk, not null]
+  sender_id uuid [ref: > users.id]
+  recipient_id uuid [ref: > users.id]
+  group_id uuid [ref: > groups.id]
+  content text [not null]
+  message_type varchar [not null]
+  is_main boolean
+  created_at timestamp
+}
+
+Table parameters {
+  id integer [pk, not null]
+  name text [not null]
+  unit text [not null]
+  group_id uuid [ref: > groups.id]
+  aggregation_strategy text
+  is_virtual boolean
+  calculation_type varchar
+  source_parameter_ids ARRAY
+  multiplier "double precision"
+}
+
+// --- DASHBOARD CONFIGURATION DOMAIN ---
+
+Table dashboard_configs {
+  id uuid [pk, not null]
+  group_id uuid [ref: > groups.id, not null]
+  parameter_id integer [ref: > parameters.id, not null]
+  exercise_id integer [ref: > exercises.id, null]
+  display_name text [not null]
+  aggregation_type text [not null] // 'SUM', 'MAX', 'AVG'
+  is_higher_better boolean [default: true]
+  position integer [default: 0]
+}
+
+// --- ATHLETIC DOMAIN TABLES WITH GROUP ISOLATION ---
+
+Table tags {
+  id integer [pk, increment, not null]
+  name text [not null]
+  color text [not null]
+  group_id uuid [ref: > groups.id]
+}
+
+Table exercises {
+  id integer [pk, increment, not null]
+  name text [not null]
+  group_id uuid [ref: > groups.id, not null]
+  created_at timestamp
+}
+
+Table exercise_parameters_map {
+  exercise_id integer [ref: > exercises.id, not null]
+  parameter_id integer [ref: > parameters.id, not null]
+  Indexes { (exercise_id, parameter_id) [pk] }
+}
+
+Table exercise_tags_map {
+  exercise_id integer [ref: > exercises.id, not null]
+  tag_id integer [ref: > tags.id, not null]
+  Indexes { (exercise_id, tag_id) [pk] }
+}
+
+// --- WORKOUT TEMPLATES DOMAIN ---
+
+Table workout_templates {
+  id uuid [pk, not null]
+  name text [not null]
+  description text
+  group_id uuid [ref: > groups.id, not null]
+  estimated_duration integer
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table template_user_assignments {
+  template_id uuid [ref: > workout_templates.id, not null]
+  user_id uuid [ref: > users.id, not null]
+  Indexes { (template_id, user_id) [pk] }
+}
+
+Table template_exercises {
+  id uuid [pk, not null]
+  template_id uuid [ref: > workout_templates.id, not null]
+  exercise_id integer [ref: > exercises.id, not null]
+  position integer [not null]
+  sets integer
+  created_at timestamp
+}
+
+Table template_exercise_params {
+  id uuid [pk, not null]
+  template_exercise_id uuid [ref: > template_exercises.id, not null]
+  parameter_id integer [ref: > parameters.id, not null]
+  default_value "double precision" [not null]
+}
+
+Table template_tags_map {
+  template_id uuid [ref: > workout_templates.id, not null]
+  tag_id integer [ref: > tags.id, not null]
+  Indexes { (template_id, tag_id) [pk] }
+}
+
+// --- WORKOUT SESSIONS & LOGS DOMAIN ---
+
+Table workout_sessions {
+  id uuid [pk, not null]
+  user_id uuid [ref: > users.id, not null]
+  template_id uuid [ref: > workout_templates.id, null]
+  name text [not null]
+  started_at timestamp [not null]
+  finished_at timestamp
+  note text
+}
+
+Table exercise_logs {
+  id uuid [pk, not null]
+  session_id uuid [ref: > workout_sessions.id, null]
+  exercise_id integer [ref: > exercises.id, not null]
+  exercise_name text [not null]
+  sets integer
+  created_at timestamp
+  user_id uuid [ref: > users.id, not null]
+  position integer [default: 0]
+}
+
+Table exercise_log_params {
+  id uuid [pk, not null]
+  log_id uuid [ref: > exercise_logs.id, not null]
+  parameter_name text [not null]
+  parameter_unit text [not null]
+  value "double precision" [not null]
+}

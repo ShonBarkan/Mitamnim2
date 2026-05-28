@@ -1,100 +1,173 @@
+import uuid
 from typing import List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
+from core.logger import logger
+from domains.tags.models import Tag
+from .models import WorkoutTemplate, TemplateExercise, TemplateExerciseParam, \
+    TemplateUserAssignment, WorkoutTemplateCreate
 
-from .models import WorkoutTemplate, WorkoutTemplateCreate, WorkoutTemplateUpdate
-from ..users.models import User
 
-
-# --- WorkoutTemplateService ---
-
-class WorkoutTemplateService:
+class TemplateService:
     """
-    Manages the logic for workout templates.
-    Ensures UUIDs and Pydantic models are correctly serialized for JSONB storage.
+    Service layer for managing workout templates, relational associations,
+    user-specific assignments, and tag mappings.
+    Incorporates eager loading to resolve N+1 queries and provide enriched data.
     """
 
     def __init__(self, db: Session):
         self.db = db
 
-    def create_template(self, user: User, data: WorkoutTemplateCreate) -> WorkoutTemplate:
-        """Saves a new template, ensuring JSONB fields are properly formatted."""
-        users_list = [str(u) for u in data.for_users]
+    def create_template(self, data: WorkoutTemplateCreate, group_id: uuid.UUID) -> WorkoutTemplate:
+        logger.info(f"Initiating transactional template creation: '{data.name}' for group: {group_id}")
 
-        # Serialize the exercises_config using model_dump to convert Pydantic to Dict
-        config_list = [exercise.model_dump() for exercise in data.exercises_config]
+        try:
+            # 1. Create Template base
+            new_template = WorkoutTemplate(
+                name=data.name,
+                description=data.description,
+                group_id=group_id,
+                estimated_duration=data.estimated_duration
+            )
+            self.db.add(new_template)
+            self.db.flush()  # Flush to generate new_template.id
 
-        db_template = WorkoutTemplate(
-            group_id=user.group_id,
-            parent_exercise_id=data.parent_exercise_id,
-            name=data.name,
-            description=data.description,
-            exercises_config=config_list,
-            for_users=users_list,
-            scheduled_days=data.scheduled_days,
-            expected_duration_time=data.expected_duration_time,
-            scheduled_hour=data.scheduled_hour
-        )
+            # 2. Process Tags
+            if data.tag_ids:
+                tags = self.db.query(Tag).filter(
+                    Tag.id.in_(data.tag_ids),
+                    Tag.group_id == group_id
+                ).all()
+                new_template.tags = tags
+                logger.info(f"Associated {len(tags)} tags with template '{new_template.name}'")
 
-        self.db.add(db_template)
-        self.db.commit()
-        self.db.refresh(db_template)
-        return db_template
+            # 3. Process Exercises and their parameters
+            for ex_data in data.exercises:
+                new_exercise = TemplateExercise(
+                    template_id=new_template.id,
+                    exercise_id=ex_data.exercise_id,
+                    position=ex_data.position,
+                    sets=ex_data.sets
+                )
+                self.db.add(new_exercise)
+                self.db.flush()
 
-    def get_group_templates(self, user: User) -> List[WorkoutTemplate]:
-        """Fetches templates with role-based filtering for trainees."""
-        query = self.db.query(WorkoutTemplate).filter(
-            WorkoutTemplate.group_id == user.group_id
-        )
+                for param in ex_data.parameters:
+                    new_param = TemplateExerciseParam(
+                        template_exercise_id=new_exercise.id,
+                        parameter_id=param.parameter_id,
+                        default_value=param.default_value
+                    )
+                    self.db.add(new_param)
 
-        all_templates = query.all()
+            # 4. Assign to users
+            for user_id in data.assigned_user_ids:
+                assignment = TemplateUserAssignment(
+                    template_id=new_template.id,
+                    user_id=user_id
+                )
+                self.db.add(assignment)
 
-        if user.role in ['trainer', 'admin']:
-            return all_templates
+            # Commit the transaction to persist all relations
+            self.db.commit()
+            logger.info(f"Successfully committed template '{new_template.name}' with ID: {new_template.id}")
 
-        accessible = []
-        user_id_str = str(user.id)
-        for tmpl in all_templates:
-            # Accessible if global (no for_users) or if trainee is specifically assigned
-            if not tmpl.for_users or len(tmpl.for_users) == 0 or user_id_str in tmpl.for_users:
-                accessible.append(tmpl)
+            # Fetch the fully enriched template to return to the client
+            return self._get_enriched_template(new_template.id)
 
-        return accessible
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to create template '{data.name}': {str(e)}")
+            raise e
 
-    def update_template(self, template_id: int, user: User, update_data: WorkoutTemplateUpdate) -> Optional[
-        WorkoutTemplate]:
-        """Updates a template after validating group membership."""
-        db_template = self.db.query(WorkoutTemplate).filter(
+    def get_group_templates(self, group_id: uuid.UUID) -> List[WorkoutTemplate]:
+        """
+        Retrieves the complete templates catalog for a specific group.
+        Uses selectinload to eagerly load all nested relationships and references
+        to prevent N+1 query performance bottlenecks.
+        """
+        logger.info(f"Retrieving enriched templates catalog for group: {group_id}")
+        return self.db.query(WorkoutTemplate).filter(
+            WorkoutTemplate.group_id == group_id
+        ).options(
+            selectinload(WorkoutTemplate.tags),
+            selectinload(WorkoutTemplate.assigned_users),
+            selectinload(WorkoutTemplate.exercises).selectinload(TemplateExercise.exercise_ref),
+            selectinload(WorkoutTemplate.exercises).selectinload(TemplateExercise.parameters).selectinload(TemplateExerciseParam.parameter_ref)
+        ).all()
+
+    def delete_template(self, template_id: uuid.UUID, group_id: uuid.UUID):
+        logger.warning(f"Purging template ID: {template_id} from group: {group_id}")
+        template = self.db.query(WorkoutTemplate).filter(
             WorkoutTemplate.id == template_id,
-            WorkoutTemplate.group_id == user.group_id
+            WorkoutTemplate.group_id == group_id
         ).first()
 
-        if not db_template:
+        if template:
+            self.db.delete(template)
+            self.db.commit()
+            logger.info(f"Template ID: {template_id} purged successfully.")
+        else:
+            logger.warning(f"Template ID: {template_id} not found for deletion.")
+
+    def _get_enriched_template(self, template_id: uuid.UUID) -> WorkoutTemplate:
+        """
+        Internal helper method to fetch a single template with all its
+        enriched relational data loaded.
+        """
+        return self.db.query(WorkoutTemplate).filter(
+            WorkoutTemplate.id == template_id
+        ).options(
+            selectinload(WorkoutTemplate.tags),
+            selectinload(WorkoutTemplate.assigned_users),
+            selectinload(WorkoutTemplate.exercises).selectinload(TemplateExercise.exercise_ref),
+            selectinload(WorkoutTemplate.exercises).selectinload(TemplateExercise.parameters).selectinload(TemplateExerciseParam.parameter_ref)
+        ).first()
+
+    def update_template(self, template_id: uuid.UUID, group_id: uuid.UUID, data: WorkoutTemplateCreate) -> Optional[
+        WorkoutTemplate]:
+        template = self.db.query(WorkoutTemplate).filter(
+            WorkoutTemplate.id == template_id,
+            WorkoutTemplate.group_id == group_id
+        ).first()
+
+        if not template:
             return None
 
-        data_dict = update_data.model_dump(exclude_unset=True)
+        try:
+            # 1. עדכון שדות בסיס
+            template.name = data.name
+            template.description = data.description
+            template.estimated_duration = data.estimated_duration
 
-        if "exercises_config" in data_dict:
-            data_dict["exercises_config"] = [item.model_dump() for item in update_data.exercises_config]
-        if "for_users" in data_dict:
-            data_dict["for_users"] = [str(u) for u in update_data.for_users]
+            # 2. עדכון תגיות (ניקוי והוספה מחדש)
+            tags = self.db.query(Tag).filter(Tag.id.in_(data.tag_ids), Tag.group_id == group_id).all()
+            template.tags = tags
 
-        for key, value in data_dict.items():
-            setattr(db_template, key, value)
+            # 3. עדכון משתמשים משויכים
+            self.db.query(TemplateUserAssignment).filter(TemplateUserAssignment.template_id == template_id).delete()
+            for user_id in data.assigned_user_ids:
+                self.db.add(TemplateUserAssignment(template_id=template_id, user_id=user_id))
 
-        self.db.commit()
-        self.db.refresh(db_template)
-        return db_template
+            # 4. עדכון תרגילים (ניקוי והוספה מחדש - הדרך הקלה והבטוחה ביותר)
+            self.db.query(TemplateExercise).filter(TemplateExercise.template_id == template_id).delete()
+            for ex_data in data.exercises:
+                new_exercise = TemplateExercise(
+                    template_id=template_id,
+                    exercise_id=ex_data.exercise_id,
+                    position=ex_data.position,
+                    sets=ex_data.sets
+                )
+                self.db.add(new_exercise)
+                self.db.flush()
+                for param in ex_data.parameters:
+                    self.db.add(TemplateExerciseParam(
+                        template_exercise_id=new_exercise.id,
+                        parameter_id=param.parameter_id,
+                        default_value=param.default_value
+                    ))
 
-    def delete_template(self, template_id: int, user: User) -> bool:
-        """Deletes a template if it belongs to the user's group."""
-        db_template = self.db.query(WorkoutTemplate).filter(
-            WorkoutTemplate.id == template_id,
-            WorkoutTemplate.group_id == user.group_id
-        ).first()
-
-        if not db_template:
-            return False
-
-        self.db.delete(db_template)
-        self.db.commit()
-        return True
+            self.db.commit()
+            return self._get_enriched_template(template_id)
+        except Exception as e:
+            self.db.rollback()
+            raise e

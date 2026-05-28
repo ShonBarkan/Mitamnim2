@@ -1,7 +1,9 @@
+import uuid
+from datetime import datetime, timezone
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from typing import List
 
 from db.database import get_db
 from middlewares.auth import AuthService, get_current_user
@@ -31,11 +33,21 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 
 @router.get("/group", response_model=List[UserOut])
 async def get_group_users(
-        target_group_id,
+        target_group_id: Optional[uuid.UUID] = None,
         db: Session = Depends(get_db),
-        current_user = Depends(get_current_user)
+        current_user=Depends(get_current_user)
 ):
-    """Fetches all users belonging to a specific group."""
+    """Fetches all users belonging to a specific group, defaulting to current user's group."""
+
+    # Fallback to the authenticated user's group if no explicit target is provided
+    if target_group_id is None:
+        target_group_id = current_user.group_id
+
+    # Failsafe in case a user somehow lacks a group assignment
+    if not target_group_id:
+        raise HTTPException(status_code=400, detail="User is not assigned to any group")
+
+    # Authorization enforcement
     if current_user.role != "admin" and current_user.group_id != target_group_id:
         raise HTTPException(status_code=403, detail="Access denied to group members")
 
@@ -79,7 +91,7 @@ async def create_new_user(
 
 @router.patch("/{user_id}", response_model=UserOut)
 async def update_existing_user(
-        user_id,
+        user_id: uuid.UUID,
         user_update: UserUpdate,
         db: Session = Depends(get_db),
         current_user = Depends(get_current_user)
@@ -118,7 +130,7 @@ async def update_existing_user(
 
 @router.delete("/{user_id}")
 async def remove_user(
-        user_id,
+        user_id: uuid.UUID,
         db: Session = Depends(get_db),
         current_user = Depends(get_current_user)
 ):

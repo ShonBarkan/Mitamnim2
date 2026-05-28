@@ -1,9 +1,9 @@
 import os
+import uuid
 import uvicorn
 from dotenv import load_dotenv
 
 # 1. Critical: Load environment variables BEFORE any other imports.
-# This ensures global availability of configuration like SECRET_KEY.
 load_dotenv()
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, status
@@ -11,27 +11,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-# Import core infrastructure
+# Import core infrastructure layers
 from db.database import engine, Base, SessionLocal
 from cron.tasks import scheduled_cleanup
 from core.socket_manager import socket_manager
+from core.logger import logger, trace_id_var
 
 # Import Domain Routers (Modular Architecture)
 from domains.users.router import router as users_router, auth_router
 from domains.groups.router import router as groups_router
 from domains.parameters.router import router as parameters_router
-from domains.exercises.router import router as exercises_router
-from domains.active_params.router import router as active_params_router
-from domains.activities.router import router as activities_router
 from domains.messages.router import router as messages_router
+from domains.tags.router import router as tags_router
+from domains.exercises.router import router as exercises_router
 from domains.templates.router import router as templates_router
-from domains.workout_sessions.router import router as workout_sessions_router
+from domains.ExerciseLog.router import router as logs_router
+from domains.WorkoutSession.router import router as sessions_router
+from domains.dashboard_configs.router import router as dashboard_router
+from domains.statistics.router import router as statistics_router
 
-# Import Statistics Domain Routers (Real-time architecture)
-from domains.stats.router import router as stats_router
-from domains.stats_dashboard_config.router import router as dashboard_router
 
-# --- Database Initialization ---
 # Synchronize SQLAlchemy models with the database schema
 Base.metadata.create_all(bind=engine)
 
@@ -40,31 +39,28 @@ Base.metadata.create_all(bind=engine)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Manages startup and shutdown events, specifically background schedulers.
+    Manages startup and shutdown events, specifically background maintenance schedulers.
     """
+    # Allocate background transaction trace for boot logging context
+    trace_id_var.set("SYSTEM-BOOT")
     scheduler = AsyncIOScheduler()
 
     # Schedule daily maintenance: Message cleanup at 03:00 AM
     scheduler.add_job(scheduled_cleanup, 'cron', hour=3, minute=0)
 
-    # Note: Periodic heavy calculation jobs have been removed.
-    # Statistics are now calculated in real-time.
-
     scheduler.start()
-    print("Mitamnim 2 Scheduler started (Maintenance Mode)...")
+    logger.info("Mitamnim 2 Scheduler started successfully (Maintenance Mode).")
 
     yield
 
-    # Shutdown scheduler gracefully on app termination
     scheduler.shutdown()
-    print("Mitamnim 2 Scheduler shut down...")
+    logger.info("Mitamnim 2 Scheduler shut down gracefully.")
 
 
 # --- FastAPI App Configuration ---
 app = FastAPI(
     title="Fitness Management System API",
     lifespan=lifespan,
-    # Disable redirect_slashes to allow manual handling and prevent 307 redirects
     redirect_slashes=False
 )
 
@@ -78,7 +74,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -91,75 +87,76 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
     """
     Manages WebSocket lifecycle including Auth, Connection Registration, and Heartbeats.
     """
-    # Manual DB session for long-lived socket connection scope
+    # Provision a unique request-scoped runtime trace token context variable
+    socket_trace = f"WS-{str(uuid.uuid4())[:8]}"
+    trace_id_var.set(socket_trace)
+
     db = SessionLocal()
     user = None
 
     try:
-        # 1. Pre-Accept Authentication: Validate token using the global socket manager
+        # Pre-Accept Authentication validation tracking
         user = socket_manager.authenticate_websocket(token, db)
 
         if not user:
-            # Reject connection if token is invalid or missing
             await websocket.accept()
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            logger.warning("WebSocket pipeline connection rejected: Invalid client token signature.")
             return
 
-        # 2. Connection Handshake
+        # Explicitly accept connection channel handshake
         await websocket.accept()
 
-        # 3. Registration: Track user ID, group, and role for targeted broadcasts
+        # Track connection node maps dynamically in reference memories
         await socket_manager.connect(user.id, websocket, user.group_id, user.role)
-        print(f"WebSocket: User {user.username} connected successfully.")
+        logger.info(f"WebSocket established successfully. Authenticated identity user context: '{user.username}'")
 
         try:
             while True:
-                # 4. Listen Loop: Wait for client messages or heartbeats to keep socket alive
+                # Keep alive runtime blocking loop listening for client network signals
                 await websocket.receive_text()
         except WebSocketDisconnect:
-            # Graceful cleanup on client disconnect
             socket_manager.disconnect(user.id, websocket)
-            print(f"WebSocket: User {user.username} disconnected.")
+            logger.info(f"WebSocket closed gracefully by remote client connection for user: '{user.username}'")
         except Exception as e:
-            # Cleanup on unexpected connection errors
             socket_manager.disconnect(user.id, websocket)
-            print(f"WebSocket Error for {user.username}: {e}")
+            logger.error(f"Operational pipeline loop disconnect exception caught for user '{user.username}': {str(e)}")
 
     except Exception as outer_e:
-        print(f"WebSocket Initial Setup Error: {outer_e}")
+        logger.error(f"Fatal error encountered during WebSocket synchronization handshake: {str(outer_e)}")
     finally:
-        # 5. Clean up DB resources immediately
         db.close()
 
 
-# --- Router Registration ---
+# --- Router Registration Mapping Layer ---
 
 # Core Identity and Management
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(groups_router)
 
-# Social and Training Domains
+# Social and Normalized Training Domains
 app.include_router(parameters_router)
-app.include_router(exercises_router)
-app.include_router(active_params_router)
-app.include_router(activities_router)
 app.include_router(messages_router)
-app.include_router(templates_router)
-app.include_router(workout_sessions_router)
+app.include_router(tags_router)
 
-# Statistics and Analytics Domains (Formulas and Conversions removed)
-app.include_router(stats_router)
+# exercises
+app.include_router(exercises_router)
+app.include_router(templates_router)
+app.include_router(logs_router)
+app.include_router(sessions_router)
+
+# Dashboard and Analytics
 app.include_router(dashboard_router)
+app.include_router(statistics_router)
 
 
 @app.get("/")
 async def root():
     """Server health status check."""
-    return {"message": "Server is running in modular architecture mode"}
+    return {"status": "healthy", "architecture": "flat-relational-modular"}
 
 
 if __name__ == "__main__":
-    # Dynamically extract script name for the uvicorn loader
     script_name = os.path.basename(__file__).replace(".py", "")
     uvicorn.run(f"{script_name}:app", host="0.0.0.0", port=8000, reload=True)

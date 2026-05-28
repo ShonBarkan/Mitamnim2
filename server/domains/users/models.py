@@ -5,7 +5,7 @@ from typing import List, Optional
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
+from pydantic import BaseModel, EmailStr, ConfigDict, field_validator, model_validator
 
 from db.database import Base
 
@@ -45,10 +45,11 @@ class UserBase(BaseModel):
     second_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    profile_picture: Optional[str] = None
     role: str
     group_id: Optional[uuid.UUID] = None
 
-    @field_validator("email", "username", "first_name", "second_name", "phone", mode="before")
+    @field_validator("email", "username", "first_name", "second_name", "phone", "profile_picture", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
         """Converts empty strings to None to prevent validation errors."""
@@ -72,7 +73,7 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     group_id: Optional[uuid.UUID] = None
 
-    @field_validator("email", "username", "first_name", "second_name", "phone", mode="before")
+    @field_validator("email", "username", "first_name", "second_name", "phone", "profile_picture", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
         """Converts empty strings to None to prevent validation errors."""
@@ -80,8 +81,20 @@ class UserUpdate(BaseModel):
 
 
 class UserOut(UserBase):
-    """Schema for outgoing user data."""
+    """Schema for outgoing user data including embedded relational data nodes."""
     id: uuid.UUID
     created_at: datetime
     last_login: Optional[datetime] = None
+    group_name: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_group_name(cls, data):
+        """Extracts the group name parameter from the SQLAlchemy relation layout flatly."""
+        if hasattr(data, "group") and data.group is not None:
+            data.group_name = data.group.name
+        elif isinstance(data, dict) and "group" in data and data["group"] is not None:
+            data["group_name"] = data["group"].name if hasattr(data["group"], "name") else data["group"].get("name")
+        return data

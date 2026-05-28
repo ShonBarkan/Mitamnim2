@@ -2,36 +2,38 @@
 @import "tailwindcss";
 
 @theme {
-  /* הגדרת הפונט החדש כברירת המחדל של המערכת */
+  /* Binding Rubik typography as the official fallback typeface */
   --font-sans: 'Rubik', ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
   body {
-    /* שימוש ב-font-sans החדש (Rubik) */
-    @apply bg-slate-50 text-zinc-900 antialiased font-sans;
+    /* Injecting baseline radial gradient frame styles */
+    background: radial-gradient(circle at top right, #eff6ff, #f8fafc, #e4e4e7);
+    @apply text-zinc-900 antialiased font-sans min-h-screen;
     direction: rtl;
-    letter-spacing: -0.01em; /* שיפור הקריאות בעברית מודרנית */
+    letter-spacing: -0.01em; 
   }
 
   h1, h2, h3, h4, h5, h6 {
-    /* משקל 900 (Black) ב-Rubik נראה מדהים ויוקרתי */
-    @apply font-black tracking-tighter text-zinc-900;
+    /* High-contrast font weight configuration for typography headers */
+    @apply font-black tracking-tighter text-zinc-900 uppercase;
   }
 }
 
-/* Utilities עבור שפת העיצוב Arctic Mirror */
+/* Bright Arctic Mirror Glassmorphism Core Shared Utility Templates */
 @utility arctic-glass {
-  @apply bg-white/70 backdrop-blur-xl border border-white shadow-xl shadow-slate-200/50 transition-all;
+  @apply bg-white/40 backdrop-blur-3xl border border-white/60 shadow-xl shadow-zinc-200/30 transition-all duration-300;
 }
 
 @utility arctic-card {
-  @apply arctic-glass rounded-[2.5rem];
+  @apply arctic-glass rounded-[3rem];
 }
 
-/* עיצוב ה-Scrollbar המינימליסטי */
+/* Minimalist Low-Profile Scrolling Management Pipelines */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -39,5 +41,13 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-zinc-200 rounded-full hover:bg-zinc-300 transition-colors;
+  @apply bg-zinc-300/60 rounded-full hover:bg-zinc-400 transition-colors;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

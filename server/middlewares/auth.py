@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from jose import JWTError, jwt
@@ -10,15 +10,21 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
 from db.database import get_db
+from core.logger import logger  # Integrated our centralized logging engine
 
 # --- Environment Configuration ---
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
+if not SECRET_KEY:
+    logger.error(
+        "Authentication Core Security Failure: SECRET_KEY environment variable is missing. Tokens cannot be securely signed.")
+
 # --- Security Global Setup ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
 
 # --- Pydantic Schemas for Authentication ---
 
@@ -42,64 +48,70 @@ class AuthService:
     """
 
     def __init__(self, db: Session):
-        """Initializes the service with a database session."""
+        """Initializes the service with an active relational database session."""
         self.db = db
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """
         Compares a plain text password with a hashed password stored in the DB.
-        Returns: True if they match, False otherwise.
         """
         return pwd_context.verify(plain_password, hashed_password)
 
     def get_password_hash(self, password: str) -> str:
         """
         Generates a secure bcrypt hash from a plain text password.
-        Used during user creation or password updates.
+        Used during user registration or operational password overrides.
         """
         return pwd_context.hash(password)
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """
-        Generates a JSON Web Token (JWT).
+        Generates a secure, cryptographically signed JSON Web Token (JWT).
         """
         to_encode = data.copy()
-        expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-        to_encode.update({"exp": expire})
+
+        # Modern Python timezone-aware UTC computation to avoid legacy naive utcnow deprecations
+        expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+
+        # Stripping timezone info to map smoothly with standard database TIMESTAMP WITHOUT TIME ZONE columns
+        to_encode.update({"exp": expire.replace(tzinfo=None)})
 
         return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-    async def authenticate_user(self, form_data: OAuth2PasswordRequestForm):
+    async def authenticate_user(self, form_data: OAuth2PasswordRequestForm) -> Optional[dict]:
         """
-        Validates user credentials and generates an access token upon success.
+        Validates user credentials against relational persistence queries
+        and issues signed encryption access keys upon validation success.
         """
-        # Local import to prevent circular dependency with domains.users
         from domains.users.models import User
 
         user = self.db.query(User).filter(User.username == form_data.username).first()
 
         if not user or not self.verify_password(form_data.password, user.password):
+            logger.warning(
+                f"Failed authentication vector attempt for username reference payload: '{form_data.username}'")
             return None
 
-        # Record the login event in the database
-        user.last_login = datetime.utcnow()
+        # Synchronize tracking context state timestamps matching our relational columns schema
+        user.last_login = datetime.now(timezone.utc).replace(tzinfo=None)
         self.db.commit()
 
-        # Prepare payload for the JWT
+        logger.info(
+            f"User '{user.username}' successfully authenticated. Generating cryptographic session token key structure.")
+
         access_token = self.create_access_token(
             data={"sub": user.username, "role": user.role}
         )
         return {"access_token": access_token, "token_type": "bearer"}
 
 
-# --- FastAPI Dependencies ---
+# --- FastAPI Security Injection Dependencies ---
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """
-    A reusable dependency to secure routes.
-    It extracts the JWT from the request, validates it, and fetches the user from the DB.
+    A reusable security injection dependency layer used to guard private system route channels.
+    Extracts, decodes, and traces inbound token signatures against user accounts.
     """
-    # Local import to prevent circular dependency with domains.users
     from domains.users.models import User
 
     credentials_exception = HTTPException(
@@ -109,17 +121,19 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     )
 
     try:
-        # Decode the JWT token to extract the payload
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
+            logger.warning("JWT validation failed early: Token payload 'sub' claim identity key is missing.")
             raise credentials_exception
-    except JWTError:
+    except JWTError as je:
+        logger.warning(f"Inbound authorization signature rejected due to JWT encoding failure: {str(je)}")
         raise credentials_exception
 
-    # Final check: Ensure the user still exists in our records
     user = db.query(User).filter(User.username == username).first()
     if user is None:
+        logger.warning(
+            f"JWT signature is structurally valid but matching user record context '{username}' does not exist.")
         raise credentials_exception
 
     return user

@@ -1,37 +1,67 @@
 import api from './api';
+import FrontendLogger from '../utils/logger';
 
 /**
- * Service for managing workout templates and their configurations.
- * Aligned with the FastAPI backend structure and dynamic parameter logic.
+ * Service handling API communication for workout templates.
+ * Now integrated with enriched server-side data models.
  */
 export const templateService = {
-  /**
-   * Fetches all templates accessible to the current user.
-   * The backend handles role-based filtering (Trainer vs Trainee).
-   * Path: GET /workout-templates
-   */
-  getAll: () => api.get('/workout-templates'),
+  getAll: async () => {
+    FrontendLogger.info('TEMPLATE_SERVICE', 'Fetching enriched workout templates catalog');
+    try {
+      const response = await api.get('/templates');
+      // The server now returns enriched data (exercises with names, full tags, etc.)
+      return response.data;
+    } catch (error) {
+      FrontendLogger.error('TEMPLATE_SERVICE', 'Error fetching templates', error);
+      throw error;
+    }
+  },
 
-  /**
-   * Creates a new workout template.
-   * Note: exercises_config must follow the simplified structure:
-   * stores only parameter_id and the assigned value (manual or calculated).
-   * Path: POST /workout-templates
-   */
-  create: (templateData) => api.post('/workout-templates', templateData),
+  create: async (data) => {
+    /**
+     * Updated data structure based on the cleanPayload we implemented:
+     * {
+     * name: string,
+     * description: string,
+     * estimated_duration: integer,
+     * exercises: Array<{ exercise_id, position, sets, parameters: Array<{ parameter_id, default_value }> }>,
+     * assigned_user_ids: Array<uuid>,
+     * tag_ids: Array<integer>
+     * }
+     */
+    FrontendLogger.info('TEMPLATE_SERVICE', `Submitting template payload for: '${data.name}'`);
+    try {
+      const response = await api.post('/templates', data);
+      FrontendLogger.info('TEMPLATE_SERVICE', 'Template successfully persisted', { id: response.data.id });
+      return response.data;
+    } catch (error) {
+      FrontendLogger.error('TEMPLATE_SERVICE', `Failed to persist template: '${data.name}'`, error);
+      throw error;
+    }
+  },
 
-  /**
-   * Updates an existing template using PATCH for partial updates.
-   * Handles updates to exercise configurations, scheduling, and user assignments.
-   * Path: PATCH /workout-templates/{templateId}
-   */
-  update: (templateId, updateData) => api.patch(`/workout-templates/${templateId}`, updateData),
-
-  /**
-   * Deletes a specific template by ID.
-   * Path: DELETE /workout-templates/{templateId}
-   */
-  delete: (templateId) => api.delete(`/workout-templates/${templateId}`)
+  delete: async (id) => {
+    FrontendLogger.info('TEMPLATE_SERVICE', `Purging template record ID: ${id}`);
+    try {
+      await api.delete(`/templates/${id}`);
+      FrontendLogger.info('TEMPLATE_SERVICE', `Template ID: ${id} successfully evicted`);
+    } catch (error) {
+      FrontendLogger.error('TEMPLATE_SERVICE', `Failed to purge template ID: ${id}`, error);
+      throw error;
+    }
+  },
+  update: async (id, data) => {
+    FrontendLogger.info('TEMPLATE_SERVICE', `Patching template ID: ${id}`);
+    try {
+      const response = await api.patch(`/templates/${id}`, data);
+      FrontendLogger.info('TEMPLATE_SERVICE', 'Template successfully updated');
+      return response.data;
+    } catch (error) {
+      FrontendLogger.error('TEMPLATE_SERVICE', `Failed to update template ID: ${id}`, error);
+      throw error;
+    }
+  },
 };
 
 export default templateService;

@@ -1,56 +1,52 @@
 import uuid
-from datetime import datetime
-from typing import List, Optional
-
-from sqlalchemy import Column, String, DateTime, Text
+from datetime import datetime, timezone
+from typing import Optional
+from sqlalchemy import Column, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, ConfigDict
-
 from db.database import Base
 
-
-# --- Database Model ---
+# --- DATABASE MODEL ---
 
 class Group(Base):
     """
-    SQLAlchemy model representing a Training Group.
-    Groups serve as the primary organizational unit for users and data isolation.
+    SQLAlchemy model representing a Training Group context.
+    Groups serve as the primary organizational unit for isolated user boundaries.
     """
     __tablename__ = "groups"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String, unique=True, nullable=False)
+    name = Column(Text, nullable=False)
     group_image = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
-    # Relationship to users (referenced as a string to avoid circular imports)
+    # Relational connection back-reference tracking pool
     users = relationship("User", back_populates="group")
 
 
-# --- Pydantic Schemas ---
+# --- PYDANTIC SCHEMAS ---
 
 class GroupBase(BaseModel):
-    """Base schema for Group data, shared across creation and updates."""
+    """Base schema for Group structural configuration fields payload data."""
     name: str
     group_image: Optional[str] = None
 
 
 class GroupCreate(GroupBase):
-    """Schema for creating a new group."""
+    """Schema optimized for recording and spawning new system group instances."""
     pass
 
 
 class GroupUpdate(BaseModel):
-    """Schema for partially updating an existing group."""
+    """Schema optimized for parsing structural modifications across group nodes."""
     name: Optional[str] = None
     group_image: Optional[str] = None
 
 
 class GroupOut(GroupBase):
-    """Schema for outgoing group data, including generated metadata."""
+    """Output schema enriched with server metadata properties used by client grids."""
     id: uuid.UUID
     created_at: datetime
 
-    # Pydantic V2 configuration for ORM compatibility
     model_config = ConfigDict(from_attributes=True)

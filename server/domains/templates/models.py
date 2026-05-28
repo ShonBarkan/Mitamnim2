@@ -1,98 +1,178 @@
 import uuid
-from datetime import datetime
-from typing import List, Optional
-
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from datetime import datetime, timezone
+from typing import List, Optional, Any
+from pydantic import BaseModel, ConfigDict, model_validator
+from sqlalchemy import Column, Integer, Text, ForeignKey, DateTime, Double, Table
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, ConfigDict, Field
-
 from db.database import Base
 
 
-# --- Database Model ---
+# --- ASSOCIATION TABLES ---
+
+class TemplateUserAssignment(Base):
+    __tablename__ = "template_user_assignments"
+    template_id = Column(UUID(as_uuid=True), ForeignKey("workout_templates.id", ondelete="CASCADE"), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+
+
+# Many-to-Many: Templates <-> Tags
+template_tags_map = Table(
+    "template_tags_map",
+    Base.metadata,
+    Column("template_id", UUID(as_uuid=True), ForeignKey("workout_templates.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", Integer, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True)
+)
+
+
+# --- DATABASE MODELS ---
 
 class WorkoutTemplate(Base):
-    """
-    SQLAlchemy model representing a reusable workout plan.
-    exercises_config stores exercise_id, num_of_sets, and a list of
-    parameter IDs with their manual or calculated values.
-    """
     __tablename__ = "workout_templates"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(Text, nullable=False)
+    description = Column(Text)
     group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
-    parent_exercise_id = Column(Integer, ForeignKey("exercise_tree.id", ondelete="SET NULL"), nullable=True)
-    name = Column(String, nullable=False)
-    description = Column(Text, nullable=True)
+    estimated_duration = Column(Integer)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+                        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
-    # JSONB structure: List[ExerciseInTemplate]
-    exercises_config = Column(JSONB, nullable=False)
-
-    # JSONB structure: List[str] (User UUIDs)
-    for_users = Column(JSONB, server_default='[]')
-
-    # JSONB structure: List[int] (0-6)
-    scheduled_days = Column(JSONB, server_default='[]')
-
-    expected_duration_time = Column(String, nullable=True)
-    scheduled_hour = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    group = relationship("Group")
-    parent_exercise = relationship("ExerciseTree")
+    # Relationships
+    exercises = relationship("TemplateExercise", back_populates="template", cascade="all, delete-orphan",
+                             order_by="TemplateExercise.position")
+    assigned_users = relationship("User", secondary="template_user_assignments")
+    tags = relationship("Tag", secondary=template_tags_map)
 
 
-# --- Pydantic Schemas ---
+class TemplateExercise(Base):
+    __tablename__ = "template_exercises"
 
-class ParamInExercise(BaseModel):
-    """
-    Schema for a specific parameter within an exercise.
-    As requested, stores only the ID and the value (manual or calculated).
-    """
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    template_id = Column(UUID(as_uuid=True), ForeignKey("workout_templates.id", ondelete="CASCADE"), nullable=False)
+    exercise_id = Column(Integer, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False)
+    position = Column(Integer, nullable=False)
+    sets = Column(Integer, default=3)
+
+    # Relationships
+    template = relationship("WorkoutTemplate", back_populates="exercises")
+    parameters = relationship("TemplateExerciseParam", cascade="all, delete-orphan")
+
+    # NEW: Direct connection to the master Exercise table for enrichment
+    exercise_ref = relationship("Exercise", foreign_keys=[exercise_id])
+
+
+class TemplateExerciseParam(Base):
+    __tablename__ = "template_exercise_params"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    template_exercise_id = Column(UUID(as_uuid=True), ForeignKey("template_exercises.id", ondelete="CASCADE"),
+                                  nullable=False)
+    parameter_id = Column(Integer, ForeignKey("parameters.id", ondelete="CASCADE"), nullable=False)
+    default_value = Column(Double, nullable=False)
+
+    # NEW: Direct connection to the master Parameter table for enrichment
+    parameter_ref = relationship("Parameter", foreign_keys=[parameter_id])
+
+
+# --- SCHEMAS FOR OUTPUT (Enriched Display) ---
+
+class TagEnrichedOut(BaseModel):
+    id: int
+    name: str
+    color: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TemplateExerciseParamOut(BaseModel):
     parameter_id: int
-    value: str
+    default_value: float
+    name: str = ""
+    unit: str = ""
+    is_virtual: bool = False
+    calculation_type: Optional[str] = None
+    source_parameter_ids: Optional[List[int]] = None
+    multiplier: Optional[float] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def flatten_param(cls, data: Any) -> Any:
+        # Dynamically map fields from the referenced Parameter model into a flat JSON structure
+        if hasattr(data, 'parameter_ref') and data.parameter_ref:
+            return {
+                "parameter_id": data.parameter_id,
+                "default_value": data.default_value,
+                "name": data.parameter_ref.name,
+                "unit": data.parameter_ref.unit,
+                "is_virtual": data.parameter_ref.is_virtual,
+                "calculation_type": data.parameter_ref.calculation_type,
+                "source_parameter_ids": data.parameter_ref.source_parameter_ids,
+                "multiplier": data.parameter_ref.multiplier
+            }
+        return data
 
 
-class ExerciseInTemplate(BaseModel):
-    """
-    Configuration for an exercise within a template.
-    Includes the exercise identity, sets, and its specific parameter values.
-    """
+class TemplateExerciseOut(BaseModel):
     exercise_id: int
-    exercise_name: str
-    num_of_sets: int
-    params: List[ParamInExercise]
+    position: int
+    sets: int
+    name: str = ""
+    parameters: List[TemplateExerciseParamOut]
+
+    @model_validator(mode='before')
+    @classmethod
+    def flatten_exercise(cls, data: Any) -> Any:
+        # Dynamically map the referenced Exercise name
+        if hasattr(data, 'exercise_ref') and data.exercise_ref:
+            return {
+                "exercise_id": data.exercise_id,
+                "position": data.position,
+                "sets": data.sets,
+                "name": data.exercise_ref.name,
+                "parameters": data.parameters
+            }
+        return data
 
 
-class WorkoutTemplateBase(BaseModel):
+class WorkoutTemplateOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: Optional[str]
+    estimated_duration: int
+    tags: List[TagEnrichedOut] = []  # Changed from tag_ids to fully enriched tags
+    assigned_user_ids: List[uuid.UUID] = []
+    exercises: List[TemplateExerciseOut]
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode='before')
+    @classmethod
+    def process_relationships(cls, data: Any) -> Any:
+        if hasattr(data, 'assigned_users'):
+            # Convert assigned_users objects into a clean flat list of IDs
+            setattr(data, 'assigned_user_ids', [user.id for user in data.assigned_users])
+        return data
+
+
+# --- SCHEMAS FOR CREATION (Lean Input) ---
+
+class TemplateExerciseParamCreate(BaseModel):
+    parameter_id: int
+    default_value: float
+
+
+class TemplateExerciseCreate(BaseModel):
+    exercise_id: int
+    position: int
+    sets: int
+    parameters: List[TemplateExerciseParamCreate]
+
+
+class WorkoutTemplateCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    parent_exercise_id: Optional[int] = None
-    exercises_config: List[ExerciseInTemplate]
-    for_users: List[uuid.UUID] = []
-    scheduled_days: List[int] = []
-    expected_duration_time: Optional[str] = None
-    scheduled_hour: Optional[str] = None
-
-
-class WorkoutTemplateCreate(WorkoutTemplateBase):
-    pass
-
-
-class WorkoutTemplateUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    parent_exercise_id: Optional[int] = None
-    exercises_config: Optional[List[ExerciseInTemplate]] = None
-    for_users: Optional[List[uuid.UUID]] = None
-    scheduled_days: Optional[List[int]] = None
-    expected_duration_time: Optional[str] = None
-    scheduled_hour: Optional[str] = None
-
-
-class WorkoutTemplateOut(WorkoutTemplateBase):
-    id: int
-    group_id: uuid.UUID
-    created_at: datetime
-    model_config = ConfigDict(from_attributes=True)
+    estimated_duration: int
+    tag_ids: List[int] = []
+    assigned_user_ids: List[uuid.UUID] = []
+    exercises: List[TemplateExerciseCreate]

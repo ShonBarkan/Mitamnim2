@@ -4,103 +4,90 @@ from typing import List
 
 from db.database import get_db
 from middlewares.auth import get_current_user
+from domains.users.models import User
+from core.logger import logger
 
-from .models import ExerciseOut, ExerciseCreate, ExerciseUpdate, ExerciseBatchRequest
+from .models import ExerciseOut, ExerciseCreate
 from .service import ExerciseService
-from ..users.models import User
-
 
 # --- Router Setup ---
+router = APIRouter(prefix="/exercises", tags=["Group Isolated Exercises Management"])
 
-router = APIRouter(prefix="/exercises", tags=["Exercise Tree"])
 
-
-@router.get("/", response_model=List[ExerciseOut])
-async def get_exercises(
+@router.get("", response_model=List[ExerciseOut])
+async def list_group_exercises(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Retrieves the full group hierarchy."""
+    """Retrieves all athletic exercises registered within the current group partition."""
+    logger.info(f"User '{current_user.username}' requesting exercises list for group_id: {current_user.group_id}")
     service = ExerciseService(db)
     return service.get_group_exercises(current_user.group_id)
 
 
-@router.post("/batch", response_model=List[ExerciseOut])
-async def get_exercises_batch(
-        batch_data: ExerciseBatchRequest,
+# Bulk ingestion endpoint MUST be defined before /{exercise_id} to avoid routing collisions
+@router.post("/bulk", response_model=List[ExerciseOut], status_code=status.HTTP_201_CREATED)
+async def create_exercises_bulk(
+        exercises_data: List[ExerciseCreate],
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Retrieves multiple exercises by IDs with group validation."""
+    """Bulk imports a list of exercises using AI-generated data."""
+    if current_user.role not in ["admin", "trainer"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+
     service = ExerciseService(db)
-    return service.get_exercises_by_ids(batch_data.exercise_ids, current_user.group_id)
+    return service.create_exercises_bulk(exercises_data, current_user.group_id)
 
 
-@router.post("/", response_model=ExerciseOut, status_code=status.HTTP_201_CREATED)
-async def create_exercise(
+@router.post("", response_model=ExerciseOut, status_code=status.HTTP_201_CREATED)
+async def create_new_exercise(
         exercise_data: ExerciseCreate,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Creates a new exercise node (Admins/Trainers only)."""
+    """Creates a new exercise and auto-syncs virtual parameters."""
     if current_user.role not in ["admin", "trainer"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
 
     service = ExerciseService(db)
-    try:
-        return service.create_exercise(exercise_data, current_user.group_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return service.create_exercise(exercise_data, current_user.group_id)
 
 
-@router.patch("/{exercise_id}", response_model=ExerciseOut)
+@router.put("/{exercise_id}", response_model=ExerciseOut)
 async def update_exercise(
         exercise_id: int,
-        exercise_update: ExerciseUpdate,
+        exercise_data: ExerciseCreate,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Updates exercise details (Admins/Trainers only)."""
+    """Updates an existing exercise and re-syncs all relational maps."""
     if current_user.role not in ["admin", "trainer"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
 
     service = ExerciseService(db)
-    update_data = exercise_update.model_dump(exclude_unset=True)
-    updated_node = service.update_exercise(exercise_id, current_user.group_id, update_data)
+    db_exercise = service.get_exercise_by_id(exercise_id, current_user.group_id)
 
-    if not updated_node:
-        raise HTTPException(status_code=404, detail="Exercise not found or access denied")
+    if not db_exercise:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found.")
 
-    return updated_node
+    return service.update_exercise(db_exercise, exercise_data, current_user.group_id)
 
 
-@router.delete("/{exercise_id}")
+@router.delete("/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_exercise(
         exercise_id: int,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Removes an exercise and all its descendants (Admins/Trainers only)."""
+    """Permanently purges an exercise record and its associated relationship maps."""
     if current_user.role not in ["admin", "trainer"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
 
     service = ExerciseService(db)
-    if not service.delete_exercise(exercise_id, current_user.group_id):
-        raise HTTPException(status_code=404, detail="Exercise not found or access denied")
+    db_exercise = service.get_exercise_by_id(exercise_id, current_user.group_id)
 
-    return {"message": "Exercise deleted successfully"}
+    if not db_exercise:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found.")
 
-
-@router.get("/{exercise_id}/active-params")
-async def get_exercise_active_params(
-        exercise_id: int,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """Fetches all parameters directly linked to a specific exercise node."""
-    service = ExerciseService(db)
-    try:
-        results = service.get_active_params_raw(exercise_id)
-        return list(results)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error fetching parameters")
+    service.delete_exercise(db_exercise)

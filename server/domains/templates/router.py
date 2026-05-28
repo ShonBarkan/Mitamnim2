@@ -1,71 +1,81 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+import uuid
 
 from db.database import get_db
 from middlewares.auth import get_current_user
+from domains.users.models import User
+from core.logger import logger
 
-from .models import WorkoutTemplateOut, WorkoutTemplateCreate, WorkoutTemplateUpdate
-from .service import WorkoutTemplateService
-from ..users.models import User
+from .models import WorkoutTemplateOut, WorkoutTemplateCreate
+from .service import TemplateService
 
+router = APIRouter(prefix="/templates", tags=["Workout Templates Management"])
 
-# --- Router Setup ---
+@router.get("", response_model=List[WorkoutTemplateOut], summary="List all templates")
+async def list_group_templates(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Retrieves all templates available for the user's group partition."""
+    logger.info(f"User '{current_user.username}' fetching templates for group: {current_user.group_id}")
+    service = TemplateService(db)
+    # תיקון: קריאה למתודה הנכונה בשירות
+    return service.get_group_templates(current_user.group_id)
 
-router = APIRouter(prefix="/workout-templates", tags=["Workout Templates"])
-
-
-@router.post("", response_model=WorkoutTemplateOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=WorkoutTemplateOut, status_code=status.HTTP_201_CREATED, summary="Create new template")
 async def create_template(
-        data: WorkoutTemplateCreate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+    template_data: WorkoutTemplateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    if current_user.role not in ['trainer', 'admin']:
-        raise HTTPException(status_code=403, detail="Unauthorized role")
+    """Creates a new workout template with sequence and default parameters."""
+    if current_user.role not in ["admin", "trainer"]:
+        logger.warning(f"Unauthorized template creation attempt by user: {current_user.id}")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only trainers can create templates.")
 
-    service = WorkoutTemplateService(db)
-    return service.create_template(current_user, data)
+    service = TemplateService(db)
+    return service.create_template(template_data, current_user.group_id)
 
-
-@router.get("", response_model=List[WorkoutTemplateOut])
-async def list_templates(
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
+@router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete template")
+async def delete_template(
+    template_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    service = WorkoutTemplateService(db)
-    return service.get_group_templates(current_user)
+    """Permanently purges a template record and its cascading dependencies."""
+    if current_user.role not in ["admin", "trainer"]:
+        logger.warning(f"Unauthorized template deletion attempt by user: {current_user.id}")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+
+    service = TemplateService(db)
+    try:
+        service.delete_template(template_id, current_user.group_id)
+        logger.info(f"Template {template_id} successfully purged by user {current_user.id}")
+        return None
+    except Exception as e:
+        logger.error(f"Error purging template {template_id}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete template.")
 
 
-@router.patch("/{template_id}", response_model=WorkoutTemplateOut)
+@router.patch("/{template_id}", response_model=WorkoutTemplateOut, summary="Update existing template")
 async def update_template(
-        template_id: int,
-        data: WorkoutTemplateUpdate,
+        template_id: uuid.UUID,
+        template_data: WorkoutTemplateCreate,  # או מודל עדכון ייעודי אם יש לך
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    if current_user.role not in ['trainer', 'admin']:
-        raise HTTPException(status_code=403, detail="Unauthorized role")
+    """Updates an existing workout template."""
+    if current_user.role not in ["admin", "trainer"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized")
 
-    service = WorkoutTemplateService(db)
-    updated = service.update_template(template_id, current_user, data)
+    service = TemplateService(db)
 
-    if not updated:
-        raise HTTPException(status_code=404, detail="Template not found")
-    return updated
+    # בצע את העדכון בשירות
+    updated_template = service.update_template(template_id, current_user.group_id, template_data)
 
+    if not updated_template:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
 
-@router.delete("/{template_id}")
-async def remove_template(
-        template_id: int,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    if current_user.role not in ['trainer', 'admin']:
-        raise HTTPException(status_code=403, detail="Unauthorized role")
-
-    service = WorkoutTemplateService(db)
-    if not service.delete_template(template_id, current_user):
-        raise HTTPException(status_code=404, detail="Template not found")
-
-    return {"detail": "Template deleted successfully"}
+    return updated_template

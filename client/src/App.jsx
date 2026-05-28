@@ -1,119 +1,82 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Providers Wrapper
 import AppProviders from './components/AppProviders';
 
-// Components & Pages
+// Application Structural Layout Components & Guards
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+
+// Viewport Pages Matrix Pipeline
 import LoginPage from './pages/LoginPage';
 import LandingPage from './pages/LandingPage';
 import UserPanelPage from './pages/UserPanelPage';
 import GroupPanelPage from './pages/GroupPanelPage';
-import ExercisePage from './pages/ExercisePage';
-import WorkoutTemplatePage from './pages/WorkoutTemplatePage';
-import CreateWorkoutTemplatePage from './pages/CreateWorkoutTemplatePage';
-import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
 import ChatsPage from './pages/ChatsPage';
 import SettingsPage from './pages/SettingsPage';
 import CoachMessageManager from './pages/CoachMessageManager';
-import PersonalStatsPage from './pages/PersonalStatsPage';
+import ExerciseManagerPage from './pages/ExerciseManagerPage';
+import LogDiaryPage from './pages/LogDiaryPage';
+// import AthleteStatsPage from './pages/AthleteStatsPage';
+
+// Settings Sub-System Workspace Components
+import ParameterManager from './components/SettingsPage/ParameterManager';
+import TagManager from './components/SettingsPage/TagManager';
+
+// Workout & Template Ecosystem
+import ShowTemplatesPage from './pages/ShowTemplatesPage';
+import CreateTemplatePage from './pages/CreateTemplatePage';
+import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
+import AthleteStatsPage from './pages/AthleteStatsPage';
 
 function App() {
   return (
     <AppProviders>
       <Router>
         <Navbar />
-        <div style={{ direction: 'rtl', padding: '20px' }}>
+        <div className="min-h-screen bg-zinc-50" dir="rtl">
           <Routes>
-            {/* Public Routes */}
+            {/* Public Authentication Gateways */}
             <Route path="/login" element={<LoginPage />} />
             
-            {/* Private Routes */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <LandingPage />
-              </ProtectedRoute>
-            } />
+            {/* Protected Routes Wrapper */}
+            <Route element={<ProtectedRoute />}>
+              
+              {/* General Authenticated Member Routes */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/chats" element={<ChatsPage />} />
+              <Route path="/exercises" element={<ExerciseManagerPage />} />
+              <Route path="/templates" element={<ShowTemplatesPage />} />
+              <Route path="/ActiveWorkoutPage" element={<ActiveWorkoutPage />} />
+              <Route path="/statistics" element={<AthleteStatsPage />} />
+              {/* <Route path="/statistics/athlete/:athleteId" element={<AthleteStatsPage />} /> */}
+              
+              {/* Unified Diary Route */}
+              <Route path="/log-diary" element={<LogDiaryPage />} />
+              
+              {/* Privileged Coach Tools */}
+              <Route element={<ProtectedRoute allowedRoles={['admin', 'trainer']} />}>
+                <Route path="/users" element={<UserPanelPage />} />
+                <Route path="/templates/create" element={<CreateTemplatePage />} />
+                <Route path="/coach-messages" element={<CoachMessageManager />} />
+                
+                {/* Settings Nested Routes */}
+                <Route path="/settings" element={<SettingsPage />}>
+                  <Route index element={<Navigate to="parameters" replace />} />
+                  <Route path="parameters" element={<ParameterManager />} />
+                  <Route path="tags" element={<TagManager />} />
+                </Route>
+              </Route>
 
-            <Route path="/exercises" element={
-              <ProtectedRoute>
-                <ExercisePage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/exercises/:exerciseId" element={
-              <ProtectedRoute>
-                <ExercisePage />
-              </ProtectedRoute>
-            } />
+              {/* System Admin Tools */}
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                <Route path="/groups" element={<GroupPanelPage />} />
+              </Route>
+            </Route>
 
-            <Route path="/users" element={
-              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                <UserPanelPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/groups" element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <GroupPanelPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/workout-templates" element={
-              <ProtectedRoute>
-                <WorkoutTemplatePage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/create-workout-templates" element={
-              <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                <CreateWorkoutTemplatePage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/active-workouts" element={
-              <ProtectedRoute>
-                <ActiveWorkoutPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/chats" element={
-              <ProtectedRoute>
-                <ChatsPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/settings" element={
-                <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                  <SettingsPage />
-                </ProtectedRoute>
-              } 
-            />
-
-            <Route path="/coach-messages" element={
-                <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                  <CoachMessageManager />
-                </ProtectedRoute>
-              } 
-            />
-
-            <Route path="/stats-page" element={
-                <ProtectedRoute>
-                  <PersonalStatsPage />
-                </ProtectedRoute>
-              } 
-            />
-
-            <Route path="/stats-page/:userId" element={
-                <ProtectedRoute allowedRoles={['admin', 'trainer']}>
-                  <PersonalStatsPage />
-                </ProtectedRoute>
-              } 
-            />
-
-
+            {/* Fallback Gateway */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </Router>

@@ -1,37 +1,39 @@
 import api from './api';
+import FrontendLogger from '../utils/logger';
 
 /**
- * Service for managing exercise tree nodes and parameter definitions.
+ * Service handling API communication for athletic exercises.
+ * Maps CRUD operations to the remote exercises endpoint.
  */
 export const exerciseService = {
-  /**
-   * Fetches all exercises for the current group.
-   * Path: GET /exercises/
-   */
-  getAll: () => api.get('/exercises/'),
+  getAll: async () => {
+    FrontendLogger.info('EXERCISE_SERVICE', 'Fetching all group-isolated exercises from server');
+    const response = await api.get('/exercises');
+    return response.data;
+  },
 
-  /**
-   * Creates a new exercise node.
-   * Path: POST /exercises/
-   */
-  create: (data) => api.post('/exercises/', data),
+  create: async (data) => {
+    FrontendLogger.info('EXERCISE_SERVICE', `Creating new exercise record: '${data.name}'`, data);
+    const response = await api.post('/exercises', data);
+    return response.data;
+  },
 
-  /**
-   * Updates an exercise node.
-   * Path: PATCH /exercises/{id}
-   */
-  update: (id, data) => api.patch(`/exercises/${id}`, data),
+  createBulk: async (data) => {
+    FrontendLogger.info('EXERCISE_SERVICE', `Performing bulk ingestion of ${data.length} exercises`);
+    const response = await api.post('/exercises/bulk', data);
+    return response.data;
+  },
 
-  /**
-   * Deletes an exercise node and its descendants.
-   * Path: DELETE /exercises/{id}
-   */
-  delete: (id) => api.delete(`/exercises/${id}`),
+  update: async (id, data) => {
+    FrontendLogger.info('EXERCISE_SERVICE', `Updating exercise record ID: #${id}`, data);
+    const response = await api.put(`/exercises/${id}`, data);
+    return response.data;
+  },
 
-  /**
-   * Fetches active parameters linked to a specific exercise.
-   * Returns metadata for both raw and virtual parameters.
-   * Path: GET /exercises/{id}/active-params
-   */
-  getActiveParams: (id) => api.get(`/exercises/${id}/active-params`)
+  delete: async (id) => {
+    FrontendLogger.info('EXERCISE_SERVICE', `Purging exercise record ID: #${id}`);
+    await api.delete(`/exercises/${id}`);
+  }
 };
+
+export default exerciseService;

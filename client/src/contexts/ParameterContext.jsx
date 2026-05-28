@@ -1,110 +1,154 @@
 import React, { createContext, useState, useCallback, useContext } from 'react';
 import { parameterService } from '../services/parameterService';
+import FrontendLogger from '../utils/logger';
 
 export const ParameterContext = createContext();
 
-/**
- * Provider for managing global measurement parameters.
- * Supports standard (raw) and virtual parameters (sum, subtract, multiply, divide, percentage, conversion).
- */
 export const ParameterProvider = ({ children }) => {
   const [parameters, setParameters] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /**
-   * Fetches all available parameters for the current group.
-   * Metadata includes aggregation strategies and advanced calculation rules for virtual params.
+   * Fetches all available measurement parameters for the current group perimeter.
    */
   const fetchParameters = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await parameterService.getAll();
-      setParameters(response.data);
+      FrontendLogger.info('PARAMETER_CONTEXT', 'Initiating group metrics parameter schema synchronization');
+      const data = await parameterService.getAll();
+      setParameters(data);
+      FrontendLogger.info('PARAMETER_CONTEXT', `Successfully synchronized ${data.length} measurement parameters`);
     } catch (error) {
-      console.error("ParameterContext: Failed to fetch parameters:", error);
+      FrontendLogger.error('PARAMETER_CONTEXT', 'Failed to fetch parameter layout definitions framework', error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   /**
-   * Persists a new parameter definition.
-   * Handles configuration for virtual parameters including calculation_type and source_parameter_ids.
+   * Evaluates and computes live virtual parameter previews on the client-side for fluid UI feedback.
+   * Aligned perfectly with the three concrete metric definitions: Regular, Conversion, and Combination.
    */
-  const addParameter = async (data) => {
+  const calculateVirtualValue = useCallback((param, performanceData) => {
+    if (!param.is_virtual || !param.source_parameter_ids) return null;
+
+    const sourceValues = param.source_parameter_ids.map(id => parseFloat(performanceData[id]) || 0);
+
+    switch (param.calculation_type) {
+      case 'conversion':
+        // Type 2: Direct single source base parameter transformation
+        return (sourceValues[0] || 0) * (param.multiplier || 1);
+        
+      case 'sum':
+        // Type 3a: Arithmetic sum combination of two parameters
+        return ((sourceValues[0] || 0) + (sourceValues[1] || 0)) * (param.multiplier || 1);
+        
+      case 'subtract':
+        // Type 3b: Arithmetic subtraction combination of two parameters
+        return ((sourceValues[0] || 0) - (sourceValues[1] || 0)) * (param.multiplier || 1);
+        
+      case 'multiply':
+        // Type 3c: Arithmetic volume/multiplication combination of two parameters
+        return (sourceValues[0] || 0) * (sourceValues[1] || 0) * (param.multiplier || 1);
+        
+      case 'divide':
+        // Type 3d: Direct division ratio computation tracking
+        if (sourceValues[1] === 0) return 0;
+        return (sourceValues[0] / sourceValues[1]) * (param.multiplier || 1);
+        
+      case 'percentage':
+        // Type 3e: Standard mathematical percentage ratio allocation
+        if (sourceValues[1] === 0) return 0;
+        return (sourceValues[0] / sourceValues[1]) * 100;
+        
+      default:
+        return null;
+    }
+  }, []);
+
+  /**
+   * Registers a brand new parameter token tracking asset.
+   */
+  const addParameter = async (paramData) => {
     try {
-      const response = await parameterService.create(data);
-      setParameters(prev => [...prev, response.data]);
-      return response.data;
+      FrontendLogger.info('PARAMETER_CONTEXT', `Spawning new system parameter blueprint rule: '${paramData.name}'`);
+      const createdParam = await parameterService.create(paramData);
+      
+      setParameters(prev => [...prev, createdParam]);
+      FrontendLogger.info('PARAMETER_CONTEXT', `Parameter token '${paramData.name}' successfully verified and allocated`, createdParam);
+      return createdParam;
     } catch (error) {
-      console.error("ParameterContext: Failed to add parameter:", error);
-      throw error;
+      FrontendLogger.error('PARAMETER_CONTEXT', `Failed to execute allocation sequence for parameter target rule: '${paramData.name}'`, error);
+      throw error; // FIXED: Changed from pythonic raise to JavaScript throw keyword
     }
   };
 
   /**
-   * Updates an existing parameter.
-   * Supports partial updates for name, unit, aggregation strategy, or calculation logic.
+   * Updates configuration definitions for an existing parameter matrix.
    */
-  const editParameter = async (id, data) => {
+  const editParameter = async (id, updateData) => {
     try {
-      const response = await parameterService.update(id, data);
-      setParameters(prev => prev.map(p => p.id === id ? response.data : p));
-      return response.data;
+      FrontendLogger.info('PARAMETER_CONTEXT', `Mutating structural boundaries configuration for parameter validation node id: ${id}`);
+      const updatedParam = await parameterService.update(id, updateData);
+
+      setParameters(prev => prev.map(p => p.id === id ? updatedParam : p));
+      FrontendLogger.info('PARAMETER_CONTEXT', `Parameter token id: ${id} successfully re-mapped and synced with layout schemas`);
+      return updatedParam;
     } catch (error) {
-      console.error("ParameterContext: Failed to edit parameter:", error);
-      throw error;
+      FrontendLogger.error('PARAMETER_CONTEXT', `Failed to apply structural mutations on parameter validation asset node target id: ${id}`, error);
+      throw error; // FIXED: Changed from pythonic raise to JavaScript throw keyword
     }
   };
 
   /**
-   * Removes a parameter definition.
+   * Removes a parameter definition token asset from the active tracking schemas.
    */
   const removeParameter = async (id) => {
     try {
+      FrontendLogger.info('PARAMETER_CONTEXT', `Requesting absolute destruction chain for parameter validation registry node id: ${id}`);
       await parameterService.delete(id);
+      
       setParameters(prev => prev.filter(p => p.id !== id));
+      FrontendLogger.info('PARAMETER_CONTEXT', `Parameter record instance row id: ${id} completely flushed from local tracking bounds memory`);
     } catch (error) {
-      console.error("ParameterContext: Failed to remove parameter:", error);
-      throw error;
+      FrontendLogger.error('PARAMETER_CONTEXT', `Failed to trigger destruction sequence execution layout for target entity record node id: ${id}`, error);
+      throw error; // FIXED: Changed from pythonic raise to JavaScript throw keyword
     }
   };
 
   /**
-   * Helper function to retrieve a parameter's name by its unique ID.
+   * Utility lookup resolving numerical parameter identifiers into clean string tokens.
    */
   const getParameterNameById = useCallback((id) => {
     const param = parameters.find(p => p.id === parseInt(id));
-    return param ? param.name : "Parameter Not Found";
+    return param ? param.name : "לא נמצא";
   }, [parameters]);
 
-  const value = {
-    parameters,
-    loading,
-    fetchParameters,
-    addParameter,
-    editParameter,
-    removeParameter,
-    getParameterNameById,
-  };
-
   return (
-    <ParameterContext.Provider value={value}>
+    <ParameterContext.Provider value={{ 
+      parameters, 
+      loading, 
+      fetchParameters, 
+      addParameter, 
+      editParameter, 
+      removeParameter, 
+      getParameterNameById,
+      calculateVirtualValue
+    }}>
       {children}
     </ParameterContext.Provider>
   );
 };
 
 /**
- * Custom hook for easy access to the ParameterContext.
- * Ensures the component is wrapped within a ParameterProvider.
+ * Custom hook utility proxying contextual abstraction layers cleanly.
  */
 export const useParameter = () => {
-    const context = useContext(ParameterContext);
-    if (!context) {
-        throw new Error("useParameter must be used within a ParameterProvider");
-    }
-    return context;
+  const context = useContext(ParameterContext);
+  if (!context) {
+    throw new Error("useParameter must be consumed strictly within an active ParameterProvider scope wrapper boundary.");
+  }
+  return context;
 };
 
 export default ParameterProvider;

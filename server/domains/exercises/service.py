@@ -1,159 +1,113 @@
+import uuid
 from typing import List, Optional
-from sqlalchemy import text
 from sqlalchemy.orm import Session
+from core.logger import logger
+from .models import Exercise, ExerciseCreate
+from domains.parameters.models import Parameter
+from domains.tags.models import Tag
 
-from .models import ExerciseTree, ExerciseCreate, ExerciseUpdate, ExerciseOut, ExerciseBatchRequest
-from ..active_params.models import ActiveParam
-
-
-# --- ExerciseService (Business Logic Class) ---
 
 class ExerciseService:
     """
-    Service class handling the hierarchical logic of the exercise tree.
+    Service layer executing transaction logic for group-isolated athletic exercises.
+    Manages complex relational mappings between exercises, tags, and parameters.
     """
 
     def __init__(self, db: Session):
         self.db = db
 
-    def _get_all_descendant_ids(self, exercise_id: int) -> List[int]:
-        """Recursive helper to find all descendant IDs for a given node."""
-        descendants = [exercise_id]
-        children = self.db.query(ExerciseTree.id).filter(ExerciseTree.parent_id == exercise_id).all()
-        for child in children:
-            descendants.extend(self._get_all_descendant_ids(child.id))
-        return descendants
+    def get_group_exercises(self, group_id: uuid.UUID) -> List[Exercise]:
+        """Retrieves all exercises for a specific group."""
+        logger.info(f"Querying exercise catalog for group_id: {group_id}")
+        return self.db.query(Exercise).filter(Exercise.group_id == group_id).all()
 
-    def _get_recursive_params(self, exercise_id: int) -> List[int]:
-        """Fetches all parameter_ids for a node and its entire subtree."""
-        all_node_ids = self._get_all_descendant_ids(exercise_id)
-
-        params = self.db.query(ActiveParam.parameter_id).filter(
-            ActiveParam.exercise_id.in_(all_node_ids)
-        ).all()
-
-        # Returns a unique list of parameter IDs
-        return list(set(p.parameter_id for p in params))
-
-    def get_group_exercises(self, group_id) -> List[ExerciseOut]:
+    def sync_exercise_parameters(self, db_exercise: Exercise, selected_param_ids: List[int], group_id: uuid.UUID):
         """
-        Retrieves all exercises for a group and calculates child/param metadata.
+        Synchronizes parameters: includes selected base parameters AND
+        automatically appends virtual parameters if their source requirements are met.
         """
-        exercises = self.db.query(ExerciseTree).filter(
-            ExerciseTree.group_id == group_id
-        ).all()
+        all_params = self.db.query(Parameter).filter(Parameter.group_id == group_id).all()
 
-        results = []
-        for ex in exercises:
-            # Metadata: Check for direct children
-            child_exists = self.db.query(ExerciseTree).filter(
-                ExerciseTree.parent_id == ex.id
-            ).first() is not None
+        # 1. Identify base parameters selected by user
+        selected_params = [p for p in all_params if p.id in selected_param_ids]
 
-            # Recursive parameter discovery
-            recursive_param_ids = self._get_recursive_params(ex.id)
+        # 2. Automatically append virtual parameters if all their sources are present
+        final_params = list(selected_params)
+        for p in all_params:
+            if p.is_virtual and p.source_parameter_ids:
+                if all(sid in selected_param_ids for sid in p.source_parameter_ids):
+                    if p not in final_params:
+                        final_params.append(p)
 
-            ex_out = ExerciseOut.model_validate(ex)
-            ex_out.has_children = child_exists
-            ex_out.has_params = len(recursive_param_ids) > 0
-            ex_out.active_parameter_ids = recursive_param_ids
-            results.append(ex_out)
+        db_exercise.parameters = final_params
 
-        return results
+    def create_exercise(self, data: ExerciseCreate, group_id: uuid.UUID) -> Exercise:
+        """Persists a new exercise and establishes relational map entries for tags and parameters."""
+        logger.info(f"Creating individual exercise: '{data.name}' for group: {group_id}")
 
-    def get_exercises_by_ids(self, exercise_ids: List[int], group_id) -> List[ExerciseOut]:
-        """
-        Retrieves specific exercises by IDs while ensuring group ownership.
-        """
-        exercises = self.db.query(ExerciseTree).filter(
-            ExerciseTree.id.in_(exercise_ids),
-            ExerciseTree.group_id == group_id
-        ).all()
-
-        results = []
-        for ex in exercises:
-            child_exists = self.db.query(ExerciseTree).filter(
-                ExerciseTree.parent_id == ex.id
-            ).first() is not None
-
-            recursive_param_ids = self._get_recursive_params(ex.id)
-
-            ex_out = ExerciseOut.model_validate(ex)
-            ex_out.has_children = child_exists
-            ex_out.has_params = len(recursive_param_ids) > 0
-            ex_out.active_parameter_ids = recursive_param_ids
-            results.append(ex_out)
-
-        return results
-
-    def create_exercise(self, data: ExerciseCreate, current_group_id) -> ExerciseTree:
-        """
-        Creates a new exercise node.
-        Ensures nodes with measurement parameters cannot become parents.
-        """
-
-        if data.parent_id:
-            parent_has_params = self.db.query(ActiveParam).filter(
-                ActiveParam.exercise_id == data.parent_id
-            ).first()
-
-            if parent_has_params:
-                raise ValueError("Cannot add sub-exercises to a node that already has parameters.")
-
-        new_node = ExerciseTree(
-            name=data.name,
-            parent_id=data.parent_id,
-            group_id=current_group_id
+        new_exercise = Exercise(
+            name=data.name.strip(),
+            group_id=group_id
         )
-        self.db.add(new_node)
-        self.db.commit()
-        self.db.refresh(new_node)
-        return new_node
 
-    def update_exercise(self, exercise_id: int, group_id, update_data: dict) -> ExerciseTree:
-        """Updates exercise content if group ownership is verified."""
-        db_node = self.db.query(ExerciseTree).filter(
-            ExerciseTree.id == exercise_id,
-            ExerciseTree.group_id == group_id
+        # Sync parameters
+        if data.parameter_ids:
+            self.sync_exercise_parameters(new_exercise, data.parameter_ids, group_id)
+
+        # Sync tags
+        if data.tag_ids:
+            new_exercise.tags = self.db.query(Tag).filter(
+                Tag.id.in_(data.tag_ids),
+                Tag.group_id == group_id
+            ).all()
+
+        self.db.add(new_exercise)
+        self.db.commit()
+        self.db.refresh(new_exercise)
+
+        logger.info(f"Exercise '{new_exercise.name}' created with ID: {new_exercise.id}")
+        return new_exercise
+
+    def create_exercises_bulk(self, exercises_data: List[ExerciseCreate], group_id: uuid.UUID) -> List[Exercise]:
+        """Iteratively persists a bulk list of exercises with transactional safety."""
+        logger.info(f"Initiating bulk ingestion of {len(exercises_data)} exercises for group: {group_id}")
+
+        created_exercises = []
+        try:
+            for data in exercises_data:
+                # Reuse individual creation logic
+                new_ex = self.create_exercise(data, group_id)
+                created_exercises.append(new_ex)
+
+            logger.info(f"Successfully committed {len(created_exercises)} exercises in bulk operation.")
+            return created_exercises
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Bulk ingestion failed: {str(e)}")
+            raise e
+
+    def update_exercise(self, db_exercise: Exercise, data: ExerciseCreate, group_id: uuid.UUID) -> Exercise:
+        """Updates exercise basic info and re-syncs relational maps."""
+        logger.info(f"Updating exercise ID: #{db_exercise.id}")
+
+        db_exercise.name = data.name.strip()
+        self.sync_exercise_parameters(db_exercise, data.parameter_ids, group_id)
+        db_exercise.tags = self.db.query(Tag).filter(Tag.id.in_(data.tag_ids)).all()
+
+        self.db.commit()
+        self.db.refresh(db_exercise)
+        logger.info(f"Exercise ID: #{db_exercise.id} successfully updated.")
+        return db_exercise
+
+    def get_exercise_by_id(self, exercise_id: int, group_id: uuid.UUID) -> Optional[Exercise]:
+        """Fetches a specific exercise instance by ID within group isolation bounds."""
+        return self.db.query(Exercise).filter(
+            Exercise.id == exercise_id,
+            Exercise.group_id == group_id
         ).first()
 
-        if not db_node:
-            return None
-
-        for key, value in update_data.items():
-            if hasattr(db_node, key):
-                setattr(db_node, key, value)
-
+    def delete_exercise(self, db_exercise: Exercise):
+        """Purges an exercise record and automatically handles cascading relationship maps."""
+        logger.warning(f"Purging exercise record ID: #{db_exercise.id}")
+        self.db.delete(db_exercise)
         self.db.commit()
-        self.db.refresh(db_node)
-        return db_node
-
-    def delete_exercise(self, exercise_id: int, group_id) -> bool:
-        """Deletes an exercise and cascades deletion to descendants."""
-        db_node = self.db.query(ExerciseTree).filter(
-            ExerciseTree.id == exercise_id,
-            ExerciseTree.group_id == group_id
-        ).first()
-
-        if not db_node:
-            return False
-
-        self.db.delete(db_node)
-        self.db.commit()
-        return True
-
-    def get_active_params_raw(self, exercise_id: int):
-        """Fetches joined parameter and mapping data using optimized raw SQL."""
-        query = text("""
-            SELECT 
-                p.id as parameter_id,
-                p.name as parameter_name,
-                p.unit as parameter_unit,
-                ap.id as id,
-                ap.default_value
-            FROM parameters p
-            JOIN active_params ap ON p.id = ap.parameter_id
-            WHERE ap.exercise_id = :ex_id
-        """)
-
-        return self.db.execute(query, {"ex_id": exercise_id}).mappings().all()
