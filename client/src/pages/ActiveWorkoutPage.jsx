@@ -305,7 +305,7 @@ const ActiveWorkoutPage = () => {
       finished_at: finishedAt.toISOString() 
     });
     
-    navigate('/WorkoutHistoryPage');
+    navigate('/log-diary');
     showToast('האימון נשמר בהצלחה, כל הכבוד!', 'success');
   };
 
