@@ -20,7 +20,6 @@ auth_router = APIRouter(tags=["Authentication"])
 
 @auth_router.post("/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Authenticates user and returns JWT access token."""
     auth_service = AuthService(db)
     token_data = await auth_service.authenticate_user(form_data)
     if not token_data:
@@ -31,23 +30,19 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     return token_data
 
 
-@router.get("/group", response_model=List[UserOut])
+# Changed route to "/group/" to handle trailing slash
+@router.get("/group/", response_model=List[UserOut])
 async def get_group_users(
         target_group_id: Optional[uuid.UUID] = None,
         db: Session = Depends(get_db),
         current_user=Depends(get_current_user)
 ):
-    """Fetches all users belonging to a specific group, defaulting to current user's group."""
-
-    # Fallback to the authenticated user's group if no explicit target is provided
     if target_group_id is None:
         target_group_id = current_user.group_id
 
-    # Failsafe in case a user somehow lacks a group assignment
     if not target_group_id:
         raise HTTPException(status_code=400, detail="User is not assigned to any group")
 
-    # Authorization enforcement
     if current_user.role != "admin" and current_user.group_id != target_group_id:
         raise HTTPException(status_code=403, detail="Access denied to group members")
 
@@ -55,9 +50,8 @@ async def get_group_users(
     return service.get_users_by_group(target_group_id)
 
 
-@router.get("/me", response_model=UserOut)
+@router.get("/me/", response_model=UserOut)
 async def get_my_profile(current_user = Depends(get_current_user)):
-    """Returns the profile of the currently logged-in user."""
     return current_user
 
 
@@ -67,7 +61,6 @@ async def create_new_user(
         db: Session = Depends(get_db),
         current_user = Depends(get_current_user)
 ):
-    """Creates a new user with context-aware role and group validation."""
     user_service = UserService(db)
     auth_service = AuthService(db)
 
@@ -89,14 +82,13 @@ async def create_new_user(
     return user_service.create_user(user_data, hashed_pw, target_group_id)
 
 
-@router.patch("/{user_id}", response_model=UserOut)
+@router.patch("/{user_id}/", response_model=UserOut)
 async def update_existing_user(
         user_id: uuid.UUID,
         user_update: UserUpdate,
         db: Session = Depends(get_db),
         current_user = Depends(get_current_user)
 ):
-    """Updates user profile details with permission checks for sensitive fields."""
     user_service = UserService(db)
     auth_service = AuthService(db)
 
@@ -108,13 +100,11 @@ async def update_existing_user(
     is_self = current_user.id == user_id
     is_trainer_of_group = (current_user.role == "trainer" and db_user.group_id == current_user.group_id)
 
-    # Basic authorization check
     if not (is_admin or is_self or is_trainer_of_group):
         raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = user_update.model_dump(exclude_unset=True)
 
-    # Prevent non-admins from CHANGING roles or groups
     if not is_admin:
         if "role" in update_data and update_data["role"] != db_user.role:
             raise HTTPException(status_code=403, detail="Only admins can change roles")
@@ -128,20 +118,18 @@ async def update_existing_user(
     return user_service.update_user(db_user, update_data)
 
 
-@router.delete("/{user_id}")
+@router.delete("/{user_id}/")
 async def remove_user(
         user_id: uuid.UUID,
         db: Session = Depends(get_db),
         current_user = Depends(get_current_user)
 ):
-    """Permanently removes a user from the system."""
     user_service = UserService(db)
     db_user = user_service.get_user_by_id(user_id)
 
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Admins or Trainers within the same group can delete users
     if current_user.role == "admin" or (current_user.role == "trainer" and db_user.group_id == current_user.group_id):
         user_service.delete_user(db_user)
         return {"message": "User deleted successfully"}
