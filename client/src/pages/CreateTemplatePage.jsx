@@ -203,6 +203,52 @@ const CreateTemplatePage = () => {
     }
   };
 
+  const applyAiJson = () => {
+    try {
+      const parsedData = JSON.parse(aiJsonInput);
+      
+      // Hydrate the raw AI data with actual exercise metadata from the exercises bank
+      const hydratedExercises = (parsedData.exercises || []).map((item) => {
+        // Find the full exercise object from your exercises bank
+        const fullEx = exercises.find(ex => ex.id === item.exercise_id);
+        if (!fullEx) return null;
+
+        return {
+          exercise_id: item.exercise_id,
+          name: fullEx.name,
+          position: item.position,
+          sets: item.sets,
+          parameters: (fullEx.parameters || []).map(p => {
+            // Find the specific value provided by the AI for this parameter ID
+            const aiParam = item.parameters.find(ap => ap.parameter_id === (p.id || p.parameter_id));
+            return {
+                ...p,
+                parameter_id: p.id || p.parameter_id,
+                default_value: aiParam ? aiParam.default_value : 0
+            };
+          })
+        };
+      }).filter(Boolean); // Remove exercises that weren't found in the bank
+
+      setFormData(prev => ({
+        ...prev,
+        name: parsedData.name || prev.name,
+        description: parsedData.description || prev.description,
+        estimated_duration: parsedData.estimated_duration || prev.estimated_duration,
+        tag_ids: parsedData.tag_ids || prev.tag_ids,
+        // Apply the hydrated exercises and run the virtual parameter calculator
+        exercises: recalculateVirtualParams(hydratedExercises)
+      }));
+
+      setIsAiModalOpen(false);
+      setAiJsonInput('');
+      FrontendLogger.info('CREATE_TEMPLATE', 'AI generated template data successfully hydrated and applied');
+    } catch (error) {
+      alert('Invalid JSON format. Please check your input.');
+      FrontendLogger.error('CREATE_TEMPLATE', 'Failed to parse AI JSON', error);
+    }
+  };
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8 pb-32">
       <h1 className="text-2xl font-black text-zinc-900">{templateId ? 'עריכת שבלונה' : 'יצירת שבלונה חדשה'}</h1>
@@ -238,6 +284,16 @@ const CreateTemplatePage = () => {
           <button type="submit" className="px-12 py-4 bg-zinc-900 text-white rounded-xl font-black shadow-xl hover:bg-zinc-800 transition-all">{templateId ? 'עדכן' : 'שמור'}</button>
         </div>
       </form>
+
+      <TemplateAiModal 
+        isAiModalOpen={isAiModalOpen} 
+        setIsAiModalOpen={setIsAiModalOpen} 
+        exercises={exercises} 
+        tags={tags} 
+        aiJsonInput={aiJsonInput} 
+        setAiJsonInput={setAiJsonInput} 
+        applyAiJson={applyAiJson} 
+      />
     </div>
   );
 };
