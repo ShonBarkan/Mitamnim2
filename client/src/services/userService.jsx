@@ -12,7 +12,7 @@ export const userService = {
    * @param {string|null} groupId - The UUID of the group.
    */
   getGroupUsers: async (groupId = null) => {
-    const url = groupId ? `/users/group?target_group_id=${groupId}` : '/users/group';
+    const url = groupId ? `/users/group/?target_group_id=${groupId}` : '/users/group/';
     const response = await api.get(url);
     return response.data;
   },
@@ -23,7 +23,7 @@ export const userService = {
    */
   createUser: async (userData) => {
     FrontendLogger.info('USER', `Spawning new user credential profile node for username: '${userData.username}'`, userData);
-    const response = await api.post('/users', userData);
+    const response = await api.post('/users/', userData);
     return response.data;
   },
 
@@ -38,7 +38,7 @@ export const userService = {
       throw new Error("userService.updateUser: Missing userId");
     }
     FrontendLogger.info('USER', `Mutating profile field attribute boundaries for user node id: ${userId}`, updateData);
-    const response = await api.patch(`/users/${userId}`, updateData);
+    const response = await api.patch(`/users/${userId}/`, updateData);
     return response.data;
   },
 
@@ -48,7 +48,7 @@ export const userService = {
    */
   deleteUser: async (userId) => {
     FrontendLogger.info('USER', `Evicting user security entity registration row asset for user id: ${userId}`);
-    const response = await api.delete(`/users/${userId}`);
+    const response = await api.delete(`/users/${userId}/`);
     return response.data;
   }
 };
