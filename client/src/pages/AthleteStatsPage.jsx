@@ -497,8 +497,6 @@ const loadStatistics = useCallback(async () => {
     const map = new Map();
 
     if (isTrainerMode) {
-      // In trainer mode, still break down by exercise, but aggregate across all users
-      // to populate the cards and the sub-filter dropdown.
       sortedGroupData.forEach((user) => {
         user.sortedLogs.forEach((log) => {
           const param = log.params.find(p => p.parameter_name === selectedParameter.name);
@@ -520,6 +518,9 @@ const loadStatistics = useCallback(async () => {
       ([exerciseName, values]) => ({
         exerciseName,
         value: aggregateParameterValues(values, selectedParameter.method),
+        max: Math.max(...values),
+        avg: values.reduce((a, b) => a + b, 0) / values.length,
+        count: values.length,
         unit: selectedParameter.unit,
       })
     );
@@ -528,7 +529,7 @@ const loadStatistics = useCallback(async () => {
     const maxValue = Math.max(...breakdown.map((item) => item.value));
 
     return breakdown
-      .map((item) => ({ ...item, percentage: (item.value / maxValue) * 100 }))
+      .map((item) => ({ ...item, percentage: maxValue === 0 ? 0 : (item.value / maxValue) * 100 }))
       .sort((a, b) => b.value - a.value);
   }, [selectedParameter, sortedLogs, sortedGroupData, isTrainerMode, aggregateParameterValues]);
 
@@ -550,11 +551,20 @@ const loadStatistics = useCallback(async () => {
   const parameterTimelineData = useMemo(() => {
     if (!selectedParameter) return [];
 
+    const isToday = dateFilter === "today";
+    const getTimeKey = (dateStr) => {
+      const d = new Date(dateStr);
+      if (isToday) {
+        return `${d.getHours().toString().padStart(2, '0')}:00`;
+      }
+      return d.toLocaleDateString("he-IL");
+    };
+
+    const dateMap = new Map();
+
     if (isTrainerMode) {
-      const dateMap = new Map();
-      
       sortedGroupData.forEach((user) => {
-        const userName = user.first_name + (user.second_name ? ` ${user.second_name}` : '');
+        const userName = user.first_name + (user.last_name ? ` ${user.last_name}` : (user.second_name ? ` ${user.second_name}` : ''));
         user.sortedLogs.forEach((log) => {
           if (trainerSubExercise && trainerSubExercise !== "all" && log.exercise_name !== trainerSubExercise) {
             return;
@@ -562,25 +572,43 @@ const loadStatistics = useCallback(async () => {
           const param = log.params.find(p => p.parameter_name === selectedParameter.name);
           if (!param) return;
           
-          const dateStr = new Date(log.created_at).toLocaleDateString("he-IL");
-          if (!dateMap.has(dateStr)) {
-            dateMap.set(dateStr, { date: dateStr, timestamp: new Date(log.created_at).getTime() });
+          const timeKey = getTimeKey(log.created_at);
+          if (!dateMap.has(timeKey)) {
+            const d = new Date(log.created_at);
+            const ts = isToday ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime() : new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+            dateMap.set(timeKey, { date: timeKey, timestamp: ts, rawValues: {} });
           }
-          const row = dateMap.get(dateStr);
-          row[userName] = row[userName] ? Math.max(row[userName], Number(param.value)) : Number(param.value);
+          const row = dateMap.get(timeKey);
+          if (!row.rawValues[userName]) row.rawValues[userName] = [];
+          row.rawValues[userName].push(Number(param.value));
         });
       });
-      return Array.from(dateMap.values()).sort((a, b) => a.timestamp - b.timestamp);
     } else {
-      return buildTimelineDataset(
-        sortedLogs.filter((log) => log.params.some((param) => param.parameter_name === selectedParameter.name)),
-        (log, row) => {
-          const param = log.params.find((p) => p.parameter_name === selectedParameter.name);
-          row[log.exercise_name] = Number(param.value);
+      sortedLogs.forEach((log) => {
+        const param = log.params.find((p) => p.parameter_name === selectedParameter.name);
+        if (!param) return;
+
+        const timeKey = getTimeKey(log.created_at);
+        if (!dateMap.has(timeKey)) {
+          const d = new Date(log.created_at);
+          const ts = isToday ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime() : new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+          dateMap.set(timeKey, { date: timeKey, timestamp: ts, rawValues: {} });
         }
-      );
+        const row = dateMap.get(timeKey);
+        const entityName = log.exercise_name;
+        if (!row.rawValues[entityName]) row.rawValues[entityName] = [];
+        row.rawValues[entityName].push(Number(param.value));
+      });
     }
-  }, [selectedParameter, sortedLogs, sortedGroupData, isTrainerMode, buildTimelineDataset, trainerSubExercise]);
+
+    return Array.from(dateMap.values()).map(row => {
+      const finalRow = { date: row.date, timestamp: row.timestamp };
+      Object.entries(row.rawValues).forEach(([entityName, values]) => {
+        finalRow[entityName] = aggregateParameterValues(values, selectedParameter.method);
+      });
+      return finalRow;
+    }).sort((a, b) => a.timestamp - b.timestamp);
+  }, [selectedParameter, sortedLogs, sortedGroupData, isTrainerMode, trainerSubExercise, dateFilter, aggregateParameterValues]);
 
   /**
    * ============================================================================
@@ -680,46 +708,86 @@ const loadStatistics = useCallback(async () => {
   const exerciseTimelineData = useMemo(() => {
     if (!selectedExercise) return [];
 
-    let rows;
+    const isToday = dateFilter === "today";
+    const getTimeKey = (dateStr) => {
+      const d = new Date(dateStr);
+      if (isToday) {
+        return `${d.getHours().toString().padStart(2, '0')}:00`;
+      }
+      return d.toLocaleDateString("he-IL");
+    };
+
+    const dateMap = new Map();
+
     if (isTrainerMode) {
-      const dateMap = new Map();
       sortedGroupData.forEach((user) => {
         const userName = user.first_name + (user.last_name ? ` ${user.last_name}` : (user.second_name ? ` ${user.second_name}` : ''));
         const exerciseLogs = user.sortedLogs.filter((log) => log.exercise_id === selectedExercise.id);
+        
         exerciseLogs.forEach((log) => {
-          const dateStr = new Date(log.created_at).toLocaleDateString("he-IL");
-          if (!dateMap.has(dateStr)) {
-            dateMap.set(dateStr, { date: dateStr, timestamp: new Date(log.created_at).getTime() });
+          const timeKey = getTimeKey(log.created_at);
+          if (!dateMap.has(timeKey)) {
+            const d = new Date(log.created_at);
+            const ts = isToday ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime() : new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+            dateMap.set(timeKey, { date: timeKey, timestamp: ts, rawValues: {} });
           }
-          const row = dateMap.get(dateStr);
+          const row = dateMap.get(timeKey);
           
           if (trainerSubParameter && trainerSubParameter !== "all") {
              const param = log.params.find(p => p.parameter_name === trainerSubParameter);
              if (param) {
-                 row[userName] = row[userName] ? Math.max(row[userName], Number(param.value)) : Number(param.value);
+                 if (!row.rawValues[userName]) row.rawValues[userName] = [];
+                 row.rawValues[userName].push({ value: Number(param.value), method: param.display_method });
              }
           } else {
-             // Fallback if somehow nothing is selected: sum of all parameters? Not useful, but keeps it safe
+             // Fallback
              let sum = 0;
              log.params.forEach(p => sum += Number(p.value));
-             row[userName] = row[userName] ? Math.max(row[userName], sum) : sum;
+             if (!row.rawValues[userName]) row.rawValues[userName] = [];
+             row.rawValues[userName].push({ value: sum, method: "sum" });
           }
         });
       });
-      return Array.from(dateMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+      
+      return Array.from(dateMap.values()).map(row => {
+        const finalRow = { date: row.date, timestamp: row.timestamp };
+        Object.entries(row.rawValues).forEach(([entityName, paramEntries]) => {
+           const method = paramEntries[0].method;
+           const values = paramEntries.map(e => e.value);
+           finalRow[entityName] = aggregateParameterValues(values, method);
+        });
+        return finalRow;
+      }).sort((a, b) => a.timestamp - b.timestamp);
+
     } else {
       const exerciseLogs = sortedLogs.filter(
         (log) => log.exercise_id === selectedExercise.id
       );
 
-      rows = buildTimelineDataset(
-        exerciseLogs,
-        (log, row) => {
-          log.params.forEach((param) => {
-            row[param.parameter_name] = Number(param.value);
-          });
+      exerciseLogs.forEach((log) => {
+        const timeKey = getTimeKey(log.created_at);
+        if (!dateMap.has(timeKey)) {
+          const d = new Date(log.created_at);
+          const ts = isToday ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime() : new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+          dateMap.set(timeKey, { date: timeKey, timestamp: ts, rawValues: {} });
         }
-      );
+        const row = dateMap.get(timeKey);
+        
+        log.params.forEach((param) => {
+          if (!row.rawValues[param.parameter_name]) {
+            row.rawValues[param.parameter_name] = { values: [], method: param.display_method };
+          }
+          row.rawValues[param.parameter_name].values.push(Number(param.value));
+        });
+      });
+
+      const rows = Array.from(dateMap.values()).map(row => {
+        const finalRow = { date: row.date, timestamp: row.timestamp };
+        Object.entries(row.rawValues).forEach(([paramName, paramData]) => {
+           finalRow[paramName] = aggregateParameterValues(paramData.values, paramData.method);
+        });
+        return finalRow;
+      }).sort((a, b) => a.timestamp - b.timestamp);
 
       if (!normalizeChart) return rows;
 
@@ -733,9 +801,11 @@ const loadStatistics = useCallback(async () => {
     sortedLogs,
     sortedGroupData,
     isTrainerMode,
-    buildTimelineDataset,
     normalizeChart,
     normalizeChartData,
+    dateFilter,
+    trainerSubParameter,
+    aggregateParameterValues
   ]);
 
   /**

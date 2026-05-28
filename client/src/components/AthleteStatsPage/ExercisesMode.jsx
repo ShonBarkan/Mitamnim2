@@ -231,6 +231,7 @@ const ExercisesMode = ({
                     dot={isTrainerMode ? <TrainerChartCustomizedDot userAvatarMap={userAvatarMap} stroke={generateStableColor(index)} /> : false}
                     activeDot={{ r: 6 }}
                     animationDuration={500}
+                    connectNulls={true}
                   />
                 );
               })}

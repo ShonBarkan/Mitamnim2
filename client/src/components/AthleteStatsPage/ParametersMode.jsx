@@ -118,17 +118,23 @@ const ParametersMode = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {parameterExerciseBreakdown.map((item) => (
-            <div key={item.exerciseName} className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
-              <div className="flex justify-between items-center mb-5">
+            <div key={item.exerciseName} className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 flex flex-col">
+              <div className="flex justify-between items-start mb-4">
                 <div className="font-bold text-lg">{item.exerciseName}</div>
 
-                <div className="font-black text-2xl">
+                <div className="font-black text-2xl text-right">
                   {formatNumber(item.value)}{" "}
                   <span className="text-zinc-400 text-base">{item.unit}</span>
                 </div>
               </div>
 
-              <div className="w-full h-3 rounded-full bg-zinc-800 overflow-hidden">
+              <div className="flex items-center justify-between text-sm text-zinc-400 mb-5">
+                <span>מדידות: {item.count}</span>
+                <span>ממוצע: {formatNumber(item.avg)}</span>
+                <span>מקסימום: {formatNumber(item.max)}</span>
+              </div>
+
+              <div className="w-full h-3 rounded-full bg-zinc-800 overflow-hidden mt-auto">
                 <div
                   className="h-full rounded-full bg-gradient-to-l from-green-400 to-green-600"
                   style={{ width: `${item.percentage}%` }}
@@ -235,6 +241,7 @@ const ParametersMode = ({
                     dot={isTrainerMode ? <TrainerChartCustomizedDot userAvatarMap={userAvatarMap} stroke={generateStableColor(index)} /> : false}
                     activeDot={{ r: 6 }}
                     animationDuration={500}
+                    connectNulls={true}
                   />
                 );
               })}
