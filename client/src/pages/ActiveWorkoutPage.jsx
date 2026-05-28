@@ -410,7 +410,6 @@ const ActiveWorkoutPage = () => {
       )}
 
       {/* Sticky Footer: Actions Interface */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-xl border-t border-zinc-200/60 z-30 flex flex-col gap-3">
       <div className="sticky bottom-0 p-4 bg-white/90 backdrop-blur-xl border-t border-zinc-200/60 z-30 flex flex-col gap-3 rounded-3xl shadow-lg">
         <div className="max-w-4xl mx-auto w-full">
           
