@@ -87,7 +87,7 @@ const LandingPage = () => {
           <aside className="lg:col-span-3 space-y-12 animate-in fade-in slide-in-from-left-10 duration-1000 delay-600">
             
             {/* Decoupled High-End Schedule Module Placeholder */}
-            <TrainingSchedule />
+            {/* <TrainingSchedule /> */}
 
             {/* Social Intelligence Room: Live Non-Intrusive Bulletin Board */}
             <div className="bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3.5rem] shadow-2xl overflow-hidden sticky top-32">
