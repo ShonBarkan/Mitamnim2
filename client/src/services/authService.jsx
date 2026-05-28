@@ -18,7 +18,7 @@ export const authService = {
   // Fetches the current logged-in user details
   getCurrentUser: async () => {
     FrontendLogger.info('AUTH', 'Requesting authenticated user profile payload from remote session context');
-    const response = await api.get('/users/me');
+    const response = await api.get('/users/me/');
     return response.data;
   }
 };
