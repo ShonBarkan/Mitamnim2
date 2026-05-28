@@ -12,7 +12,7 @@ const DashboardLeaderboard = () => {
   const { users } = useUsers();
 
   const [period, setPeriod] = useState('week');
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     fetchDashboardStats(period);
@@ -86,16 +86,6 @@ const DashboardLeaderboard = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
 
-        <div>
-          <h2 className="text-3xl font-black tracking-tighter uppercase text-zinc-900 m-0">
-            לוח ביצועים קבוצתי
-          </h2>
-
-          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none font-mono mt-2">
-            Team Statistics Board
-          </p>
-        </div>
-
         <div className="flex items-center gap-4 bg-zinc-100 p-2 rounded-2xl border border-zinc-200">
 
           <select
@@ -116,9 +106,15 @@ const DashboardLeaderboard = () => {
             title={isExpanded ? 'צמצם תצוגה' : 'הרחב תצוגה'}
           >
             {isExpanded ? (
-              <ArrowsPointingInIcon className="w-5 h-5" />
+              <div className="flex items-center gap-1">
+                <ArrowsPointingInIcon className="w-5 h-5" />
+                <>הסתר את כולם</>
+              </div>
             ) : (
-              <ArrowsPointingOutIcon className="w-5 h-5" />
+              <div className="flex items-center gap-1">
+                <ArrowsPointingOutIcon className="w-5 h-5" />
+                <>הצג את כולם</>
+              </div>
             )}
           </button>
         </div>

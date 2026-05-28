@@ -152,11 +152,11 @@ const PersonalInfo = ({ user }) => {
               <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שם משפחה</label>
               <input name="second_name" value={formData.second_name} onChange={handleInputChange} disabled={isUploading} className={inputClasses} placeholder="שם משפחה" />
             </div>
-            <div className="space-y-2">
+            <div className="md:col-span-2 space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">אימייל</label>
               <input name="email" type="email" value={formData.email} onChange={handleInputChange} disabled={isUploading} className={inputClasses} placeholder="אימייל" />
             </div>
-            <div className="space-y-2">
+            <div className="md:col-span-2 space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">טלפון</label>
               <input name="phone" value={formData.phone} onChange={handleInputChange} disabled={isUploading} className={inputClasses} placeholder="טלפון" />
             </div>
@@ -191,54 +191,54 @@ const PersonalInfo = ({ user }) => {
   // --- STANDARD READ-ONLY ATHLETE SHEET STATE ---
   return (
     <section className="bg-white/40 backdrop-blur-2xl border border-white/60 rounded-[3rem] p-10 shadow-xl relative overflow-hidden group">
-      <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl -translate-y-16 translate-x-16 group-hover:bg-blue-500/10 transition-colors duration-1000" />
+      <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl -translate-y-16 translate-x-16" />
       
-      <div className="relative flex flex-col md:flex-row justify-between items-center gap-8">
-        <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-right w-full md:w-auto">
-          
-          {/* Enhanced Avatar Profile Image Box */}
-          <div className="relative shrink-0 shadow-xl rounded-[2rem] overflow-hidden group-hover:scale-105 transition-transform duration-500 w-24 h-24 bg-zinc-100 border-4 border-white flex items-center justify-center">
+      <div className="relative flex flex-col md:flex-row items-center md:items-start gap-8 text-center md:text-right w-full">
+        
+        {/* Avatar and Edit Button Container */}
+        <div className="flex flex-col items-center gap-3 shrink-0">
+          <div className="relative shadow-xl rounded-[2rem] overflow-hidden w-24 h-24 bg-zinc-100 border-4 border-white flex items-center justify-center">
             {user?.profile_picture ? (
-              <img src={user.profile_picture} alt={`${user.username}'s avatar`} className="w-full h-full object-cover" />
+              <img src={user.profile_picture} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-zinc-900 flex items-center justify-center text-white text-4xl font-black uppercase tracking-tighter">
                 {user?.first_name?.[0] || user?.username?.[0]}
               </div>
             )}
           </div>
+          <button 
+            onClick={() => {
+              FrontendLogger.info('PERSONAL_INFO', 'Athlete triggered inline profile edit mode');
+              setIsEditing(true);
+            }} 
+            className="bg-white/60 hover:bg-white text-zinc-900 border border-white/80 font-black text-[9px] uppercase tracking-widest px-4 py-2 rounded-xl shadow-sm transition-all active:scale-95"
+          >
+            עריכה
+          </button>
+        </div>
+        
+        {/* User Details */}
+        <div className="space-y-3 flex-1 ">
+          <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
+            <h3 className="text-3xl font-black text-zinc-900 tracking-tighter uppercase leading-none">
+              {user?.first_name} {user?.second_name}
+            </h3>
+            <span className="bg-zinc-950 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
+              {user?.role === 'trainee' ? 'מתאמן' : user?.role === 'trainer' ? 'מאמן' : user?.role}
+            </span>
+          </div>
           
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
-              <h3 className="text-3xl font-black text-zinc-900 tracking-tighter uppercase leading-none">
-                {user?.first_name} {user?.second_name}
-              </h3>
-              <span className="bg-zinc-950 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
-                {user?.role === 'trainee' ? 'מתאמן' : user?.role === 'trainer' ? 'מאמן' : user?.role}
-              </span>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-x-6 gap-y-1.5 justify-center md:justify-start text-sm font-bold text-zinc-400">
-              <p className="flex items-center gap-2 justify-center md:justify-start">
-                <span className="opacity-40">📧</span>
-                <span className="text-zinc-500 tracking-tight">{user?.email || 'אין כתובת אימייל רשומה'}</span>
-              </p>
-              <p className="flex items-center gap-2 justify-center md:justify-start">
-                <span className="opacity-40">📱</span>
-                <span className="text-zinc-500 tabular-nums">{user?.phone || 'אין טלפון משויך'}</span>
-              </p>
-            </div>
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-x-6 gap-y-1.5 justify-center md:justify-start text-sm font-bold text-zinc-400">
+            <p className="flex items-center gap-2 justify-center md:justify-start">
+              <span>📧</span>
+              <span className="text-zinc-500 tracking-tight">{user?.email || 'אין אימייל'}</span>
+            </p>
+            <p className="flex items-center gap-2 justify-center md:justify-start">
+              <span>📱</span>
+              <span className="text-zinc-500 tabular-nums">{user?.phone || 'אין טלפון'}</span>
+            </p>
           </div>
         </div>
-
-        <button 
-          onClick={() => {
-            FrontendLogger.info('PERSONAL_INFO', 'Athlete triggered form modal inline profile edit mode context');
-            setIsEditing(true);
-          }} 
-          className="w-full md:w-auto bg-white/60 text-zinc-900 border border-white/80 font-black text-xs uppercase tracking-widest px-8 py-4 rounded-2xl shadow-sm hover:shadow-xl hover:bg-white transition-all active:scale-95"
-        >
-          עריכת פרופיל
-        </button>
       </div>
     </section>
   );
