@@ -176,6 +176,7 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
   const [editingLogId, setEditingLogId] = useState(null);
   const [editingSessionDateId, setEditingSessionDateId] = useState(null);
   const [newSessionDate, setNewSessionDate] = useState("");
+  const [searchFilter, setSearchFilter] = useState('');
 
   const isTrainer = activeUser?.role === 'trainer' || activeUser?.role === 'admin';
   const isSelf = activeUser?.id === effectiveUserId;
@@ -217,6 +218,53 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
 
     return Object.entries(groups).sort((a, b) => new Date(b[0]) - new Date(a[0]));
   }, [logs, sessions]);
+
+  // Memoized filtering logic for search functionality
+  const filteredGroupedFeed = useMemo(() => {
+    if (!searchFilter.trim()) return sortedGroupedFeed;
+
+    const lowerSearchTerm = searchFilter.toLowerCase();
+    const isExerciseSearch = searchFilter.trim().length > 0 && !searchFilter.match(/\d{4}-\d{2}-\d{2}/); // Simple check if it's not a date
+
+    return sortedGroupedFeed
+      .map(([sortKey, group]) => {
+        // Filter items within each group based on search term
+        const filteredItems = group.items.map(item => {
+          // For session groups: check if exercise names match
+          if (item.feedType === 'session_group' && item.logs && Array.isArray(item.logs)) {
+            const matchingLogs = item.logs.filter(log => log.exercise_name.toLowerCase().includes(lowerSearchTerm));
+            
+            // If searching by exercise name and found matches, return session with only matching exercises
+            if (matchingLogs.length > 0) {
+              return { ...item, logs: matchingLogs };
+            }
+            
+            // Check if session name matches
+            if (item.name.toLowerCase().includes(lowerSearchTerm)) {
+              return item; // Return full session with all exercises
+            }
+            
+            return null;
+          }
+
+          // For standalone logs: match exercise name or check date
+          if (item.feedType === 'standalone_log') {
+            if (item.exercise_name.toLowerCase().includes(lowerSearchTerm)) return item;
+            if (group.label.toLowerCase().includes(lowerSearchTerm)) return item;
+          }
+
+          return null;
+        }).filter(item => item !== null);
+
+        // Only return groups that have matching items or matching date label
+        if (filteredItems.length > 0 || group.label.toLowerCase().includes(lowerSearchTerm)) {
+          return [sortKey, { ...group, items: filteredItems }];
+        }
+
+        return null;
+      })
+      .filter(group => group !== null);
+  }, [sortedGroupedFeed, searchFilter]);
 
   // --- Session Handlers ---
   const handleDeleteSession = async (sessionId) => {
@@ -284,12 +332,24 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
         />
       )}
 
+      {/* Glasmorphism search input following Arctic Mirror aesthetic - placed below form */}
+      <div className="relative mt-6 mb-6">
+        <input
+          type="text"
+          placeholder="חיפוש לפי תאריך, שם סשיין או שם תרגיל..."
+          value={searchFilter}
+          onChange={(e) => setSearchFilter(e.target.value)}
+          className="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-zinc-200/40 rounded-2xl text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/30 transition-all shadow-sm"
+        />
+        <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-300">🔍</span>
+      </div>
+
       <div className="mt-10">
         {(sessionsLoading || logsLoading) && !editingLogId ? (
             <div className="text-center py-10 text-gray-400 font-medium animate-pulse">Synchronizing feed...</div>
-        ) : sortedGroupedFeed.length > 0 ? (
+        ) : filteredGroupedFeed.length > 0 ? (
             <div className="space-y-10">
-              {sortedGroupedFeed.map(([sortKey, group]) => (
+              {filteredGroupedFeed.map(([sortKey, group]) => (
                 <div key={sortKey} className="relative">
                   
                   {/* Sticky Date Header */}
@@ -429,7 +489,9 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
             </div>
         ) : (
             <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-gray-200">
-                <p className="text-gray-400 font-bold">No records found in diary.</p>
+                <p className="text-gray-400 font-bold">
+                  {searchFilter.trim() ? 'לא נמצאו רישומים התואמים לחיפוש.' : 'No records found in diary.'}
+                </p>
             </div>
         )}
       </div>

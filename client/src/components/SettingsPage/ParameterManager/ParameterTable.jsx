@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParameter } from '../../../contexts/ParameterContext';
 
 /**
  * ParameterTable Component - Renders the data grid visualizing active registered metrics.
  * Updated to dynamically resolve and render human-readable formulas (e.g., "Reps * Weight").
  * Enforces strict English-only code commentary and total Hebrew UI localization.
+ * Includes real-time search filtering with performance optimization via useMemo.
  */
 const ParameterTable = ({ parameters, loading, startEdit, handleDelete }) => {
   const { getParameterNameById } = useParameter();
+  
+  // State management for search term
+  const [searchTerm, setSearchTerm] = useState('');
 
   /**
    * Translates database system operator tokens into standard mathematical symbols.
@@ -57,57 +61,85 @@ const ParameterTable = ({ parameters, loading, startEdit, handleDelete }) => {
     );
   };
 
+  // Memoized filtering logic to prevent unnecessary re-renders while typing
+  const filteredParameters = useMemo(() => {
+    if (!searchTerm.trim()) return parameters;
+
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return parameters.filter(param =>
+      param.name.toLowerCase().includes(lowerSearchTerm) ||
+      (param.unit && param.unit.toLowerCase().includes(lowerSearchTerm))
+    );
+  }, [parameters, searchTerm]);
+
   return (
-    <div className="border border-zinc-100 rounded-2xl overflow-hidden shadow-sm bg-white/20">
-      <table className="w-full text-right border-collapse">
-        <thead>
-          <tr className="bg-zinc-100/50 text-zinc-400 uppercase text-[10px] font-black tracking-wider border-b border-zinc-200/60 select-none">
-            <th className="px-6 py-4">סוג המדד</th>
-            <th className="px-6 py-4">שם המדד</th>
-            <th className="px-6 py-4">יחידה</th>
-            <th className="px-6 py-4">נוסחה / חוקיות מערכת</th>
-            <th className="px-6 py-4 text-left">פעולות</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {loading ? (
-            <tr>
-              <td colSpan="5" className="p-10 text-center text-xs font-bold text-zinc-400 uppercase animate-pulse">מסנכרן הגדרות מדדים...</td>
+    <div className="space-y-4">
+      {/* Glassmorphism search input following Arctic Mirror aesthetic */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="חיפוש מדדים..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-zinc-200/40 rounded-2xl text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/30 transition-all shadow-sm"
+        />
+        <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-300">🔍</span>
+      </div>
+
+      {/* Table container with Arctic Mirror glassmorphism styling */}
+      <div className="border border-zinc-100 rounded-2xl overflow-hidden shadow-sm bg-white/20">
+        <table className="w-full text-right border-collapse">
+          <thead>
+            <tr className="bg-zinc-100/50 text-zinc-400 uppercase text-[10px] font-black tracking-wider border-b border-zinc-200/60 select-none">
+              <th className="px-6 py-4">סוג המדד</th>
+              <th className="px-6 py-4">שם המדד</th>
+              <th className="px-6 py-4">יחידה</th>
+              <th className="px-6 py-4">נוסחה / חוקיות מערכת</th>
+              <th className="px-6 py-4 text-left">פעולות</th>
             </tr>
-          ) : parameters.length === 0 ? (
-            <tr>
-              <td colSpan="5" className="p-10 text-center text-xs font-bold text-zinc-300 italic">לא הוגדרו עדיין פרמטרי מדידה בקבוצה זו</td>
-            </tr>
-          ) : (
-            parameters.map(param => (
-              <tr key={param.id} className="group transition-all hover:bg-white/40">
-                <td className="px-6 py-4 select-none">
-                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                    !param.is_virtual 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : param.calculation_type === 'conversion' 
-                      ? 'bg-orange-100 text-orange-700' 
-                      : 'bg-purple-100 text-purple-700'
-                  }`}>
-                    {!param.is_virtual ? 'רגיל 🛠️' : param.calculation_type === 'conversion' ? 'המרה 🔄' : 'שילוב 🧬'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 font-black text-zinc-900 text-sm">{param.name}</td>
-                <td className="px-6 py-4 font-mono text-xs text-zinc-500">{param.unit}</td>
-                <td className="px-6 py-4 text-xs font-bold text-zinc-600">
-                  {renderFormulaText(param)}
-                </td>
-                <td className="px-6 py-4 text-left">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button type="button" onClick={() => startEdit(param)} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors active:scale-90" title="ערוך מדד">✏️</button>
-                    <button type="button" onClick={() => handleDelete(param.id)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors active:scale-90" title="מחק מדד">🗑️</button>
-                  </div>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {loading ? (
+              <tr>
+                <td colSpan="5" className="p-10 text-center text-xs font-bold text-zinc-400 uppercase animate-pulse">מסנכרן הגדרות מדדים...</td>
+              </tr>
+            ) : filteredParameters.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="p-10 text-center text-xs font-bold text-zinc-300 italic">
+                  {searchTerm.trim() ? 'לא נמצאו מדדים התואמים לחיפוש' : 'לא הוגדרו עדיין פרמטרי מדידה בקבוצה זו'}
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              filteredParameters.map(param => (
+                <tr key={param.id} className="group transition-all hover:bg-white/40">
+                  <td className="px-6 py-4 select-none">
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                      !param.is_virtual 
+                        ? 'bg-blue-100 text-blue-700' 
+                        : param.calculation_type === 'conversion' 
+                        ? 'bg-orange-100 text-orange-700' 
+                        : 'bg-purple-100 text-purple-700'
+                    }`}>
+                      {!param.is_virtual ? 'רגיל 🛠️' : param.calculation_type === 'conversion' ? 'המרה 🔄' : 'שילוב 🧬'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 font-black text-zinc-900 text-sm">{param.name}</td>
+                  <td className="px-6 py-4 font-mono text-xs text-zinc-500">{param.unit}</td>
+                  <td className="px-6 py-4 text-xs font-bold text-zinc-600">
+                    {renderFormulaText(param)}
+                  </td>
+                  <td className="px-6 py-4 text-left">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button type="button" onClick={() => startEdit(param)} className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors active:scale-90" title="ערוך מדד">✏️</button>
+                      <button type="button" onClick={() => handleDelete(param.id)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors active:scale-90" title="מחק מדד">🗑️</button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
