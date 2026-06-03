@@ -1,17 +1,22 @@
 import React, { useState, useMemo } from 'react';
+import { Edit2, Trash2, Save, X } from 'lucide-react';
+
+// Helper to convert UTC DB time to proper Local Time for the datetime-local input
+const getLocalIsoString = (dateString) => {
+  const date = new Date(dateString);
+  const tzOffset = date.getTimezoneOffset() * 60000;
+  // Subtract offset to get local time, then slice to fit datetime-local format (YYYY-MM-DDThh:mm)
+  return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+};
 
 const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, onDelete, canModify }) => {
-  // Initialize state with the log's existing parameters
   const [editParams, setEditParams] = useState(() => 
     log.params.reduce((acc, p) => ({ ...acc, [p.parameter_name]: p.value }), {})
   );
   
-  // Format current date for datetime-local (YYYY-MM-DDThh:mm)
-  const [editDate, setEditDate] = useState(() => 
-    new Date(log.created_at).toISOString().slice(0, 16)
-  );
+  // Use the helper to ensure the input shows the correct local time
+  const [editDate, setEditDate] = useState(() => getLocalIsoString(log.created_at));
 
-  // Split parameters into manual and virtual based on exercise definition
   const { manualParams, virtualParams } = useMemo(() => {
     if (!exercise || !Array.isArray(exercise.parameters)) {
       return { manualParams: [], virtualParams: [] };
@@ -22,7 +27,6 @@ const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, 
     };
   }, [exercise]);
 
-  // Real-time calculation of virtual parameters
   const calculatedVirtuals = useMemo(() => {
     const results = {};
     if (!exercise?.parameters) return results;
@@ -56,9 +60,10 @@ const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, 
   };
 
   const handleSave = () => {
-    // Manually format date to YYYY-MM-DD HH:MM:SS to avoid UTC shift
-    const d = new Date(editDate);
-    const formattedDate = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:00`;
+    // Convert the local time from the input back to a proper standard ISO string for the backend
+    const localDate = new Date(editDate);
+    const tzOffset = localDate.getTimezoneOffset() * 60000;
+    const standardIsoDate = new Date(localDate.getTime() + tzOffset).toISOString();
 
     const updatedParams = [
       ...manualParams.map(p => ({
@@ -73,71 +78,107 @@ const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, 
       }))
     ];
     
-    onSave({ created_at: formattedDate, params: updatedParams });
+    onSave({ created_at: standardIsoDate, params: updatedParams });
   };
 
   if (isEditing) {
     return (
-      <div className="p-4 bg-blue-50 rounded-xl border border-blue-200 space-y-4 shadow-sm">
-        <div className="flex gap-4 items-center">
+      <div className="p-5 bg-blue-50/80 rounded-2xl border border-blue-200/60 shadow-inner w-full mb-2 animate-in fade-in duration-200">
+        <div className="flex flex-col md:flex-row md:items-center gap-4 mb-5 pb-4 border-b border-blue-200/50">
+            <span className="font-black text-lg text-blue-900">{log.exercise_name}</span>
+            <div className="flex-1" />
             <input 
                 type="datetime-local" 
                 value={editDate} 
                 onChange={(e) => setEditDate(e.target.value)}
-                className="p-2 border rounded text-sm"
+                className="p-2 bg-white border border-blue-200 rounded-xl text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-bold text-gray-700"
             />
-            <span className="font-bold text-gray-800">{log.exercise_name}</span>
         </div>
         
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {manualParams.map(p => (
-            <div key={p.id}>
-              <label className="text-xs font-medium text-gray-600">{p.name} ({p.unit})</label>
+            <div key={p.id} className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-blue-800/70 tracking-wider">
+                {p.name} ({p.unit})
+              </label>
               <input 
                 type="number"
                 value={editParams[p.name] ?? ''}
                 onChange={(e) => handleParamChange(p.name, e.target.value)}
-                className="w-full p-2 border rounded bg-white"
+                className="w-full p-2.5 border border-blue-200 rounded-xl bg-white text-sm font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               />
             </div>
           ))}
           {virtualParams.map(vp => (
-             <div key={vp.id}>
-               <label className="text-xs font-medium text-blue-700">{vp.name} (מחושב)</label>
-               <div className="w-full p-2 border rounded bg-gray-100 text-gray-500 font-mono">
+             <div key={vp.id} className="space-y-1.5">
+               <label className="text-[10px] font-black uppercase text-indigo-600/70 tracking-wider">
+                 {vp.name} (מחושב)
+               </label>
+               <div className="w-full p-2.5 border border-indigo-100 rounded-xl bg-indigo-50/50 text-indigo-900 font-mono text-sm font-bold flex items-center h-[42px]">
                   {calculatedVirtuals[vp.name] || '0'}
                </div>
              </div>
           ))}
         </div>
         
-        <div className="flex gap-2 justify-end">
-          <button onClick={onCancel} className="text-gray-500 px-3 hover:text-gray-700">ביטול</button>
-          <button onClick={handleSave} className="text-green-600 font-bold px-4 py-1.5 bg-white border border-green-200 rounded hover:bg-green-50">שמור</button>
+        <div className="flex gap-3 justify-end pt-5 mt-2 border-t border-blue-200/50">
+          <button 
+            onClick={onCancel} 
+            className="flex items-center gap-1.5 text-xs text-gray-500 bg-white hover:bg-gray-100 border border-gray-200 px-4 py-2 rounded-xl font-bold transition-all active:scale-95"
+          >
+            <X size={14}/> ביטול
+          </button>
+          <button 
+            onClick={handleSave} 
+            className="flex items-center gap-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-xl font-bold transition-all active:scale-95 shadow-md shadow-blue-600/20"
+          >
+            <Save size={14}/> שמור שינויים
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center hover:bg-gray-100 transition">
-      <div>
-        <h4 className="font-bold text-gray-900">{log.exercise_name}</h4>
-      </div>
-      <div className="flex gap-4">
-        {log.params.map(p => (
-           <div key={p.parameter_name} className="text-right">
-             <span className="block text-[10px] text-gray-400 uppercase font-semibold">{p.parameter_name}</span>
-             <span className="font-mono font-bold text-gray-800">{p.value} {p.parameter_unit}</span>
-           </div>
-        ))}
-        {canModify && (
-          <div className="flex gap-2 mr-4 border-r pr-4 border-gray-200">
-             <button onClick={onStartEdit} className="text-blue-500 text-sm hover:underline">ערוך</button>
-             <button onClick={onDelete} className="text-red-500 text-sm hover:underline">מחק</button>
-          </div>
+    <div className="group flex flex-col lg:flex-row justify-between lg:items-center py-3 px-4 mb-2 bg-white hover:bg-zinc-50 border border-zinc-100 rounded-2xl transition-all shadow-sm hover:shadow-md gap-4">
+      <div className="flex-1 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-6">
+        <div className="flex items-center min-w-[150px]">
+          <span className="font-black text-sm text-zinc-900">{log.exercise_name}</span>
+        </div>
+        
+        {log.params && log.params.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+                {log.params.map((param, idx) => (
+                    <div key={idx} className="flex flex-col px-3 py-1.5 rounded-xl bg-zinc-100/50 border border-zinc-200/50 min-w-[70px]">
+                        <span className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">
+                            {param.parameter_name}
+                        </span>
+                        <div className="font-bold text-zinc-800 text-sm flex items-baseline gap-1">
+                            {param.value} 
+                            <span className="text-[10px] font-bold text-zinc-500">{param.parameter_unit}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
         )}
       </div>
+
+      {canModify && (
+        <div className="shrink-0 flex items-center gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <button 
+              onClick={onStartEdit} 
+              className="flex items-center gap-1.5 text-[11px] bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700 px-3 py-2 rounded-xl font-bold transition-colors active:scale-95 shadow-sm"
+            >
+              <Edit2 size={12}/> ערוך
+            </button>
+            <button 
+              onClick={onDelete} 
+              className="flex items-center gap-1.5 text-[11px] bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 px-3 py-2 rounded-xl font-bold transition-colors active:scale-95 shadow-sm"
+            >
+              <Trash2 size={12}/> מחק
+            </button>
+        </div>
+      )}
     </div>
   );
 };

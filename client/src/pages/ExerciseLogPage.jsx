@@ -7,158 +7,9 @@ import { useExerciseLog } from '../contexts/ExerciseLogContext';
 
 import TrainerSidebar from '../components/common/users/TrainerSidebar';
 import ExerciseLogForm from '../components/common/ExerciseLog/ExerciseLogForm';
+import LogEntryRow from '../components/ExerciseLogPage/LogEntryRow';
 
-import { Trash2, Clock, Save, X, Edit2, Activity } from 'lucide-react';
-
-// --- Sub-Component: LogEntryRow ---
-const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, onDelete, canModify }) => {
-  const [editParams, setEditParams] = useState(() => 
-    log.params ? log.params.reduce((acc, p) => ({ ...acc, [p.parameter_name]: p.value }), {}) : {}
-  );
-  
-  const [editDate, setEditDate] = useState(() => {
-    const tzOffset = (new Date()).getTimezoneOffset() * 60000;
-    return new Date(new Date(log.created_at) - tzOffset).toISOString().slice(0, 16);
-  });
-
-  const { manualParams, virtualParams } = useMemo(() => {
-    if (!exercise || !Array.isArray(exercise.parameters)) {
-      return { manualParams: [], virtualParams: [] };
-    }
-    return {
-      manualParams: exercise.parameters.filter(p => !p.is_virtual),
-      virtualParams: exercise.parameters.filter(p => p.is_virtual)
-    };
-  }, [exercise]);
-
-  const calculatedVirtuals = useMemo(() => {
-    const results = {};
-    if (!exercise?.parameters) return results;
-
-    const getVal = (name) => editParams[name] || 0;
-    const paramMap = new Map(exercise.parameters.map(p => [p.id, p]));
-
-    virtualParams.forEach(vp => {
-      const sourceValues = (vp.source_parameter_ids || []).map(id => {
-        const source = paramMap.get(id);
-        return source ? getVal(source.name) : 0;
-      });
-
-      const val1 = sourceValues[0] || 0;
-      const val2 = sourceValues[1] || 0;
-
-      switch (vp.calculation_type) {
-        case 'multiply': results[vp.name] = (val1 * val2) * (vp.multiplier || 1); break;
-        case 'conversion': results[vp.name] = val1 * (vp.multiplier || 1); break;
-        case 'sum': results[vp.name] = (val1 + val2) * (vp.multiplier || 1); break;
-        case 'subtract': results[vp.name] = (val1 - val2) * (vp.multiplier || 1); break;
-        case 'divide': results[vp.name] = val2 !== 0 ? (val1 / val2) * (vp.multiplier || 1) : 0; break;
-        default: results[vp.name] = 0;
-      }
-    });
-    return results;
-  }, [virtualParams, editParams, exercise]);
-
-  const handleParamChange = (name, value) => {
-    setEditParams(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
-  };
-
-  const handleSave = () => {
-    const d = new Date(editDate);
-    const formattedDate = new Date(d.getTime() + d.getTimezoneOffset() * 60000).toISOString();
-
-    const updatedParams = [
-      ...manualParams.map(p => ({
-        parameter_name: p.name,
-        parameter_unit: p.unit,
-        value: editParams[p.name] ?? 0
-      })),
-      ...virtualParams.map(vp => ({
-        parameter_name: vp.name,
-        parameter_unit: vp.unit,
-        value: parseFloat(calculatedVirtuals[vp.name] || 0)
-      }))
-    ];
-    
-    onSave({ created_at: formattedDate, params: updatedParams });
-  };
-
-  if (isEditing) {
-    return (
-      <div className="p-4 bg-blue-50 rounded-xl border border-blue-200 space-y-4 shadow-sm w-full mb-2">
-        <div className="flex gap-4 items-center">
-            <input 
-                type="datetime-local" 
-                value={editDate} 
-                onChange={(e) => setEditDate(e.target.value)}
-                className="p-1.5 border border-blue-300 outline-none focus:ring-2 focus:ring-blue-500 rounded text-xs font-bold"
-            />
-            <span className="font-bold text-gray-900">{log.exercise_name}</span>
-        </div>
-        
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {manualParams.map(p => (
-            <div key={p.id}>
-              <label className="text-[10px] font-black uppercase text-gray-500">{p.name} ({p.unit})</label>
-              <input 
-                type="number"
-                value={editParams[p.name] ?? ''}
-                onChange={(e) => handleParamChange(p.name, e.target.value)}
-                className="w-full p-2 border border-blue-200 rounded bg-white text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          ))}
-          {virtualParams.map(vp => (
-             <div key={vp.id}>
-               <label className="text-[10px] font-black uppercase text-blue-600">{vp.name} (Calculated)</label>
-               <div className="w-full p-2 border border-blue-200 rounded bg-blue-100/50 text-gray-600 font-mono text-sm font-bold">
-                  {calculatedVirtuals[vp.name] || '0'}
-               </div>
-             </div>
-          ))}
-        </div>
-        
-        <div className="flex gap-2 justify-end pt-2">
-          <button onClick={onCancel} className="flex items-center gap-1 text-xs text-gray-600 bg-gray-200 hover:bg-gray-300 px-3 py-1.5 rounded font-bold transition-colors"><X size={14}/> Cancel</button>
-          <button onClick={handleSave} className="flex items-center gap-1 text-xs text-white bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded font-bold transition-colors"><Save size={14}/> Save</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="group flex flex-col lg:flex-row justify-between lg:items-center py-3 border-b border-gray-100 last:border-0 gap-3">
-      <div className="flex-1 flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-4">
-        <div className="flex items-center gap-2 min-w-[150px]">
-          <span className="font-bold text-sm text-gray-900">{log.exercise_name}</span>
-        </div>
-        
-        {log.params && log.params.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-                {log.params.map((param, idx) => (
-                    <div key={idx} className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border bg-gray-50 border-gray-100">
-                        <span className="text-[10px] uppercase font-black text-gray-400">
-                            {param.parameter_name}:
-                        </span>
-                        <span className="font-bold text-gray-800 text-xs">
-                            {param.value} <span className="text-[10px] font-normal text-gray-500">{param.parameter_unit}</span>
-                        </span>
-                    </div>
-                ))}
-            </div>
-        )}
-      </div>
-
-      {canModify && (
-        <div className="shrink-0 flex items-center gap-1.5 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={onStartEdit} className="flex items-center gap-1 text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-md font-bold transition-colors"><Edit2 size={12}/> Edit</button>
-            <button onClick={onDelete} className="flex items-center gap-1 text-[10px] bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1.5 rounded-md font-bold transition-colors"><Trash2 size={12}/> Delete</button>
-        </div>
-      )}
-    </div>
-  );
-};
-
+import { Trash2, Clock, Save, X, Edit2, ChevronDown, ChevronUp } from 'lucide-react';
 
 // --- Main Component: ExerciseLogPage ---
 const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
@@ -178,6 +29,11 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
   const [newSessionDate, setNewSessionDate] = useState("");
   const [searchFilter, setSearchFilter] = useState('');
 
+  // States for collapsable UI
+  const [isFormOpen, setIsFormOpen] = useState(() => window.innerWidth >= 768);
+  const [collapsedDates, setCollapsedDates] = useState({});
+  const [collapsedSessions, setCollapsedSessions] = useState({});
+
   const isTrainer = activeUser?.role === 'trainer' || activeUser?.role === 'admin';
   const isSelf = activeUser?.id === effectiveUserId;
   const canModifyLogs = isTrainer || isSelf;
@@ -191,6 +47,7 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
     if (effectiveUserId) {
         fetchSessions(effectiveUserId);
         if (typeof fetchUserLogs === 'function') fetchUserLogs(effectiveUserId);
+        setIsFormOpen(window.innerWidth >= 768);
     }
   }, [fetchSessions, fetchUserLogs, effectiveUserId]);
 
@@ -205,7 +62,6 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
 
     const allItems = [...standaloneLogs, ...sessionItems].sort((a, b) => b.sortDate - a.sortDate);
 
-    // Group items by local date string
     const groups = {};
     allItems.forEach((item) => {
       const dateObj = new Date(item.sortDate);
@@ -219,56 +75,47 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
     return Object.entries(groups).sort((a, b) => new Date(b[0]) - new Date(a[0]));
   }, [logs, sessions]);
 
-  // Memoized filtering logic for search functionality
   const filteredGroupedFeed = useMemo(() => {
     if (!searchFilter.trim()) return sortedGroupedFeed;
 
     const lowerSearchTerm = searchFilter.toLowerCase();
-    const isExerciseSearch = searchFilter.trim().length > 0 && !searchFilter.match(/\d{4}-\d{2}-\d{2}/); // Simple check if it's not a date
 
     return sortedGroupedFeed
       .map(([sortKey, group]) => {
-        // Filter items within each group based on search term
         const filteredItems = group.items.map(item => {
-          // For session groups: check if exercise names match
           if (item.feedType === 'session_group' && item.logs && Array.isArray(item.logs)) {
             const matchingLogs = item.logs.filter(log => log.exercise_name.toLowerCase().includes(lowerSearchTerm));
-            
-            // If searching by exercise name and found matches, return session with only matching exercises
-            if (matchingLogs.length > 0) {
-              return { ...item, logs: matchingLogs };
-            }
-            
-            // Check if session name matches
-            if (item.name.toLowerCase().includes(lowerSearchTerm)) {
-              return item; // Return full session with all exercises
-            }
-            
+            if (matchingLogs.length > 0) return { ...item, logs: matchingLogs };
+            if (item.name.toLowerCase().includes(lowerSearchTerm)) return item; 
             return null;
           }
 
-          // For standalone logs: match exercise name or check date
           if (item.feedType === 'standalone_log') {
             if (item.exercise_name.toLowerCase().includes(lowerSearchTerm)) return item;
             if (group.label.toLowerCase().includes(lowerSearchTerm)) return item;
           }
-
           return null;
         }).filter(item => item !== null);
 
-        // Only return groups that have matching items or matching date label
         if (filteredItems.length > 0 || group.label.toLowerCase().includes(lowerSearchTerm)) {
           return [sortKey, { ...group, items: filteredItems }];
         }
-
         return null;
       })
       .filter(group => group !== null);
   }, [sortedGroupedFeed, searchFilter]);
 
-  // --- Session Handlers ---
+  // Toggle Handlers
+  const toggleDateGroup = (sortKey) => {
+    setCollapsedDates(prev => ({ ...prev, [sortKey]: !prev[sortKey] }));
+  };
+
+  const toggleSession = (sessionId) => {
+    setCollapsedSessions(prev => ({ ...prev, [sessionId]: !prev[sessionId] }));
+  };
+
   const handleDeleteSession = async (sessionId) => {
-    if (window.confirm("Are you sure you want to delete this entire session and all its logs?")) {
+    if (window.confirm("האם אתה בטוח שברצונך למחוק אימון זה ואת כל התרגילים שבו?")) {
       await removeSession(sessionId);
     }
   };
@@ -281,11 +128,10 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
       await updateSession(sessionId, { started_at: formattedDate });
       setEditingSessionDateId(null);
     } catch (e) {
-      console.error("Failed to update session date");
+      console.error("שגיאה בעדכון תאריך האימון");
     }
   };
 
-  // --- Log Handlers ---
   const handleSaveLog = async (logId, updatedData) => {
     try {
       await updateLog(logId, updatedData);
@@ -293,12 +139,12 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
       fetchSessions(effectiveUserId);
       fetchUserLogs(effectiveUserId);
     } catch (e) {
-      console.error("Failed to save inline log edit");
+      console.error("שגיאה בעדכון התיעוד");
     }
   };
 
   const handleDeleteLog = async (logId) => {
-    if (window.confirm("Are you sure you want to delete this log?")) {
+    if (window.confirm("האם אתה בטוח שברצונך למחוק תיעוד זה?")) {
       await removeLog(logId);
       fetchSessions(effectiveUserId);
       fetchUserLogs(effectiveUserId);
@@ -311,32 +157,47 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
   };
 
   if (!activeUser) {
-    return <div className="flex justify-center items-center h-64" dir="rtl"><p className="text-gray-500 font-medium">Loading profile...</p></div>;
+    return <div className="flex justify-center items-center h-64" dir="rtl"><p className="text-gray-500 font-medium">טוען נתונים...</p></div>;
   }
 
   const renderContent = () => (
     <div className="max-w-6xl mx-auto pb-20">
       {!embedded && (
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Workout Log</h1>
-          <p className="text-gray-500 mt-1">Continuous daily tracking</p>
+          <h1 className="text-3xl font-bold text-gray-900">יומן תיעודים</h1>
+          <p className="text-gray-500 mt-1">מעקב יומי שוטף</p>
         </header>
       )}
 
       {effectiveUserId && isSelf && (
-        <ExerciseLogForm
-          selectedUserId={effectiveUserId}
-          canModifyLogs={canModifyLogs}
-          editLogToLoad={null} 
-          onEditComplete={() => {}}
-        />
+        <div className="mb-6">
+          <div 
+            onClick={() => setIsFormOpen(!isFormOpen)}
+            className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-zinc-200 cursor-pointer hover:bg-zinc-50 transition-colors mb-2"
+          >
+            <span className="font-black text-zinc-800 text-lg">תיעוד אימון חדש</span>
+            <button 
+              className={`text-xs font-bold px-4 py-2 rounded-lg transition-all ${isFormOpen ? 'bg-zinc-100 text-zinc-600' : 'bg-blue-600 text-white'}`}
+            >
+              {isFormOpen ? 'הסתר' : 'הצג'}
+            </button>
+          </div>
+          
+          <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isFormOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <ExerciseLogForm
+              selectedUserId={effectiveUserId}
+              canModifyLogs={canModifyLogs}
+              editLogToLoad={null} 
+              onEditComplete={() => {}}
+            />
+          </div>
+        </div>
       )}
 
-      {/* Glasmorphism search input following Arctic Mirror aesthetic - placed below form */}
-      <div className="relative mt-6 mb-6">
+      <div className="relative mt-2 mb-6">
         <input
           type="text"
-          placeholder="חיפוש לפי תאריך, שם סשיין או שם תרגיל..."
+          placeholder="חיפוש לפי תאריך, שם אימון או שם תרגיל..."
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.target.value)}
           className="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-zinc-200/40 rounded-2xl text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/30 transition-all shadow-sm"
@@ -344,153 +205,166 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
         <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-300">🔍</span>
       </div>
 
-      <div className="mt-10">
+      <div className="mt-8">
         {(sessionsLoading || logsLoading) && !editingLogId ? (
-            <div className="text-center py-10 text-gray-400 font-medium animate-pulse">Synchronizing feed...</div>
+            <div className="text-center py-10 text-gray-400 font-medium animate-pulse">מסנכרן נתונים...</div>
         ) : filteredGroupedFeed.length > 0 ? (
             <div className="space-y-10">
-              {filteredGroupedFeed.map(([sortKey, group]) => (
-                <div key={sortKey} className="relative">
-                  
-                  {/* Sticky Date Header */}
-                  <h3 className="sticky top-0 z-10 bg-gray-50 text-blue-800 font-bold mb-4 border-b border-blue-200 pb-2">
-                    {group.label}
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    {group.items.map(item => {
-                        
-                        if (item.feedType === 'session_group') {
-                            const isEditingDate = editingSessionDateId === item.id;
+              {filteredGroupedFeed.map(([sortKey, group]) => {
+                const isDateCollapsed = collapsedDates[sortKey];
+
+                return (
+                  <div key={sortKey} className="relative">
+                    
+                    <div 
+                      onClick={() => toggleDateGroup(sortKey)}
+                      className="sticky top-0 z-10 bg-gray-50 flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors mb-4 border-b border-blue-200 pb-2"
+                    >
+                      <h3 className="text-blue-800 font-bold">
+                        {group.label}
+                      </h3>
+                      <button className="text-xs text-blue-600 flex items-center gap-1 font-bold">
+                        {isDateCollapsed ? <><ChevronDown size={14}/> הצג נתונים</> : <><ChevronUp size={14}/> הסתר נתונים</>}
+                      </button>
+                    </div>
+                    
+                    <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isDateCollapsed ? 'max-h-0 opacity-0' : 'max-h-[5000px] opacity-100'}`}>
+                      <div className="space-y-4">
+                        {group.items.map(item => {
+                            
+                            if (item.feedType === 'session_group') {
+                                const isEditingDate = editingSessionDateId === item.id;
+                                const isSessionCollapsed = collapsedSessions[item.id];
+                                
+                                return (
+                                    <div key={item.id} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col md:flex-row">
+                                        <div className="md:w-1/4 bg-gray-50 p-4 md:border-l border-gray-200 flex flex-col gap-2 relative">
+                                            
+                                            {/* Button to collapse this specific session */}
+                                            <button 
+                                                onClick={() => toggleSession(item.id)}
+                                                className="absolute top-4 left-4 p-1.5 bg-gray-200 hover:bg-gray-300 rounded text-gray-600 transition-colors"
+                                            >
+                                                {isSessionCollapsed ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
+                                            </button>
+
+                                            <div className="text-sm font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100 inline-block w-fit max-w-[80%] truncate">
+                                                {item.name}
+                                            </div>
+                                            
+                                            {isEditingDate ? (
+                                                <div className="flex flex-col gap-2 mt-2">
+                                                    <input 
+                                                        type="datetime-local" 
+                                                        className="text-xs p-1.5 border border-gray-300 rounded w-full outline-none focus:border-blue-500"
+                                                        value={newSessionDate}
+                                                        onChange={(e) => setNewSessionDate(e.target.value)}
+                                                    />
+                                                    <div className="flex gap-2 w-full">
+                                                        <button onClick={() => handleSaveSessionDate(item.id)} className="flex-1 flex justify-center items-center text-xs text-white bg-green-500 hover:bg-green-600 py-1.5 rounded font-bold"><Save size={12}/> שמור</button>
+                                                        <button onClick={() => setEditingSessionDateId(null)} className="flex-1 flex justify-center items-center text-xs text-gray-600 bg-gray-200 hover:bg-gray-300 py-1.5 rounded font-bold"><X size={12}/> בטל</button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div 
+                                                    className={`flex items-center gap-1.5 mt-1 text-sm font-bold text-gray-500 ${canModifyLogs ? 'cursor-pointer hover:text-blue-600' : ''}`}
+                                                    onClick={() => {
+                                                        if(canModifyLogs) {
+                                                            setEditingSessionDateId(item.id);
+                                                            const tzOffset = (new Date()).getTimezoneOffset() * 60000;
+                                                            const localISOTime = new Date(new Date(item.started_at) - tzOffset).toISOString().slice(0, -1);
+                                                            setNewSessionDate(localISOTime.substring(0, 16));
+                                                        }
+                                                    }}
+                                                >
+                                                    <Clock size={14} /> 
+                                                    <span>{formatTimeOnly(item.started_at)} {item.finished_at ? `- ${formatTimeOnly(item.finished_at)}` : ''}</span>
+                                                    {canModifyLogs && <Edit2 size={10} className="opacity-50 ml-1" />}
+                                                </div>
+                                            )}
+                                            
+                                            <div className="text-xs font-bold text-gray-400">
+                                              {Array.isArray(item.logs) ? item.logs.length : 0} תרגילים
+                                            </div>
+                                            
+                                            <div className="text-xs font-bold text-gray-400">
+                                              {item.note ? `${item.note}` : 'אין הערות לאימון זה'}
+                                            </div>
+
+                                            {canModifyLogs && (
+                                                <div className="mt-auto pt-4">
+                                                    <button 
+                                                        onClick={() => handleDeleteSession(item.id)}
+                                                        className="w-full flex justify-center items-center gap-1.5 text-[10px] text-red-600 hover:bg-red-50 font-bold bg-white px-2 py-1.5 rounded-lg border border-red-100 transition-colors"
+                                                    >
+                                                        <Trash2 size={12} /> מחיקת אימון
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className={`md:w-3/4 p-4 transition-all duration-300 ease-in-out overflow-hidden ${isSessionCollapsed ? 'hidden' : 'block'}`}>
+                                            {item.logs && item.logs.length > 0 ? (
+                                                <div className="flex flex-col">
+                                                    {[...item.logs]
+                                                        .sort((a, b) => (a.position || 0) - (b.position || 0))
+                                                        .map(log => (
+                                                            <LogEntryRow
+                                                              key={log.id}
+                                                              log={log}
+                                                              exercise={exercises?.find(ex => ex.id === log.exercise_id)}
+                                                              isEditing={editingLogId === log.id}
+                                                              onStartEdit={() => setEditingLogId(log.id)}
+                                                              onSave={(data) => handleSaveLog(log.id, data)}
+                                                              onCancel={() => setEditingLogId(null)}
+                                                              onDelete={() => handleDeleteLog(log.id)}
+                                                              canModify={canModifyLogs}
+                                                            />
+                                                        ))}
+                                                </div>
+                                            ) : (
+                                                <div className="h-full flex items-center justify-center">
+                                                    <p className="text-sm text-gray-400 font-bold">לא תועדו תרגילים באימון זה.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            }
                             
                             return (
-                                <div key={item.id} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col md:flex-row">
-                                    {/* Right Side Panel (Session Info) */}
-                                    <div className="md:w-1/4 bg-gray-50 p-4 md:border-l border-gray-200 flex flex-col gap-2">
-                                        <div className="text-sm font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100 inline-block w-fit">
-                                            {item.name}
+                                <div key={item.id} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col md:flex-row mb-4">
+                                    <div className="md:w-1/4 bg-gray-50 p-4 md:border-l border-gray-200 flex gap-2">
+                                        <div className="flex items-center gap-1.5 mt-1 text-sm font-bold text-gray-500">
+                                            <Clock size={14} /> 
+                                            <span>{formatTimeOnly(item.created_at)}</span>
                                         </div>
-                                        
-                                        {isEditingDate ? (
-                                            <div className="flex flex-col gap-2 mt-2">
-                                                <input 
-                                                    type="datetime-local" 
-                                                    className="text-xs p-1.5 border border-gray-300 rounded w-full outline-none focus:border-blue-500"
-                                                    value={newSessionDate}
-                                                    onChange={(e) => setNewSessionDate(e.target.value)}
-                                                />
-                                                <div className="flex gap-2 w-full">
-                                                    <button onClick={() => handleSaveSessionDate(item.id)} className="flex-1 flex justify-center items-center text-xs text-white bg-green-500 hover:bg-green-600 py-1.5 rounded font-bold"><Save size={12}/> Save</button>
-                                                    <button onClick={() => setEditingSessionDateId(null)} className="flex-1 flex justify-center items-center text-xs text-gray-600 bg-gray-200 hover:bg-gray-300 py-1.5 rounded font-bold"><X size={12}/> Cancel</button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div 
-                                                className={`flex items-center gap-1.5 mt-1 text-sm font-bold text-gray-500 ${canModifyLogs ? 'cursor-pointer hover:text-blue-600' : ''}`}
-                                                onClick={() => {
-                                                    if(canModifyLogs) {
-                                                        setEditingSessionDateId(item.id);
-                                                        const tzOffset = (new Date()).getTimezoneOffset() * 60000;
-                                                        const localISOTime = new Date(new Date(item.started_at) - tzOffset).toISOString().slice(0, -1);
-                                                        setNewSessionDate(localISOTime.substring(0, 16));
-                                                    }
-                                                }}
-                                            >
-                                                <Clock size={14} /> 
-                                                <span>{formatTimeOnly(item.started_at)} {item.finished_at ? `- ${formatTimeOnly(item.finished_at)}` : ''}</span>
-                                                {canModifyLogs && <Edit2 size={10} className="opacity-50 ml-1" />}
-                                            </div>
-                                        )}
-                                        <div className="text-xs font-bold text-gray-400 uppercase">
-                                          {Array.isArray(item.logs) ? item.logs.length : 0} תרגילים
-                                        </div>
-                                        <div className="text-xs font-bold text-gray-400 uppercase">
-                                          {item.note ? `${item.note}` : 'אין הערות על האימון'}
-                                        </div>
-                                        {canModifyLogs && (
-                                            <div className="mt-auto pt-4">
-                                                <button 
-                                                    onClick={() => handleDeleteSession(item.id)}
-                                                    className="w-full flex justify-center items-center gap-1.5 text-[10px] text-red-600 hover:bg-red-50 font-bold bg-white px-2 py-1.5 rounded-lg border border-red-100 transition-colors"
-                                                >
-                                                    <Trash2 size={12} /> למחוק אימון
-                                                </button>
-                                            </div>
-                                        )}
                                     </div>
-
-                                    {/* Left Side Panel (Compact Logs List) */}
                                     <div className="md:w-3/4 p-4">
-                                        {item.logs && item.logs.length > 0 ? (
-                                            <div className="flex flex-col">
-                                                {[...item.logs]
-                                                    .sort((a, b) => (a.position || 0) - (b.position || 0))
-                                                    .map(log => (
-                                                        <LogEntryRow
-                                                          key={log.id}
-                                                          log={log}
-                                                          exercise={exercises?.find(ex => ex.id === log.exercise_id)}
-                                                          isEditing={editingLogId === log.id}
-                                                          onStartEdit={() => setEditingLogId(log.id)}
-                                                          onSave={(data) => handleSaveLog(log.id, data)}
-                                                          onCancel={() => setEditingLogId(null)}
-                                                          onDelete={() => handleDeleteLog(log.id)}
-                                                          canModify={canModifyLogs}
-                                                        />
-                                                    ))}
-                                            </div>
-                                        ) : (
-                                            <div className="h-full flex items-center justify-center">
-                                                <p className="text-sm text-gray-400 font-bold">No exercises recorded inside this session.</p>
-                                            </div>
-                                        )}
+                                        <LogEntryRow
+                                          log={item}
+                                          exercise={exercises?.find(ex => ex.id === item.exercise_id)}
+                                          isEditing={editingLogId === item.id}
+                                          onStartEdit={() => setEditingLogId(item.id)}
+                                          onSave={(data) => handleSaveLog(item.id, data)}
+                                          onCancel={() => setEditingLogId(null)}
+                                          onDelete={() => handleDeleteLog(item.id)}
+                                          canModify={canModifyLogs}
+                                        />
                                     </div>
-
                                 </div>
                             );
-                        }
-                        
-                        return (
-                            <div key={item.id} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col md:flex-row mb-4">
-                                
-                                {/* Right Side Panel (Matches Session Header layout) */}
-                                <div className="md:w-1/4 bg-gray-50 p-4 md:border-l border-gray-200 flex gap-2">
-                                    <div className="flex items-center gap-1.5 mt-1 text-sm font-bold text-gray-500">
-                                        <Clock size={14} /> 
-                                        <span>{formatTimeOnly(item.created_at)}</span>
-                                    </div>
-                                    
-                                    {/* <div className="text-sm font-bold text-gray-600 bg-gray-200/50 px-3 py-1.5 rounded-md border border-gray-200 inline-block w-fit">
-                                        <Activity size={14} className="inline mr-1 mb-0.5" /> תיעוד בודד
-                                    </div> */}
-                                    
-                                </div>
-
-                                {/* Left Side Panel (The Actual Log) */}
-                                <div className="md:w-3/4 p-4">
-                                    <LogEntryRow
-                                      log={item}
-                                      exercise={exercises?.find(ex => ex.id === item.exercise_id)}
-                                      isEditing={editingLogId === item.id}
-                                      onStartEdit={() => setEditingLogId(item.id)}
-                                      onSave={(data) => handleSaveLog(item.id, data)}
-                                      onCancel={() => setEditingLogId(null)}
-                                      onDelete={() => handleDeleteLog(item.id)}
-                                      canModify={canModifyLogs}
-                                    />
-                                </div>
-                                
-                            </div>
-                        );
-                    })}
+                        })}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
         ) : (
             <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-gray-200">
                 <p className="text-gray-400 font-bold">
-                  {searchFilter.trim() ? 'לא נמצאו רישומים התואמים לחיפוש.' : 'No records found in diary.'}
+                  {searchFilter.trim() ? 'לא נמצאו רישומים התואמים לחיפוש.' : 'לא נמצאו רישומים ביומן.'}
                 </p>
             </div>
         )}
