@@ -38,6 +38,9 @@ async def get_group_users(
         current_user=Depends(get_current_user)
 ):
     if target_group_id is None:
+        if current_user.role == "admin":
+            service = UserService(db)
+            return service.get_all_users()
         target_group_id = current_user.group_id
 
     if not target_group_id:
