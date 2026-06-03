@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
 
 // Providers Wrapper
 import AppProviders from './components/AppProviders';
@@ -31,6 +32,13 @@ import CreateTemplatePage from './pages/CreateTemplatePage';
 import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
 import AthleteStatsPage from './pages/AthleteStatsPage';
 
+function HomeRedirect() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'admin') return <Navigate to="/users" replace />;
+  return <LandingPage />;
+}
+
 function App() {
   return (
     <AppProviders>
@@ -44,26 +52,27 @@ function App() {
             
             {/* Protected Routes Wrapper */}
             <Route element={<ProtectedRoute />}>
-              
-              {/* General Authenticated Member Routes */}
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/chats" element={<ChatsPage />} />
-              <Route path="/exercises" element={<ExerciseManagerPage />} />
-              <Route path="/templates" element={<ShowTemplatesPage />} />
-              <Route path="/ActiveWorkoutPage" element={<ActiveWorkoutPage />} />
-              <Route path="/statistics" element={<AthleteStatsPage />} />
-              {/* <Route path="/statistics/athlete/:athleteId" element={<AthleteStatsPage />} /> */}
-              
-              {/* Unified Diary Route */}
-              <Route path="/log-diary" element={<LogDiaryPage />} />
-              
-              {/* Privileged Coach Tools */}
-              <Route element={<ProtectedRoute allowedRoles={['admin', 'trainer']} />}>
+              <Route path="/" element={<HomeRedirect />} />
+
+              {/* Non-admin authenticated routes */}
+              <Route element={<ProtectedRoute allowedRoles={['trainer', 'trainee']} />}>
+                <Route path="/chats" element={<ChatsPage />} />
+                <Route path="/exercises" element={<ExerciseManagerPage />} />
+                <Route path="/templates" element={<ShowTemplatesPage />} />
+                <Route path="/ActiveWorkoutPage" element={<ActiveWorkoutPage />} />
+                <Route path="/statistics" element={<AthleteStatsPage />} />
+                <Route path="/log-diary" element={<LogDiaryPage />} />
+              </Route>
+
+              {/* Trainer and admin user management route */}
+              <Route element={<ProtectedRoute allowedRoles={['trainer', 'admin']} />}>
                 <Route path="/users" element={<UserPanelPage />} />
+              </Route>
+
+              {/* Trainer-only management routes */}
+              <Route element={<ProtectedRoute allowedRoles={['trainer']} />}>
                 <Route path="/templates/create" element={<CreateTemplatePage />} />
                 <Route path="/coach-messages" element={<CoachMessageManager />} />
-                
-                {/* Settings Nested Routes */}
                 <Route path="/settings" element={<SettingsPage />}>
                   <Route index element={<Navigate to="parameters" replace />} />
                   <Route path="parameters" element={<ParameterManager />} />
@@ -71,7 +80,7 @@ function App() {
                 </Route>
               </Route>
 
-              {/* System Admin Tools */}
+              {/* Admin-only tools */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
                 <Route path="/groups" element={<GroupPanelPage />} />
               </Route>

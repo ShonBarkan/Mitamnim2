@@ -23,6 +23,10 @@ class UserService:
         """Pulls all users attached to a specific group frame scope context."""
         return self.db.query(User).options(joinedload(User.group)).filter(User.group_id == group_id).all()
 
+    def get_all_users(self) -> List[User]:
+        """Retrieves all users across all groups and unassigned records."""
+        return self.db.query(User).options(joinedload(User.group)).all()
+
     def create_user(self, user_data: UserCreate, hashed_password: str, target_group_id: Optional[uuid.UUID]) -> User:
         """Atomically handles credentials hashing and binds users to groups context frameworks."""
         new_user = User(

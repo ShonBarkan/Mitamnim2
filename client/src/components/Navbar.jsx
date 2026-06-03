@@ -11,17 +11,17 @@ import FrontendLogger from '../utils/logger';
  */
 const NAV_CONFIG = {
   mainLinks: [
-    { path: '/', label: 'דף הבית' },
-    { path: '/chats', label: "צ'אטים" },
-    { path: '/exercises', label: 'תרגילים' },
-    { path: '/templates', label: 'אימונים' },
-    { path: '/statistics', label: 'סטטיסטיקה' },
-    { path: '/log-diary?tab=history', matchPath: '/log-diary', label: 'יומן תיעודים' }
+    { path: '/', label: 'דף הבית', allowedRoles: ['trainer', 'trainee'] },
+    { path: '/chats', label: "צ'אטים", allowedRoles: ['trainer', 'trainee'] },
+    { path: '/exercises', label: 'תרגילים', allowedRoles: ['trainer', 'trainee'] },
+    { path: '/templates', label: 'אימונים', allowedRoles: ['trainer', 'trainee'] },
+    { path: '/statistics', label: 'סטטיסטיקה', allowedRoles: ['trainer', 'trainee'] },
+    { path: '/log-diary?tab=history', matchPath: '/log-diary', label: 'יומן תיעודים', allowedRoles: ['trainer', 'trainee'] }
   ],
   managementLinks: [
     { path: '/users', label: 'מתאמנים', allowedRoles: ['trainer', 'admin'] },
-    { path: '/coach-messages', label: 'הודעות', allowedRoles: ['trainer', 'admin'] },
-    { path: '/settings', label: 'הגדרות', allowedRoles: ['trainer', 'admin'] },
+    { path: '/coach-messages', label: 'הודעות', allowedRoles: ['trainer'] },
+    { path: '/settings', label: 'הגדרות', allowedRoles: ['trainer'] },
     { path: '/groups', label: 'קבוצות', allowedRoles: ['admin'] }
   ]
 };
@@ -82,8 +82,12 @@ const Navbar = () => {
   // Evaluate stateful activation matching tokens across current router maps
   const checkActive = (path, matchPath) => location.pathname === (matchPath || path);
 
-  // Filter management links based on the current user's role
-  const visibleManagementLinks = NAV_CONFIG.managementLinks.filter(link => 
+  // Filter navigation links based on the current user's role
+  const visibleMainLinks = NAV_CONFIG.mainLinks.filter(link =>
+    !link.allowedRoles || link.allowedRoles.includes(user.role)
+  );
+
+  const visibleManagementLinks = NAV_CONFIG.managementLinks.filter(link =>
     link.allowedRoles.includes(user.role)
   );
 
@@ -136,7 +140,7 @@ const Navbar = () => {
             )}
 
             {/* Main Navigation Links */}
-            {NAV_CONFIG.mainLinks.map((link) => (
+            {visibleMainLinks.map((link) => (
               <NavLink 
                 key={link.path} 
                 to={link.path} 
@@ -247,7 +251,7 @@ const Navbar = () => {
           )}
 
           {/* Main Navigation Links (Mobile) */}
-          {NAV_CONFIG.mainLinks.map((link) => (
+          {visibleMainLinks.map((link) => (
             <NavLink 
               key={link.path} 
               to={link.path} 
