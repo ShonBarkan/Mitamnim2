@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useGroups } from '../contexts/GroupContext';
 import { useToast } from '../contexts/ToastContext';
 import { uploadToCloudinary } from '../utils/cloudinary';
@@ -18,6 +18,9 @@ const GroupPanelPage = () => {
   const [previewUrl, setPreviewUrl] = useState('');
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  // Filters & sorting state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   
   const fileInputRef = useRef(null);
 
@@ -26,6 +29,47 @@ const GroupPanelPage = () => {
     FrontendLogger.info('GROUP_PANEL', 'Mounting group administration cluster view panel');
     refreshGroups();
   }, [refreshGroups]);
+
+  const handleSearchChange = (e) => setSearchQuery(e.target.value);
+
+  const handleSort = (key) => {
+    setSortConfig((s) => {
+      if (s.key === key) return { key, direction: s.direction === 'asc' ? 'desc' : 'asc' };
+      return { key, direction: 'asc' };
+    });
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSortConfig({ key: null, direction: 'asc' });
+  };
+
+  const getComparable = (item, key) => {
+    const val = item?.[key];
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val.toLowerCase();
+    if (typeof val === 'number') return val;
+    if (val instanceof Date) return val.getTime();
+    return String(val).toLowerCase();
+  };
+
+  const processedGroups = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let list = Array.isArray(groups) ? groups.slice() : [];
+    if (q) {
+      list = list.filter(g => (g.name || '').toLowerCase().includes(q));
+    }
+    if (!sortConfig.key) return list;
+    const { key, direction } = sortConfig;
+    list.sort((a, b) => {
+      const va = getComparable(a, key);
+      const vb = getComparable(b, key);
+      if (typeof va === 'number' && typeof vb === 'number') return direction === 'asc' ? va - vb : vb - va;
+      const res = String(va).localeCompare(String(vb), undefined, { numeric: true, sensitivity: 'base' });
+      return direction === 'asc' ? res : -res;
+    });
+    return list;
+  }, [groups, searchQuery, sortConfig]);
 
   /**
    * Pre-fills the form to enter Edit Mode.
@@ -126,13 +170,13 @@ const GroupPanelPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-slate-100 via-zinc-100 to-blue-100 p-6 md:p-12 font-sans" dir="rtl">
-      <div className="max-w-[1400px] mx-auto space-y-12">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_bottom_left,var(--tw-gradient-stops))] from-slate-100 via-zinc-100 to-blue-100 p-6 md:p-12 font-sans" dir="rtl">
+      <div className="max-w-350 mx-auto space-y-12">
         
         {/* Header Section */}
         <header className="space-y-2">
           <h1 className="text-5xl font-black tracking-tighter text-zinc-900">ניהול קבוצות</h1>
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-[0.4em]">Global Organization Management</p>
+          <p className="text-xs font-bold text-zinc-400 uppercase tracking-[0.4em]">ניהול ארגוני גלובלי</p>
         </header>
 
         {/* Dynamic Action Card (Create/Edit Framework) */}
@@ -152,7 +196,7 @@ const GroupPanelPage = () => {
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-4">שם הקבוצה</label>
                 <input 
                   type="text" 
-                  placeholder="Group Name" 
+                  placeholder="שם הקבוצה" 
                   value={groupName} 
                   onChange={(e) => setGroupName(e.target.value)} 
                   disabled={isUploading}
@@ -182,7 +226,7 @@ const GroupPanelPage = () => {
                   
                   {/* Real-time Local Upload Preview Frame */}
                   {previewUrl && (
-                    <div className="w-14 h-14 rounded-2xl overflow-hidden border border-white bg-zinc-200/50 flex-shrink-0 shadow-md">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden border border-white bg-zinc-200/50 shrink-0 shadow-md">
                       <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                     </div>
                   )}
@@ -228,39 +272,58 @@ const GroupPanelPage = () => {
 
         {/* Groups Directory Table Area */}
         <section className="bg-white/70 backdrop-blur-3xl rounded-[3rem] shadow-2xl border border-white overflow-hidden">
-          <div className="p-8 border-b border-zinc-100 flex justify-between items-center bg-white/40">
-            <h3 className="text-2xl font-black tracking-tight text-zinc-900">רשימת קבוצות פעילות</h3>
-            <span className="bg-zinc-900 text-white text-[10px] px-4 py-1.5 rounded-full font-black uppercase tracking-widest">
-              {groups.length} Groups Total
-            </span>
+          <div className="p-8 border-b border-zinc-100 bg-white/40">
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-black tracking-tight text-zinc-900">רשימת קבוצות פעילות</h3>
+              <span className="bg-zinc-900 text-white text-[10px] px-4 py-1.5 rounded-full font-black uppercase tracking-widest">
+                {processedGroups.length} / {groups.length} קבוצות
+              </span>
+            </div>
+
+            <div className="mt-4 flex gap-3 items-center">
+              <input
+                type="search"
+                placeholder="חפש קבוצה לפי שם"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="w-full md:w-1/3 bg-white/70 border border-zinc-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-200"
+              />
+              <div className="ml-auto flex items-center gap-2">
+                <button type="button" onClick={clearFilters} className="px-4 py-2 bg-white border border-zinc-200 rounded-2xl text-sm font-bold">נקה מסננים</button>
+              </div>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-20 text-center">
                 <div className="inline-block w-8 h-8 border-4 border-zinc-200 border-t-zinc-900 rounded-full animate-spin mb-4" />
-                <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">Synchronizing Data...</p>
+                <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">מתנגן סנכרון נתונים...</p>
               </div>
             ) : (
               <table className="w-full text-right border-collapse">
                 <thead>
                   <tr className="bg-zinc-50/50 text-zinc-400 uppercase text-[11px] font-black tracking-[0.2em]">
-                    <th className="px-10 py-6 text-center">Identity</th>
-                    <th className="px-10 py-6">Group Name</th>
-                    <th className="px-10 py-6">System Identifier (UUID)</th>
-                    <th className="px-10 py-6">Registration Date</th>
-                    <th className="px-10 py-6 text-left">Actions</th>
+                    <th className="px-10 py-6 text-center">אייקון</th>
+                    <th onClick={() => handleSort('name')} className="px-10 py-6 cursor-pointer">שם הקבוצה {sortConfig.key==='name' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                    <th className="px-10 py-6">מזהה מערכת (UUID)</th>
+                    <th onClick={() => handleSort('created_at')} className="px-10 py-6 cursor-pointer">תאריך יצירה {sortConfig.key==='created_at' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                    <th className="px-10 py-6 text-left">פעולות</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {groups.map((group) => (
+                  {processedGroups.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-16 text-center text-zinc-400 italic font-bold">לא נמצאו קבוצות התואמות את המסנן.</td>
+                    </tr>
+                  ) : processedGroups.map((group) => (
                     <tr key={group.id} className={`group transition-all hover:bg-white/60 ${editingGroupId === group.id ? 'bg-orange-50/50' : ''}`}>
                       <td className="px-10 py-6 flex justify-center">
                         <div className="w-14 h-14 rounded-2xl overflow-hidden bg-zinc-100 border-2 border-white shadow-inner flex items-center justify-center">
                           {group.group_image ? (
                             <img src={group.group_image} alt={group.name} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                           ) : (
-                            <span className="text-[10px] font-black text-zinc-300 uppercase">No IMG</span>
+                            <span className="text-[10px] font-black text-zinc-300 uppercase">אין תמונה</span>
                           )}
                         </div>
                       </td>

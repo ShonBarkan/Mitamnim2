@@ -3,6 +3,14 @@ import FrontendLogger from '../utils/logger';
 
 export const ToastContext = createContext();
 
+// External bridge for non-React modules (e.g., API interceptors) to trigger toasts.
+// This default is a no-op and will be registered by the ToastProvider at runtime.
+export let externalShowToast = (message, type = 'info') => {};
+
+export const registerExternalShowToast = (fn) => {
+  externalShowToast = fn;
+};
+
 /**
  * Context provider for UI notifications.
  * Implements the bright, transparent "Arctic Mirror" aesthetic (Glassmorphism).
@@ -24,6 +32,10 @@ export const ToastProvider = ({ children }) => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3000);
   }, []);
+
+  // Register the provider's showToast function to the external bridge so
+  // non-React modules (like axios interceptors) can still surface notifications.
+  registerExternalShowToast(showToast);
 
   // Arctic Mirror styling matrix configurations
   const containerStyle = {

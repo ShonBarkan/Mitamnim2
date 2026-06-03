@@ -7,6 +7,7 @@ import { useExercise } from '../contexts/ExerciseContext';
 import { useUsers } from '../contexts/UserContext';
 import { useTag } from '../contexts/TagContext';
 import FrontendLogger from '../utils/logger';
+import { useToast } from '../contexts/ToastContext';
 
 import TemplateBasicInfo from '../components/CreateTemplatePage/TemplateBasicInfo';
 import ExerciseBank from '../components/common/Exercise/ExerciseBank';
@@ -23,6 +24,7 @@ const CreateTemplatePage = () => {
   const { exercises, fetchExercises } = useExercise();
   const { users, refreshUsers } = useUsers();
   const { tags, fetchTags } = useTag();
+  const { showToast } = useToast();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -199,7 +201,7 @@ const CreateTemplatePage = () => {
       }
       navigate('/templates');
     } catch (error) {
-      alert('אירעה שגיאה בשמירת השבלונה.');
+      showToast('אירעה שגיאה בשמירת השבלונה.', 'error');
     }
   };
 
@@ -244,7 +246,7 @@ const CreateTemplatePage = () => {
       setAiJsonInput('');
       FrontendLogger.info('CREATE_TEMPLATE', 'AI generated template data successfully hydrated and applied');
     } catch (error) {
-      alert('Invalid JSON format. Please check your input.');
+      showToast('פורמט JSON לא תקין. נא בדוק את הקלט.', 'error');
       FrontendLogger.error('CREATE_TEMPLATE', 'Failed to parse AI JSON', error);
     }
   };
@@ -254,7 +256,7 @@ const CreateTemplatePage = () => {
       <h1 className="text-2xl font-black text-zinc-900">{templateId ? 'עריכת שבלונה' : 'יצירת שבלונה חדשה'}</h1>
       
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Basic Info מופיע ראשון כפי שביקשת */}
+        {/* Basic Info appears first as requested */}
         <TemplateBasicInfo 
             formData={formData} 
             setFormData={setFormData} 
@@ -264,7 +266,7 @@ const CreateTemplatePage = () => {
             handleTagToggle={handleTagToggle} 
         />
         
-        {/* מאגר התרגילים מוגן בתוך הטופס (על ידי type="button" בתוך הקומפוננטה) */}
+        {/* Exercise bank is provided inside the form (button type protects submission) */}
         <div className="bg-white p-8 rounded-3xl border border-zinc-200">
           <ExerciseBank exercises={exercises} onSelect={handleAddExercise} />
           

@@ -6,7 +6,7 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(() => { try { return localStorage.getItem('token'); } catch (e) { return null; } });
   const [loading, setLoading] = useState(true);
 
   /**
@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
    */
   useEffect(() => {
     const initAuth = async () => {
-      if (token) {
+      try { if (token) {
         try {
           FrontendLogger.info('AUTH_CONTEXT', 'Recovering authenticated user session from local token footprint');
           const userData = await authService.getCurrentUser();
@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         FrontendLogger.info('AUTH_CONTEXT', 'No token identity discovered in storage context. Standing by for credential submission.');
       }
-      setLoading(false);
+        } finally { setLoading(false); }
     };
     initAuth();
   }, [token]);
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
       FrontendLogger.info('AUTH_CONTEXT', `Initiating out-of-bounds validation login pipeline for user: '${username}'`);
       const data = await authService.login(username, password);
       
-      localStorage.setItem('token', data.access_token);
+      try { localStorage.setItem('token', data.access_token); } catch (e) {}
       setToken(data.access_token);
       
       // Immediately pull fresh database model profile mappings to synchronize across layers
@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
    */
   const logout = () => {
     FrontendLogger.warn('AUTH_CONTEXT', 'Destruction sequence triggered. Evicting active token allocations and profile memory blocks.');
-    localStorage.removeItem('token');
+    try { localStorage.removeItem('token'); } catch (e) {}
     setToken(null);
     setUser(null);
   };
