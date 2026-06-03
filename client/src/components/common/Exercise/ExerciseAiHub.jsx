@@ -8,8 +8,7 @@ const ExerciseAiHub = ({ existingExercises, existingTags, existingParams, onImpo
   const [bulkJson, setBulkJson] = useState('');
 
   const generateAIPrompt = () => {
-    const tagsInfo = existingTags.map(t => t.name).join(', ');
-    const paramsInfo = existingParams.map(p => `${p.name} (${p.unit})`).join(', ');
+    const manualParams = existingParams.filter(p => !p.is_virtual);
     const exercisesInfo = existingExercises.map(e => e.name).join(', ');
 
     return `אני בונה מערכת אימונים. אנא הצע לי 10 תרגילים מקצועיים חדשים.
@@ -19,7 +18,7 @@ const ExerciseAiHub = ({ existingExercises, existingTags, existingParams, onImpo
 נתוני המערכת הנוכחיים:
 - תרגילים קיימים: [ ${exercisesInfo} ]
 - תגים זמינים: [ ${existingTags.map(t => `${t.name} (ID: ${t.id})`).join(', ')} ]
-- פרמטרים זמינים: [ ${existingParams.map(p => `${p.name} (ID: ${p.id})`).join(', ')} ]
+- פרמטרים זמינים: [ ${manualParams.map(p => `${p.name} (ID: ${p.id})`).join(', ')} ]
 
 החזר את התוצאה בפורמט JSON בלבד (מערך אובייקטים):
 [
