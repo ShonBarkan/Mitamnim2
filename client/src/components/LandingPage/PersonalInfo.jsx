@@ -190,10 +190,10 @@ const PersonalInfo = ({ user }) => {
 
   // --- STANDARD READ-ONLY ATHLETE SHEET STATE ---
   return (
-    <section className="bg-white/40 backdrop-blur-2xl border border-white/60 rounded-[3rem] p-10 shadow-xl relative overflow-hidden group">
+    <section className="bg-white/40 backdrop-blur-2xl border border-white/60 rounded-[3rem] p-6 md:p-10 shadow-xl relative overflow-hidden group">
       <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl -translate-y-16 translate-x-16" />
       
-      <div className="relative flex flex-col md:flex-row items-center md:items-start gap-8 text-center md:text-right w-full">
+      <div className="relative flex flex-col items-center gap-6 text-center w-full">
         
         {/* Avatar and Edit Button Container */}
         <div className="flex flex-col items-center gap-3 shrink-0">
@@ -218,9 +218,9 @@ const PersonalInfo = ({ user }) => {
         </div>
         
         {/* User Details */}
-        <div className="space-y-3 flex-1 ">
-          <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
-            <h3 className="text-3xl font-black text-zinc-900 tracking-tighter uppercase leading-none">
+        <div className="space-y-3 flex-1 w-full">
+          <div className="flex flex-col items-center gap-3">
+            <h3 className="text-2xl md:text-3xl font-black text-zinc-900 tracking-tighter uppercase leading-none">
               {user?.first_name} {user?.second_name}
             </h3>
             <span className="bg-zinc-950 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
@@ -228,12 +228,12 @@ const PersonalInfo = ({ user }) => {
             </span>
           </div>
           
-          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-x-6 gap-y-1.5 justify-center md:justify-start text-sm font-bold text-zinc-400">
-            <p className="flex items-center gap-2 justify-center md:justify-start">
+          <div className="flex flex-col gap-2 text-sm font-bold text-zinc-400">
+            <p className="flex items-center gap-2 justify-center">
               <span>📧</span>
               <span className="text-zinc-500 tracking-tight">{user?.email || 'אין אימייל'}</span>
             </p>
-            <p className="flex items-center gap-2 justify-center md:justify-start">
+            <p className="flex items-center gap-2 justify-center">
               <span>📱</span>
               <span className="text-zinc-500 tabular-nums">{user?.phone || 'אין טלפון'}</span>
             </p>
