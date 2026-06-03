@@ -7,11 +7,10 @@ import FrontendLogger from '../utils/logger';
 
 /**
  * Navigation Configuration
- * Add, edit, or remove links here to update both Desktop and Mobile views globally.
+ * Removed explicit 'Home' link as it is now bound to the dynamic Group Brand Logo.
  */
 const NAV_CONFIG = {
   mainLinks: [
-    { path: '/', label: 'דף הבית', allowedRoles: ['trainer', 'trainee'] },
     { path: '/chats', label: "צ'אטים", allowedRoles: ['trainer', 'trainee'] },
     { path: '/exercises', label: 'תרגילים', allowedRoles: ['trainer', 'trainee'] },
     { path: '/templates', label: 'אימונים', allowedRoles: ['trainer', 'trainee'] },
@@ -29,7 +28,7 @@ const NAV_CONFIG = {
 /**
  * Navbar Component - Global application navigation suite.
  * Aligned strictly with updated flat router paths and premium Arctic Mirror glassmorphic guidelines.
- * Includes dynamic active workout detection, responsive mobile sidebar, and dynamic group branding.
+ * Includes dynamic active workout detection, responsive mobile sidebar, and dynamic group branding acting as a home link.
  */
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -96,43 +95,43 @@ const Navbar = () => {
       <nav className="sticky top-0 z-[100] w-full bg-white/60 backdrop-blur-2xl border-b border-white/60 px-4 md:px-8 py-4 font-sans select-none" dir="rtl">
         <div className="max-w-[1800px] mx-auto flex items-center justify-between">
           
-          {/* Dynamic Group Brand Identity / Logo */}
-          <div className="flex items-center gap-3 select-none pointer-events-none">
+          {/* Dynamic Group Brand Identity / Logo - Now acts as a home link */}
+          <Link to="/" className="flex items-center gap-2 md:gap-3 cursor-pointer hover:opacity-80 transition-opacity active:scale-95 shrink-0 max-w-[60%] md:max-w-none">
             {activeGroup ? (
               <>
                 {activeGroup.group_image ? (
                   <img 
                     src={activeGroup.group_image} 
                     alt={activeGroup.name} 
-                    className="h-10 md:h-14 w-auto object-contain drop-shadow-sm"
+                    className="h-10 md:h-14 w-auto object-contain drop-shadow-sm shrink-0"
                   />
                 ) : (
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-zinc-900 rounded-xl flex items-center justify-center text-sm md:text-lg text-white font-black shadow-md">
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-zinc-900 rounded-xl flex items-center justify-center text-sm md:text-lg text-white font-black shadow-md shrink-0">
                     {activeGroup.name.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <span className="text-sm md:text-base font-black tracking-wide text-zinc-900 hidden lg:block truncate max-w-[200px]">
+                <span className="text-sm md:text-base font-black tracking-wide text-zinc-900 truncate">
                   {activeGroup.name}
                 </span>
               </>
             ) : (
               <>
-                <div className="w-10 h-10 bg-zinc-200 rounded-xl animate-pulse flex items-center justify-center text-xs text-zinc-400 font-black shadow-sm">
+                <div className="w-10 h-10 bg-zinc-200 rounded-xl animate-pulse flex items-center justify-center text-xs text-zinc-400 font-black shadow-sm shrink-0">
                   M
                 </div>
-                <span className="text-[10px] font-black tracking-[0.3em] uppercase text-zinc-400 hidden lg:block font-mono animate-pulse">
+                <span className="text-[10px] md:text-sm font-black tracking-[0.3em] uppercase text-zinc-400 font-mono animate-pulse truncate">
                   Loading...
                 </span>
               </>
             )}
-          </div>
+          </Link>
 
           {/* Desktop Navigation Links (Hidden on Mobile) */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2 overflow-x-auto scrollbar-hide px-2">
             {hasActiveDraft && (
               <Link 
                 to="/ActiveWorkoutPage" 
-                className="flex items-center gap-2 px-5 py-2.5 rounded-[1.2rem] text-[11px] font-black uppercase tracking-tight transition-all duration-300 whitespace-nowrap active:scale-95 bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 border border-emerald-400 hover:bg-emerald-400"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-[1.2rem] text-[11px] font-black uppercase tracking-tight transition-all duration-300 whitespace-nowrap active:scale-95 bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 border border-emerald-400 hover:bg-emerald-400 shrink-0"
               >
                 <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                 אימון פעיל
@@ -168,9 +167,9 @@ const Navbar = () => {
           </div>
 
           {/* Desktop User Terminal (Hidden on Mobile) */}
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden lg:flex items-center gap-6 shrink-0">
             <div className="flex flex-col items-end">
-              <span className="text-[10px] font-black text-zinc-900 leading-none tracking-tight uppercase font-mono">
+              <span className="text-[10px] font-black text-zinc-900 leading-none tracking-tight uppercase font-mono truncate max-w-[100px]">
                 {user.username}
               </span>
               <div className="flex items-center gap-1.5 mt-1.5">
@@ -184,7 +183,7 @@ const Navbar = () => {
             <button 
               type="button"
               onClick={handleLogout}
-              className="group flex items-center justify-center w-11 h-11 rounded-2xl bg-white/60 backdrop-blur-md border border-white/80 text-zinc-400 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all active:scale-90 shadow-sm"
+              className="group flex items-center justify-center w-11 h-11 rounded-2xl bg-white/60 backdrop-blur-md border border-white/80 text-zinc-400 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all active:scale-90 shadow-sm shrink-0"
               title="Disconnect Session"
             >
               <span className="text-sm transition-transform duration-500 group-hover:rotate-[-12deg]">🚪</span>
@@ -192,7 +191,7 @@ const Navbar = () => {
           </div>
 
           {/* Mobile Hamburger & Active Indicator */}
-          <div className="flex md:hidden items-center gap-4">
+          <div className="flex lg:hidden items-center gap-4 shrink-0">
             {hasActiveDraft && (
               <div className="flex items-center justify-center w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-500/50" />
             )}
@@ -213,13 +212,13 @@ const Navbar = () => {
 
       {/* Mobile Sidebar Overlay */}
       <div 
-        className={`fixed inset-0 z-[200] bg-zinc-900/40 backdrop-blur-sm transition-opacity duration-300 md:hidden ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 z-[200] bg-zinc-900/40 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsMobileMenuOpen(false)}
       />
 
       {/* Mobile Sidebar Panel */}
       <aside 
-        className={`fixed top-0 right-0 h-full w-[280px] bg-white/95 backdrop-blur-3xl z-[210] shadow-2xl transition-transform duration-300 transform md:hidden flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`} 
+        className={`fixed top-0 right-0 h-full w-[280px] bg-white/95 backdrop-blur-3xl z-[210] shadow-2xl transition-transform duration-300 transform lg:hidden flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`} 
         dir="rtl"
       >
         <div className="flex items-center justify-between p-6 border-b border-zinc-100">
@@ -306,7 +305,7 @@ const NavLink = ({ to, children, active, subtle, onClick, className = '' }) => (
   <Link 
     to={to} 
     onClick={onClick}
-    className={`px-5 py-2.5 rounded-[1.2rem] text-[11px] font-black uppercase tracking-tight transition-all duration-300 active:scale-95 ${
+    className={`px-5 py-2.5 rounded-[1.2rem] text-[11px] font-black uppercase tracking-tight transition-all duration-300 active:scale-95 shrink-0 ${
       active 
         ? 'bg-zinc-900 text-white shadow-2xl shadow-zinc-900/20 border border-zinc-900' 
         : subtle 
