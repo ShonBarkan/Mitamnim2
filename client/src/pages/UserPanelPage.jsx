@@ -10,6 +10,7 @@ import FrontendLogger from '../utils/logger';
 /**
  * UserPanelPage Component - Administrative dashboard for team and athlete account management.
  * Fully features the bright "Arctic Mirror" design layout and Cloudinary file streaming.
+ * Highly responsive layout with a mobile-first card list replacing the data table on small viewports.
  */
 const UserPanelPage = () => {
   const { user: currentUser } = useAuth();
@@ -251,26 +252,30 @@ const UserPanelPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,var(--tw-gradient-stops))] from-blue-50 via-slate-100 to-zinc-200 p-6 md:p-12 font-sans" dir="rtl">
-      <div className="max-w-350 mx-auto space-y-12">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,var(--tw-gradient-stops))] from-blue-50 via-slate-100 to-zinc-200 p-4 sm:p-6 md:p-12 font-sans" dir="rtl">
+      <div className="max-w-[1400px] mx-auto space-y-8 md:space-y-12">
         
         {/* Header Block */}
-        <header className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
-          <div className="space-y-2">
-            <h1 className="text-5xl font-black tracking-tighter text-zinc-900">ניהול משתמשים</h1>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-[0.3em]">Mitamnim2 Administration Suite</p>
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+          <div className="space-y-1 md:space-y-2">
+            <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-zinc-900">ניהול משתמשים</h1>
+            <p className="text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-[0.2em] md:tracking-[0.3em]">Mitamnim2 Administration Suite</p>
           </div>
           {editingUserId && (
-            <button onClick={cancelEdit} disabled={isUploading} className="px-6 py-2 bg-white/40 backdrop-blur-md border border-zinc-200 rounded-full text-zinc-600 font-bold text-sm hover:bg-white/60 transition-all">
+            <button 
+              onClick={cancelEdit} 
+              disabled={isUploading} 
+              className="w-full md:w-auto px-6 py-3 md:py-2 bg-white/40 backdrop-blur-md border border-zinc-200 rounded-xl md:rounded-full text-zinc-600 font-bold text-sm hover:bg-white/60 transition-all text-center"
+            >
               ביטול עריכה
             </button>
           )}
         </header>
 
         {/* Form Configuration Card */}
-        <section className={`transition-all duration-700 bg-white/40 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/60 shadow-2xl ${editingUserId ? 'ring-4 ring-blue-500/20 border-blue-200/50' : ''}`}>
-          <div className="flex items-center gap-6 mb-10">
-            <div className="relative">
+        <section className={`transition-all duration-700 bg-white/40 backdrop-blur-2xl rounded-[2rem] md:rounded-[3rem] p-5 md:p-10 border border-white/60 shadow-2xl ${editingUserId ? 'ring-4 ring-blue-500/20 border-blue-200/50' : ''}`}>
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 mb-8 md:mb-10 text-center md:text-right">
+            <div className="relative shrink-0">
               {previewUrl ? (
                 <img src={previewUrl} alt="Preview" className="w-20 h-20 rounded-3xl object-cover border-4 border-white shadow-xl" />
               ) : (
@@ -279,54 +284,54 @@ const UserPanelPage = () => {
                 </div>
               )}
             </div>
-            <div>
-              <h3 className="text-2xl font-black tracking-tight">{editingUserId ? 'עריכת פרטי משתמש קיימים' : 'הוספת חבר צוות חדש'}</h3>
-              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">User Profile Configuration</p>
+            <div className="mt-2 md:mt-0">
+              <h3 className="text-xl md:text-2xl font-black tracking-tight">{editingUserId ? 'עריכת פרטי משתמש קיימים' : 'הוספת חבר צוות חדש'}</h3>
+              <p className="text-[10px] md:text-xs font-bold text-zinc-400 uppercase tracking-widest mt-1">User Profile Configuration</p>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               
               {/* Credentials Fields Group */}
-              <div className="space-y-2">
+              <div className="space-y-1 md:space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שם משתמש</label>
-                <input name="username" placeholder="Username" value={formData.username} onChange={handleInputChange} required disabled={isUploading || editingUserId} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+                <input name="username" placeholder="Username" value={formData.username} onChange={handleInputChange} required disabled={isUploading || editingUserId} className="w-full bg-white/50 border border-white/40 rounded-xl md:rounded-2xl px-4 py-3 md:px-6 md:py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1 md:space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">
                   {editingUserId ? 'סיסמה חדשה (אופציונלי)' : 'סיסמת כניסה'}
                 </label>
-                <input type="password" name="password" placeholder={editingUserId ? "••••••••" : "Password"} value={formData.password} onChange={handleInputChange} required={!editingUserId} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+                <input type="password" name="password" placeholder={editingUserId ? "••••••••" : "Password"} value={formData.password} onChange={handleInputChange} required={!editingUserId} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-xl md:rounded-2xl px-4 py-3 md:px-6 md:py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
               </div>
 
               {/* Identity Details Fields */}
-              <div className="space-y-2">
+              <div className="space-y-1 md:space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שם פרטי</label>
-                <input name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+                <input name="first_name" placeholder="First Name" value={formData.first_name} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-xl md:rounded-2xl px-4 py-3 md:px-6 md:py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1 md:space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שם משפחה</label>
-                <input name="second_name" placeholder="Last Name" value={formData.second_name} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+                <input name="second_name" placeholder="Last Name" value={formData.second_name} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-xl md:rounded-2xl px-4 py-3 md:px-6 md:py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
               </div>
 
               {/* Communication Details Fields */}
-              <div className="space-y-2">
+              <div className="space-y-1 md:space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">כתובת אימייל</label>
-                <input type="email" name="email" placeholder="athlete@example.com" value={formData.email} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+                <input type="email" name="email" placeholder="athlete@example.com" value={formData.email} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-xl md:rounded-2xl px-4 py-3 md:px-6 md:py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1 md:space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">מספר טלפון</label>
-                <input type="tel" name="phone" placeholder="05X-XXXXXXX" value={formData.phone} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
+                <input type="tel" name="phone" placeholder="05X-XXXXXXX" value={formData.phone} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-xl md:rounded-2xl px-4 py-3 md:px-6 md:py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 transition-all" />
               </div>
 
               {/* Account Privilege Level Dropdown */}
-              <div className="space-y-2">
+              <div className="space-y-1 md:space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">תפקיד והרשאות מערכת</label>
-                <select name="role" value={formData.role} onChange={handleInputChange} disabled={isUploading || currentUser.role !== 'admin'} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 appearance-none transition-all">
+                <select name="role" value={formData.role} onChange={handleInputChange} disabled={isUploading || currentUser.role !== 'admin'} className="w-full bg-white/50 border border-white/40 rounded-xl md:rounded-2xl px-4 py-3 md:px-6 md:py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 appearance-none transition-all">
                   <option value="trainee">ספורטאי / מתאמן (Trainee)</option>
                   <option value="trainer">מאמן צוות (Trainer)</option>
                   <option value="admin">מנהל מערכת ראשי (Admin)</option>
@@ -334,12 +339,12 @@ const UserPanelPage = () => {
               </div>
 
               {/* Dynamic Group Boundaries Association Field */}
-              <div className="space-y-2">
+              <div className="space-y-1 md:space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">שיוך לקבוצת פעילות</label>
                 {currentUser.role === 'trainer' ? (
-                  <input type="text" readOnly value={currentUser.group_name || 'קבוצת המאמן'} className="w-full bg-zinc-200/50 border border-zinc-300 rounded-2xl px-6 py-4 text-sm font-bold outline-none cursor-not-allowed opacity-70" />
+                  <input type="text" readOnly value={currentUser.group_name || 'קבוצת המאמן'} className="w-full bg-zinc-200/50 border border-zinc-300 rounded-xl md:rounded-2xl px-4 py-3 md:px-6 md:py-4 text-sm font-bold outline-none cursor-not-allowed opacity-70" />
                 ) : (
-                  <select name="group_id" value={formData.group_id} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 appearance-none transition-all">
+                  <select name="group_id" value={formData.group_id} onChange={handleInputChange} disabled={isUploading} className="w-full bg-white/50 border border-white/40 rounded-xl md:rounded-2xl px-4 py-3 md:px-6 md:py-4 text-sm font-bold outline-none focus:ring-4 focus:ring-zinc-900/5 appearance-none transition-all">
                     <option value="">-- בחר קבוצה מהרשימה --</option>
                     {groups.map(g => (
                       <option key={g.id} value={g.id}>{g.name}</option>
@@ -349,10 +354,10 @@ const UserPanelPage = () => {
               </div>
 
               {/* Glassmorphic Media Selection Block */}
-              <div className="lg:col-span-4 space-y-2">
+              <div className="sm:col-span-2 lg:col-span-4 space-y-1 md:space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mr-2">תמונת פרופיל / אוואטר</label>
-                <div className="flex items-center gap-4 max-w-md">
-                  <button type="button" disabled={isUploading} onClick={() => fileInputRef.current?.click()} className="w-full bg-white/70 backdrop-blur-md border border-white/90 rounded-2xl py-4 px-6 text-sm font-black text-zinc-700 hover:bg-white/90 active:scale-95 transition-all shadow-sm">
+                <div className="flex flex-col sm:flex-row items-center gap-3 md:gap-4 max-w-full md:max-w-md">
+                  <button type="button" disabled={isUploading} onClick={() => fileInputRef.current?.click()} className="w-full bg-white/70 backdrop-blur-md border border-white/90 rounded-xl md:rounded-2xl py-3 md:py-4 px-4 md:px-6 text-xs md:text-sm font-black text-zinc-700 hover:bg-white/90 active:scale-95 transition-all shadow-sm">
                     {selectedFile ? 'החלף קובץ נבחר 🔄' : 'העלה תמונת פרופיל 📸'}
                   </button>
                   <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
@@ -363,7 +368,7 @@ const UserPanelPage = () => {
 
             {/* Submit Control Row */}
             <div className="pt-4 border-t border-zinc-900/5 flex justify-end gap-3">
-              <button type="submit" disabled={isUploading} className={`px-12 py-5 rounded-4xl font-black text-sm uppercase tracking-widest transition-all shadow-xl flex items-center gap-3 active:scale-95 ${editingUserId ? 'bg-blue-600 text-white shadow-blue-200 hover:bg-blue-700' : 'bg-zinc-900 text-white shadow-zinc-200 hover:bg-zinc-800'}`}>
+              <button type="submit" disabled={isUploading} className={`w-full md:w-auto justify-center px-8 md:px-12 py-4 md:py-5 rounded-xl md:rounded-4xl font-black text-xs md:text-sm uppercase tracking-widest transition-all shadow-xl flex items-center gap-3 active:scale-95 ${editingUserId ? 'bg-blue-600 text-white shadow-blue-200 hover:bg-blue-700' : 'bg-zinc-900 text-white shadow-zinc-200 hover:bg-zinc-800'}`}>
                 {isUploading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -380,111 +385,176 @@ const UserPanelPage = () => {
         </section>
 
         {/* Directory surveillance list view */}
-        <section className="bg-white/80 backdrop-blur-xl rounded-[3rem] shadow-2xl border border-white overflow-hidden">
-          <div className="p-8 border-b border-zinc-100 bg-white/30">
-            <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-black tracking-tight">רשימת חברי ארגון וספורטאים</h3>
-              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-100 px-4 py-1.5 rounded-full">{processedUsers.length} / {users.length} משתמשים</span>
+        <section className="bg-white/80 backdrop-blur-xl rounded-[2rem] md:rounded-[3rem] shadow-2xl border border-white overflow-hidden">
+          <div className="p-5 md:p-8 border-b border-zinc-100 bg-white/30">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h3 className="text-xl md:text-2xl font-black tracking-tight">רשימת חברי ארגון וספורטאים</h3>
+              <span className="w-fit text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-100 px-4 py-1.5 rounded-full">{processedUsers.length} / {users.length} משתמשים</span>
             </div>
 
             {/* Filters Row: search, role, group, clear */}
-            <div className="mt-4 flex flex-col md:flex-row gap-3 items-center">
+            <div className="mt-4 md:mt-6 flex flex-col md:flex-row gap-3 items-center">
               <input
-                type="search"
-                placeholder="חפש משתמשים לפי שם, משתמש, אימייל או טלפון"
+                type="text" // Changed from 'search' for better iOS styling compliance
+                placeholder="חפש לפי שם, אימייל או טלפון..."
                 value={searchQuery}
                 onChange={handleSearchChange}
-                className="w-full md:w-1/3 bg-white/70 border border-zinc-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full md:w-1/3 bg-white/70 border border-zinc-200 rounded-xl md:rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-200"
               />
 
-              <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full md:w-1/6 bg-white/70 border border-zinc-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none">
+              <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full md:w-1/6 bg-white/70 border border-zinc-200 rounded-xl md:rounded-2xl px-4 py-3 text-sm font-medium outline-none">
                 <option value="">כל התפקידים</option>
                 <option value="trainee">ספורטאי</option>
                 <option value="trainer">מאמן</option>
                 <option value="admin">מנהל</option>
               </select>
 
-              <select value={filterGroupId} onChange={(e) => setFilterGroupId(e.target.value)} className="w-full md:w-1/4 bg-white/70 border border-zinc-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none">
+              <select value={filterGroupId} onChange={(e) => setFilterGroupId(e.target.value)} className="w-full md:w-1/4 bg-white/70 border border-zinc-200 rounded-xl md:rounded-2xl px-4 py-3 text-sm font-medium outline-none">
                 <option value="">כל הקבוצות</option>
                 {groups.map(g => (
                   <option key={g.id} value={g.id}>{g.name}</option>
                 ))}
               </select>
 
-              <div className="ml-auto">
-                <button type="button" onClick={clearFilters} className="px-4 py-2 bg-white border border-zinc-200 rounded-2xl text-sm font-bold">נקה מסננים</button>
+              <div className="w-full md:w-auto md:ml-auto">
+                <button type="button" onClick={clearFilters} className="w-full md:w-auto px-4 py-3 md:py-2 bg-white border border-zinc-200 rounded-xl md:rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition-transform">נקה מסננים</button>
               </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="p-4 md:p-0">
             {loading ? (
-              <div className="p-20 text-center text-zinc-400 font-bold uppercase animate-pulse">Synchronizing Registry Data...</div>
+              <div className="p-10 md:p-20 text-center text-zinc-400 font-bold uppercase animate-pulse">Synchronizing Registry Data...</div>
             ) : (
-              <table className="w-full text-right border-collapse">
-                <thead>
-                      <tr className="bg-zinc-50/50 text-zinc-400 uppercase text-[11px] font-black tracking-widest border-b border-zinc-100">
-                        <th onClick={() => handleSort('username')} className="px-8 py-6 cursor-pointer select-none">משתמש {sortConfig.key==='username' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
-                        <th onClick={() => handleSort('first_name')} className="px-8 py-6 cursor-pointer select-none">שם מלא {sortConfig.key==='first_name' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
-                        <th onClick={() => handleSort('email')} className="px-8 py-6 cursor-pointer select-none">אימייל / טלפון {sortConfig.key==='email' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
-                        <th onClick={() => handleSort('role')} className="px-8 py-6 cursor-pointer select-none">תפקיד {sortConfig.key==='role' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
-                        <th onClick={() => handleSort('group_name')} className="px-8 py-6 cursor-pointer select-none">קבוצה {sortConfig.key==='group_name' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
-                        <th className="px-8 py-6 text-left">פעולות</th>
+              <>
+                {/* --- DESKTOP VIEW: Traditional Data Table --- */}
+                <table className="hidden md:table w-full text-right border-collapse">
+                  <thead>
+                        <tr className="bg-zinc-50/50 text-zinc-400 uppercase text-[11px] font-black tracking-widest border-b border-zinc-100">
+                          <th onClick={() => handleSort('username')} className="px-6 lg:px-8 py-5 lg:py-6 cursor-pointer select-none">משתמש {sortConfig.key==='username' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                          <th onClick={() => handleSort('first_name')} className="px-6 lg:px-8 py-5 lg:py-6 cursor-pointer select-none">שם מלא {sortConfig.key==='first_name' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                          <th onClick={() => handleSort('email')} className="px-6 lg:px-8 py-5 lg:py-6 cursor-pointer select-none">אימייל / טלפון {sortConfig.key==='email' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                          <th onClick={() => handleSort('role')} className="px-6 lg:px-8 py-5 lg:py-6 cursor-pointer select-none">תפקיד {sortConfig.key==='role' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                          <th onClick={() => handleSort('group_name')} className="px-6 lg:px-8 py-5 lg:py-6 cursor-pointer select-none">קבוצה {sortConfig.key==='group_name' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                          <th className="px-6 lg:px-8 py-5 lg:py-6 text-left">פעולות</th>
+                        </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {processedUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-16 text-center text-zinc-400 italic font-bold">אין משתמשים התואמים את המסננים הנוכחיים.</td>
                       </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {processedUsers.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-16 text-center text-zinc-400 italic font-bold">אין משתמשים התואמים את המסננים הנוכחיים.</td>
-                    </tr>
-                  ) : processedUsers.map(u => (
-                    <tr key={u.id} className={`transition-all group hover:bg-white/50 ${editingUserId === u.id ? 'bg-blue-50/50' : ''}`}>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className="relative">
-                            {u.profile_picture ? (
-                              <img src={u.profile_picture} alt={u.username} className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-md group-hover:scale-110 transition-transform" />
-                            ) : (
-                              <div className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center text-white text-[10px] font-black border-2 border-white shadow-md">
-                                {u.username?.[0]?.toUpperCase()}
-                              </div>
-                            )}
+                    ) : processedUsers.map(u => (
+                      <tr key={u.id} className={`transition-all group hover:bg-white/50 ${editingUserId === u.id ? 'bg-blue-50/50' : ''}`}>
+                        <td className="px-6 lg:px-8 py-4 lg:py-6">
+                          <div className="flex items-center gap-4">
+                            <div className="relative shrink-0">
+                              {u.profile_picture ? (
+                                <img src={u.profile_picture} alt={u.username} className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl object-cover border-2 border-white shadow-md group-hover:scale-110 transition-transform" />
+                              ) : (
+                                <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-zinc-900 flex items-center justify-center text-white text-[10px] font-black border-2 border-white shadow-md">
+                                  {u.username?.[0]?.toUpperCase()}
+                                </div>
+                              )}
+                            </div>
+                            <span className="font-black text-zinc-900 truncate max-w-[120px] lg:max-w-none">{u.username}</span>
                           </div>
-                          <span className="font-black text-zinc-900">{u.username}</span>
+                        </td>
+                        <td className="px-6 lg:px-8 py-4 lg:py-6 font-bold text-zinc-600 truncate max-w-[120px] lg:max-w-none">{u.first_name || '-'} {u.second_name || '-'}</td>
+                        <td className="px-6 lg:px-8 py-4 lg:py-6">
+                          <div className="flex flex-col">
+                            <span className="text-xs lg:text-sm font-bold text-zinc-900 truncate max-w-[150px] lg:max-w-none">{u.email || '-'}</span>
+                            <span className="text-[9px] lg:text-[10px] font-black text-zinc-400 uppercase">{u.phone || '-'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 lg:px-8 py-4 lg:py-6">
+                          <span className={`px-3 lg:px-4 py-1 rounded-full text-[9px] lg:text-[10px] font-black uppercase ${u.role === 'admin' ? 'bg-zinc-900 text-white' : u.role === 'trainer' ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="px-6 lg:px-8 py-4 lg:py-6 font-bold text-zinc-500 text-xs lg:text-sm truncate max-w-[100px] lg:max-w-none">
+                          {u.group_name || <span className="opacity-30 italic">ללא שיוך</span>}
+                        </td>
+                        <td className="px-6 lg:px-8 py-4 lg:py-6 text-left">
+                          <div className="flex items-center justify-end gap-2 lg:gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {u.role === 'trainee' && (
+                              <Link to={`/stats-page/${u.id}`} className="p-2.5 lg:p-3 bg-emerald-50 text-emerald-600 rounded-xl lg:rounded-2xl hover:bg-emerald-100 transition-all active:scale-90" title="צפה בסטטיסטיקות">📊</Link>
+                            )}
+                            <button onClick={() => startEdit(u)} disabled={isUploading} className="p-2.5 lg:p-3 bg-blue-50 text-blue-600 rounded-xl lg:rounded-2xl hover:bg-blue-100 transition-all active:scale-90" title="ערוך משתמש">✏️</button>
+                            <button onClick={() => handleDelete(u.id)} disabled={isUploading} className="p-2.5 lg:p-3 bg-red-50 text-red-600 rounded-xl lg:rounded-2xl hover:bg-red-100 transition-all active:scale-90" title="מחק משתמש">🗑️</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* --- MOBILE VIEW: Interactive Card List --- */}
+                <div className="md:hidden flex flex-col gap-4">
+                  {processedUsers.length === 0 ? (
+                    <div className="p-10 text-center text-zinc-400 italic font-bold border border-white rounded-2xl bg-white/40">אין משתמשים התואמים את המסננים הנוכחיים.</div>
+                  ) : processedUsers.map(u => (
+                    <div key={u.id} className={`bg-white/50 backdrop-blur-sm border border-white/80 rounded-2xl p-4 shadow-sm flex flex-col gap-4 transition-all ${editingUserId === u.id ? 'ring-2 ring-blue-400/50' : ''}`}>
+                      
+                      {/* Card Header: Avatar & Main Identifiers */}
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          {u.profile_picture ? (
+                            <img src={u.profile_picture} alt={u.username} className="w-12 h-12 rounded-xl object-cover border border-white shadow-sm" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-xl bg-zinc-900 flex items-center justify-center text-white text-lg font-black border border-white shadow-sm">
+                              {u.username?.[0]?.toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex flex-col">
+                            <span className="font-black text-base text-zinc-900 leading-tight">{u.username}</span>
+                            <span className="text-xs font-bold text-zinc-500">{u.first_name || '-'} {u.second_name || '-'}</span>
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-8 py-6 font-bold text-zinc-600">{u.first_name || '-'} {u.second_name || '-'}</td>
-                      <td className="px-8 py-6">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-zinc-900">{u.email || '-'}</span>
-                          <span className="text-[10px] font-black text-zinc-400 uppercase">{u.phone || '-'}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase ${u.role === 'admin' ? 'bg-zinc-900 text-white' : u.role === 'trainer' ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
+                        <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider ${u.role === 'admin' ? 'bg-zinc-900 text-white' : u.role === 'trainer' ? 'bg-blue-600 text-white' : 'bg-zinc-200 text-zinc-600'}`}>
                           {u.role}
                         </span>
-                      </td>
-                      <td className="px-8 py-6 font-bold text-zinc-500">
-                        {/* Streamed efficiently straight from server parameters instead of local map arrays loops */}
-                        {u.group_name || <span className="opacity-30 italic">ללא שיוך</span>}
-                      </td>
-                      <td className="px-8 py-6 text-left">
-                        <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {u.role === 'trainee' && (
-                            <Link to={`/stats-page/${u.id}`} className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all active:scale-90">📊</Link>
-                          )}
-                          <button onClick={() => startEdit(u)} disabled={isUploading} className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all active:scale-90">✏️</button>
-                          <button onClick={() => handleDelete(u.id)} disabled={isUploading} className="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 transition-all active:scale-90">🗑️</button>
+                      </div>
+
+                      {/* Card Body: Contact & Group Details */}
+                      <div className="grid grid-cols-2 gap-3 bg-white/40 p-3 rounded-xl border border-white/50 text-xs">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-zinc-400 font-black uppercase">אימייל</span>
+                          <span className="font-bold text-zinc-800 truncate">{u.email || '-'}</span>
                         </div>
-                      </td>
-                    </tr>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-zinc-400 font-black uppercase">טלפון</span>
+                          <span className="font-bold text-zinc-800">{u.phone || '-'}</span>
+                        </div>
+                        <div className="col-span-2 flex flex-col">
+                          <span className="text-[9px] text-zinc-400 font-black uppercase">קבוצה</span>
+                          <span className="font-bold text-zinc-800">{u.group_name || 'ללא שיוך קבוצתי'}</span>
+                        </div>
+                      </div>
+
+                      {/* Touch-optimized Actions Footer */}
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        {u.role === 'trainee' && (
+                          <Link to={`/stats-page/${u.id}`} className="flex-1 text-center py-2.5 bg-emerald-50/80 text-emerald-600 font-bold text-xs rounded-xl hover:bg-emerald-100 transition-colors border border-emerald-100">
+                            📊 סטטיסטיקות
+                          </Link>
+                        )}
+                        <button onClick={() => startEdit(u)} disabled={isUploading} className="flex-1 py-2.5 bg-blue-50/80 text-blue-600 font-bold text-xs rounded-xl hover:bg-blue-100 transition-colors border border-blue-100">
+                          ✏️ ערוך
+                        </button>
+                        <button onClick={() => handleDelete(u.id)} disabled={isUploading} className="flex-1 py-2.5 bg-red-50/80 text-red-600 font-bold text-xs rounded-xl hover:bg-red-100 transition-colors border border-red-100">
+                          🗑️ מחק
+                        </button>
+                      </div>
+
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </>
             )}
           </div>
         </section>
+
       </div>
     </div>
   );

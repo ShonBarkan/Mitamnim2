@@ -8,6 +8,11 @@ import TagAiHub from './TagManager/TagAiHub';
 import TagForm from './TagManager/TagForm';
 import TagTable from './TagManager/TagTable';
 
+/**
+ * TagManager Wrapper Component
+ * Orchestrates state and layout for AI assistance, tag creation, and tag display.
+ * Structurally optimized for responsiveness across mobile, tablet, and desktop views.
+ */
 const TagManager = () => {
   const { tags, loading, fetchTags, addTag, editTag, removeTag, addBulkTags } = useTag();
   const { showToast } = useToast();
@@ -41,33 +46,46 @@ const TagManager = () => {
       else await addTag({ name: formData.name.trim(), color: formData.color });
       showToast("בוצע בהצלחה", "success");
       resetForm();
-    } catch (e) { showToast("הפעולה נכשלה", "error"); }
+    } catch (e) { 
+      showToast("הפעולה נכשלה", "error"); 
+    }
   };
 
   return (
-    <div className="space-y-10 font-sans" dir="rtl">
+    <div className="space-y-6 md:space-y-10 font-sans" dir="rtl">
       
       {/* --- AI COLLAPSIBLE SECTION --- */}
-      <div className="bg-white/40 backdrop-blur-md rounded-3xl p-6 border border-white/60 shadow-lg">
+      <div className="bg-white/40 backdrop-blur-md rounded-[1.5rem] md:rounded-3xl p-4 md:p-6 border border-white/60 shadow-lg">
         <button 
           onClick={() => setIsAiOpen(!isAiOpen)}
-          className="flex items-center justify-between w-full text-zinc-900 font-black uppercase text-sm tracking-wider mb-2 select-none"
+          className="flex items-center justify-between w-full text-zinc-900 font-black uppercase text-xs md:text-sm tracking-wider mb-1 md:mb-2 select-none"
         >
           <span>🤖 עזרה חכמה (AI Hub)</span>
-          <span className="text-xl">{isAiOpen ? '−' : '+'}</span>
+          <span className="text-lg md:text-xl">{isAiOpen ? '−' : '+'}</span>
         </button>
         
-        <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isAiOpen ? 'max-h-[600px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+        {/* Adjusted max-height to ensure mobile expansion doesn't clip content */}
+        <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isAiOpen ? 'max-h-[1000px] opacity-100 mt-3 md:mt-4' : 'max-h-0 opacity-0'}`}>
           <TagAiHub existingTags={tags} onImportBulk={addBulkTags} showToast={showToast} />
         </div>
       </div>
 
       <TagForm 
-        formData={formData} editingId={editingId} PRESET_COLORS={PRESET_COLORS}
-        onInputChange={handleInputChange} onPresetColorSelect={(c) => setFormData(p => ({...p, color: c}))}
-        onSubmit={handleSubmit} onReset={resetForm}
+        formData={formData} 
+        editingId={editingId} 
+        PRESET_COLORS={PRESET_COLORS}
+        onInputChange={handleInputChange} 
+        onPresetColorSelect={(c) => setFormData(p => ({...p, color: c}))}
+        onSubmit={handleSubmit} 
+        onReset={resetForm}
       />
-      <TagTable loading={loading} tags={tags} onStartEdit={setEditingId} onDelete={removeTag} />
+      
+      <TagTable 
+        loading={loading} 
+        tags={tags} 
+        onStartEdit={setEditingId} 
+        onDelete={removeTag} 
+      />
     </div>
   );
 };

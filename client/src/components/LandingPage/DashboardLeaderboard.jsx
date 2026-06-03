@@ -50,78 +50,94 @@ const DashboardLeaderboard = () => {
     {
       place: 1,
       label: 'זהב',
-      height: 'h-36',
+      height: 'h-32 md:h-36',
+      heightMobile: 'h-24',
       bg: 'from-yellow-300 to-yellow-500',
       border: 'border-yellow-200',
       text: 'text-yellow-700',
-      order: 'md:order-2',
-      size: 'w-24 h-24',
+      order: 'order-2 md:order-2',
+      size: 'w-16 h-16 md:w-24 md:h-24',
       crown: true
     },
     {
       place: 2,
       label: 'כסף',
-      height: 'h-28',
+      height: 'h-24 md:h-28',
+      heightMobile: 'h-20',
       bg: 'from-zinc-300 to-zinc-400',
       border: 'border-zinc-200',
       text: 'text-zinc-700',
-      order: 'md:order-1',
-      size: 'w-20 h-20'
+      order: 'order-1 md:order-1',
+      size: 'w-14 h-14 md:w-20 md:h-20'
     },
     {
       place: 3,
       label: 'ארד',
-      height: 'h-20',
+      height: 'h-16 md:h-20',
+      heightMobile: 'h-14',
       bg: 'from-amber-600 to-amber-700',
       border: 'border-amber-400',
       text: 'text-amber-100',
-      order: 'md:order-3',
-      size: 'w-20 h-20'
+      order: 'order-3 md:order-3',
+      size: 'w-14 h-14 md:w-20 md:h-20'
     }
   ];
 
   return (
-    <div className="bg-white/70 backdrop-blur-3xl rounded-[3rem] border border-white/70 shadow-2xl shadow-zinc-200/40 p-10 min-h-[400px] flex flex-col transition-all duration-500">
+    <div className="bg-white/70 backdrop-blur-3xl rounded-[3rem] border border-white/70 shadow-2xl shadow-zinc-200/40 p-6 md:p-10 min-h-[400px] flex flex-col transition-all duration-500">
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
 
-        <div className="flex items-center gap-4 bg-zinc-100 p-2 rounded-2xl border border-zinc-200">
+        <div className="flex items-center justify-between w-full md:w-auto bg-zinc-100 p-1.5 md:p-2 rounded-2xl border border-zinc-200 shadow-sm">
 
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="bg-transparent border-none text-sm font-bold text-zinc-700 outline-none cursor-pointer pr-4"
-          >
-            <option value="today">היום</option>
-            <option value="week">השבוע</option>
-            <option value="month">החודש</option>
-          </select>
+          <div className="flex items-center bg-zinc-200/50 p-1 rounded-xl">
+            {[
+              { id: 'today', label: 'היום' },
+              { id: 'week', label: 'השבוע' },
+              { id: 'month', label: 'החודש' },
+            ].map(p => (
+              <button
+                key={p.id}
+                onClick={() => setPeriod(p.id)}
+                className={`
+                  px-3 py-1.5 md:px-5 md:py-2 rounded-lg text-xs md:text-sm font-bold transition-all duration-300
+                  ${period === p.id 
+                    ? 'bg-white text-blue-600 shadow-md transform scale-105' 
+                    : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/80'}
+                `}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
 
-          <div className="w-px h-6 bg-zinc-300"></div>
+          <div className="w-px h-8 bg-zinc-300 mx-2 md:mx-4"></div>
 
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 rounded-xl hover:bg-zinc-200 transition-colors text-zinc-600"
+            className="p-2 md:px-4 md:py-2 rounded-xl hover:bg-zinc-200 transition-colors text-zinc-600 flex items-center gap-1.5 font-bold"
             title={isExpanded ? 'צמצם תצוגה' : 'הרחב תצוגה'}
           >
             {isExpanded ? (
-              <div className="flex items-center gap-1">
-                <ArrowsPointingInIcon className="w-5 h-5" />
-                <>הסתר את כולם</>
-              </div>
+              <>
+                <ArrowsPointingInIcon className="w-4 md:w-5 h-4 md:h-5" />
+                <span className="text-xs md:text-sm hidden sm:inline">הסתר את כולם</span>
+                <span className="text-xs sm:hidden">הסתר את כולם</span>
+              </>
             ) : (
-              <div className="flex items-center gap-1">
-                <ArrowsPointingOutIcon className="w-5 h-5" />
-                <>הצג את כולם</>
-              </div>
+              <>
+                <ArrowsPointingOutIcon className="w-4 md:w-5 h-4 md:h-5" />
+                <span className="text-xs md:text-sm hidden sm:inline">הצג את כולם</span>
+                <span className="text-xs sm:hidden">הצג את כולם</span>
+              </>
             )}
           </button>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
 
         {Object.entries(dashboardStats.stats).map(([displayName, data]) => {
 
@@ -183,38 +199,37 @@ const DashboardLeaderboard = () => {
           return (
             <div
               key={displayName}
-              className="bg-white rounded-3xl border border-zinc-100 p-6 shadow-sm flex flex-col relative overflow-hidden group"
+              className="bg-white rounded-3xl border border-zinc-100 p-4 md:p-6 shadow-sm flex flex-col relative overflow-hidden group"
             >
 
               {/* Category Header */}
-              <div className="flex justify-between items-start mb-6">
+              <div className="flex justify-between items-start mb-4 md:mb-6 gap-2">
 
-                <div>
-                  <h3 className="text-xl font-black text-zinc-800 leading-tight pr-1 border-r-4 border-blue-500">
+                <div className="flex-1">
+                  <h3 className="text-base md:text-xl font-black text-zinc-800 leading-tight pr-1 border-r-4 border-blue-500">
                     {displayName}
                   </h3>
 
-                  <p className="text-[10px] text-zinc-400 font-bold mt-1 uppercase tracking-wider">
-                    אסטרטגיה: {data.config.aggregation} |{' '}
-                    {data.config.higher_better ? 'גבוה עדיף' : 'נמוך עדיף'}
+                  <p className="text-[9px] md:text-[10px] text-zinc-400 font-bold mt-1 uppercase tracking-wider">
+                    {data.config.aggregation} | {data.config.higher_better ? 'גבוה עדיף' : 'נמוך עדיף'}
                   </p>
                 </div>
 
-                <div className="text-right">
-                  <span className="block text-3xl font-black text-blue-600 leading-none">
+                <div className="text-left md:text-right shrink-0">
+                  <span className="block text-2xl md:text-3xl font-black text-blue-600 leading-none">
                     {groupResult}{unitSuffix}
                   </span>
 
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                    סה"כ קבוצה
+                  <span className="text-[9px] md:text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                    קבוצה
                   </span>
                 </div>
               </div>
 
               {/* PODIUM */}
-              <div className="mb-6">
+              <div className="mb-4 md:mb-6">
 
-                <div className="flex justify-center items-end gap-3 min-h-[260px]">
+                <div className="flex justify-center items-end gap-2 md:gap-3 min-h-[200px] md:min-h-[260px]">
 
                   {podiumStyles.map((style, index) => {
 
@@ -226,8 +241,8 @@ const DashboardLeaderboard = () => {
                           key={style.place}
                           className={`flex flex-col items-center justify-end ${style.order}`}
                         >
-                          <div className={`${style.height} w-24 rounded-t-3xl bg-zinc-100 border border-zinc-200 flex items-center justify-center`}>
-                            <span className="text-zinc-400 font-black text-2xl">
+                          <div className={`${style.heightMobile} md:${style.height} w-16 md:w-24 rounded-t-3xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-xs md:text-2xl font-black`}>
+                            <span className="text-zinc-400">
                               #{style.place}
                             </span>
                           </div>
@@ -242,11 +257,11 @@ const DashboardLeaderboard = () => {
                       >
 
                         {/* Avatar */}
-                        <div className="relative mb-3">
+                        <div className="relative mb-2 md:mb-3">
 
                           {style.crown && (
-                            <div className="absolute -top-7 left-1/2 -translate-x-1/2">
-                              <TrophyIcon className="w-7 h-7 text-yellow-500" />
+                            <div className="absolute -top-4 md:-top-7 left-1/2 -translate-x-1/2">
+                              <TrophyIcon className="w-5 h-5 md:w-7 md:h-7 text-yellow-500" />
                             </div>
                           )}
 
@@ -263,12 +278,12 @@ const DashboardLeaderboard = () => {
                         </div>
 
                         {/* Name */}
-                        <div className="text-center mb-2">
-                          <p className="font-black text-sm text-zinc-800 leading-none">
+                        <div className="text-center mb-1 md:mb-2">
+                          <p className="font-black text-xs md:text-sm text-zinc-800 leading-none">
                             {user.first_name}
                           </p>
 
-                          <p className="text-xs text-zinc-500 mt-1">
+                          <p className="text-[10px] md:text-xs text-zinc-500 mt-0.5 md:mt-1">
                             {user.second_name}
                           </p>
                         </div>
@@ -276,8 +291,10 @@ const DashboardLeaderboard = () => {
                         {/* Podium */}
                         <div
                           className={`
-                            w-24
-                            ${style.height}
+                            w-16
+                            md:w-24
+                            ${style.heightMobile}
+                            md:${style.height}
                             rounded-t-3xl
                             bg-gradient-to-b
                             ${style.bg}
@@ -290,15 +307,15 @@ const DashboardLeaderboard = () => {
                             ${style.border}
                           `}
                         >
-                          <span className={`text-4xl font-black ${style.text}`}>
+                          <span className={`text-2xl md:text-4xl font-black ${style.text}`}>
                             {style.place}
                           </span>
 
-                          <span className={`text-xs font-black mt-1 ${style.text}`}>
+                          <span className={`text-[9px] md:text-xs font-black mt-0.5 md:mt-1 ${style.text}`}>
                             {style.label}
                           </span>
 
-                          <span className={`text-sm font-black mt-2 ${style.text}`}>
+                          <span className={`text-[10px] md:text-sm font-black mt-1 md:mt-2 ${style.text}`}>
                             {user.value}{unitSuffix}
                           </span>
                         </div>
@@ -313,7 +330,7 @@ const DashboardLeaderboard = () => {
                 <div className="flex-1 space-y-2 mt-2 pt-4 border-t border-zinc-100">
 
                   {rankedRestUsers.length === 0 && nonParticipatingUsers.length === 0 ? (
-                    <p className="text-sm text-zinc-400 text-center font-bold py-4">
+                    <p className="text-xs md:text-sm text-zinc-400 text-center font-bold py-4">
                       אין נתונים לתקופה זו
                     </p>
                   ) : (
@@ -328,7 +345,7 @@ const DashboardLeaderboard = () => {
                               flex
                               justify-between
                               items-center
-                              p-3
+                              p-2 md:p-3
                               rounded-2xl
                               transition-all
                               border
@@ -337,9 +354,9 @@ const DashboardLeaderboard = () => {
                           >
 
                             {/* User */}
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
 
-                              <span className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-900 text-white text-xs font-black">
+                              <span className="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full bg-zinc-900 text-white text-[10px] md:text-xs font-black shrink-0">
                                 {actualPlace}
                               </span>
 
@@ -351,23 +368,23 @@ const DashboardLeaderboard = () => {
                                   )}&background=random`
                                 }
                                 alt={user.first_name}
-                                className="w-12 h-12 rounded-full object-cover border-2 border-white shadow"
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border-2 border-white shadow shrink-0"
                               />
 
-                              <div>
-                                <p className="text-sm font-black text-zinc-800 leading-none">
+                              <div className="min-w-0">
+                                <p className="text-xs md:text-sm font-black text-zinc-800 leading-none truncate">
                                   {user.first_name} {user.second_name}
                                 </p>
 
-                                <p className="text-[11px] text-zinc-400 mt-1">
+                                <p className="text-[10px] md:text-[11px] text-zinc-400 mt-0.5 md:mt-1">
                                   השתתף באימון
                                 </p>
                               </div>
                             </div>
 
                             {/* Score */}
-                            <div>
-                              <span className="font-black text-xl text-zinc-900">
+                            <div className="shrink-0">
+                              <span className="font-black text-base md:text-xl text-zinc-900">
                                 {user.value}{unitSuffix}
                               </span>
                             </div>
@@ -384,7 +401,7 @@ const DashboardLeaderboard = () => {
                                 flex
                                 justify-between
                                 items-center
-                                p-3
+                                p-2 md:p-3
                                 rounded-2xl
                                 transition-all
                                 border
@@ -393,8 +410,8 @@ const DashboardLeaderboard = () => {
                               "
                             >
 
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-300 text-zinc-600 text-xs font-black">
+                              <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                                <div className="w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full bg-zinc-300 text-zinc-600 text-[10px] md:text-xs font-black shrink-0">
                                   -
                                 </div>
 
@@ -406,22 +423,22 @@ const DashboardLeaderboard = () => {
                                     )}&background=random`
                                   }
                                   alt={user.first_name}
-                                  className="w-12 h-12 rounded-full object-cover border-2 border-white shadow"
+                                  className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border-2 border-white shadow shrink-0"
                                 />
 
-                                <div>
-                                  <p className="text-sm font-black text-zinc-800 leading-none">
+                                <div className="min-w-0">
+                                  <p className="text-xs md:text-sm font-black text-zinc-800 leading-none truncate">
                                     {user.first_name} {user.second_name}
                                   </p>
 
-                                  <p className="text-[11px] text-zinc-400 mt-1">
+                                  <p className="text-[10px] md:text-[11px] text-zinc-400 mt-0.5 md:mt-1">
                                     עדיין לא תועדו נתונים
                                   </p>
                                 </div>
                               </div>
 
-                              <div>
-                                <span className="font-black text-sm text-zinc-500">
+                              <div className="shrink-0">
+                                <span className="font-black text-xs md:text-sm text-zinc-500">
                                   לא עשה
                                 </span>
                               </div>
