@@ -1,7 +1,20 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 
 const TrainerSidebar = ({ activeUser, activeUserId, users = [], selectedUserId, setSelectedUserId, onUserSelect }) => {
   const activeId = activeUser?.id ?? activeUserId;
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Memoized filtering logic for user search
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm.trim()) return users;
+
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return users.filter(u => 
+      u.first_name.toLowerCase().includes(lowerSearchTerm) ||
+      u.second_name.toLowerCase().includes(lowerSearchTerm) ||
+      u.username.toLowerCase().includes(lowerSearchTerm)
+    );
+  }, [users, searchTerm]);
 
   const handleSelect = (id) => {
     if (typeof onUserSelect === 'function') {
@@ -16,6 +29,21 @@ const TrainerSidebar = ({ activeUser, activeUserId, users = [], selectedUserId, 
       <div className="p-4 border-b border-gray-100 bg-gray-50 sticky top-0">
         <h2 className="text-lg font-bold text-gray-800">המתאמנים שלי</h2>
       </div>
+
+      {/* Search input for filtering users */}
+      <div className="p-3 border-b border-gray-100">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="חיפוש לפי שם..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-300 transition-all"
+          />
+          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+        </div>
+      </div>
+
       <div className="flex flex-col p-2 gap-1">
         <button
           onClick={() => activeId && handleSelect(activeId)}
@@ -31,7 +59,7 @@ const TrainerSidebar = ({ activeUser, activeUserId, users = [], selectedUserId, 
           </div>
         </button>
 
-        {Array.isArray(users) && users.map((u) => (
+        {Array.isArray(filteredUsers) && filteredUsers.map((u) => (
           <button
             key={u.id}
             onClick={() => handleSelect(u.id)}

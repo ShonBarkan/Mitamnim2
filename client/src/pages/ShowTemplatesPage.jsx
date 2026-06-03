@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTemplate } from '../contexts/TemplateContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +14,8 @@ const ShowTemplatesPage = () => {
   const navigate = useNavigate();
   
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  // State management for search term
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     FrontendLogger.info('SHOW_TEMPLATES_PAGE', 'Initializing page view');
@@ -33,7 +35,26 @@ const ShowTemplatesPage = () => {
         showToast('שגיאה במחיקת השבלונה', 'error');
       }
     }
-  }, [removeTemplate]);
+  }, [removeTemplate, showToast]);
+
+  // Memoized filtering logic to prevent unnecessary re-renders while typing
+  const filteredTemplates = useMemo(() => {
+    if (!searchTerm.trim()) return templates;
+
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return templates.filter(template => {
+      // Search across template name
+      if (template.name.toLowerCase().includes(lowerSearchTerm)) return true;
+      
+      // Search across template description
+      if (template.description && template.description.toLowerCase().includes(lowerSearchTerm)) return true;
+      
+      // Search across tag names
+      if (template.tags && template.tags.some(tag => tag.name.toLowerCase().includes(lowerSearchTerm))) return true;
+      
+      return false;
+    });
+  }, [templates, searchTerm]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -62,13 +83,31 @@ const ShowTemplatesPage = () => {
         </div>
       </div>
 
+      {/* Glassmorphism search input following Arctic Mirror aesthetic */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="סנן לפי שם או תג..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full px-4 py-3 bg-white/20 backdrop-blur-sm border border-zinc-200/40 rounded-2xl text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/30 transition-all shadow-sm"
+        />
+        <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-300">🔍</span>
+      </div>
+
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
            {[1, 2, 3].map(i => <div key={i} className="h-64 bg-zinc-100 rounded-3xl animate-pulse" />)}
         </div>
+      ) : filteredTemplates.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-sm font-bold text-zinc-400">
+            {searchTerm.trim() ? 'לא נמצאו שבלונות התואמות לחיפוש' : 'לא קיימות שבלונות זמינות'}
+          </p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {templates.map(template => (
+          {filteredTemplates.map(template => (
             <div 
               key={template.id} 
               className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm hover:shadow-lg transition-all cursor-pointer group flex flex-col justify-between"

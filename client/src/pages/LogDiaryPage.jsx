@@ -56,7 +56,7 @@ const LogDiaryPage = () => {
             {selectedUserId && (
                 <ExerciseLogPage 
                   embedded={true} 
-                  forcedUserId={selectedUserId} 
+                  forcedUserId={selectedUserId}
                 />
               )
             }
