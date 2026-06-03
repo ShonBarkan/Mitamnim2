@@ -1,12 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Edit2, Trash2, Save, X } from 'lucide-react';
 
-// Helper to convert UTC DB time to proper Local Time for the datetime-local input
+// Helper to get absolute time string for the datetime-local input without timezone shifts
 const getLocalIsoString = (dateString) => {
-  const date = new Date(dateString);
-  const tzOffset = date.getTimezoneOffset() * 60000;
-  // Subtract offset to get local time, then slice to fit datetime-local format (YYYY-MM-DDThh:mm)
-  return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+  if (!dateString) return '';
+  return dateString.slice(0, 16);
 };
 
 const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, onDelete, canModify }) => {
@@ -60,11 +58,6 @@ const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, 
   };
 
   const handleSave = () => {
-    // Convert the local time from the input back to a proper standard ISO string for the backend
-    const localDate = new Date(editDate);
-    const tzOffset = localDate.getTimezoneOffset() * 60000;
-    const standardIsoDate = new Date(localDate.getTime() + tzOffset).toISOString();
-
     const updatedParams = [
       ...manualParams.map(p => ({
         parameter_name: p.name,
@@ -78,7 +71,14 @@ const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, 
       }))
     ];
     
-    onSave({ created_at: standardIsoDate, params: updatedParams });
+    const payload = { params: updatedParams };
+
+    // Only send created_at if the user explicitly modified the time
+    if (editDate !== getLocalIsoString(log.created_at)) {
+      payload.created_at = editDate + ":00"; // Append seconds to match naive ISO format
+    }
+    
+    onSave(payload);
   };
 
   if (isEditing) {
