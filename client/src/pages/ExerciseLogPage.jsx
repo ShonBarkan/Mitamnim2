@@ -303,7 +303,7 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
                                             )}
                                         </div>
 
-                                        <div className={`md:w-3/4 p-4 transition-all duration-300 ease-in-out overflow-hidden ${isSessionCollapsed ? 'hidden' : 'block'}`}>
+                                        <div className={`md:w-3/4 p-4 transition-all duration-500 ease-in-out overflow-y-auto ${isSessionCollapsed ? 'max-h-[200px]' : 'max-h-[5000px]'}`}>
                                             {item.logs && item.logs.length > 0 ? (
                                                 <div className="flex flex-col">
                                                     {[...item.logs]
