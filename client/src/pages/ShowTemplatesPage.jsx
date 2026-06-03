@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTag } from '../contexts/TagContext';
 import FrontendLogger from '../utils/logger';
 import TagDisplay from '../components/common/tags/TagDisplay';
+import { useToast } from '../contexts/ToastContext';
 
 const ShowTemplatesPage = () => {
   const { templates, fetchTemplates, loading, removeTemplate } = useTemplate();
@@ -21,6 +22,7 @@ const ShowTemplatesPage = () => {
   }, [fetchTemplates, fetchTags]);
 
   const isTrainer = user?.role === 'trainer' || user?.role === 'admin';
+  const { showToast } = useToast();
 
   const handleDelete = useCallback(async (e, id) => {
     e.stopPropagation();
@@ -28,7 +30,7 @@ const ShowTemplatesPage = () => {
       try {
         await removeTemplate(id);
       } catch (error) {
-        alert('שגיאה במחיקת השבלונה');
+        showToast('שגיאה במחיקת השבלונה', 'error');
       }
     }
   }, [removeTemplate]);

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { ToastProvider } from '../contexts/ToastContext';
+import { LoadingProvider } from '../contexts/LoadingContext';
 import { AuthProvider } from '../contexts/AuthContext';
 import { UserProvider } from '../contexts/UserContext';
 import { GroupProvider } from '../contexts/GroupContext';
@@ -27,6 +28,7 @@ const AppProviders = ({ children }) => {
 
   return (
     <ToastProvider>
+      <LoadingProvider>
       <AuthProvider>
         <UserProvider>
           <GroupProvider>
@@ -54,6 +56,7 @@ const AppProviders = ({ children }) => {
           </GroupProvider>
         </UserProvider>
       </AuthProvider>
+      </LoadingProvider>
     </ToastProvider>
   );
 };
