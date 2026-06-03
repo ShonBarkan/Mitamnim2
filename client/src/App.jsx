@@ -7,6 +7,7 @@ import AppProviders from './components/AppProviders';
 // Application Structural Layout Components & Guards
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import GlobalLoader from './components/common/GlobalLoader';
 
 // Viewport Pages Matrix Pipeline
 import LoginPage from './pages/LoginPage';
@@ -35,6 +36,7 @@ function App() {
     <AppProviders>
       <Router>
         <Navbar />
+        <GlobalLoader />
         <div className="min-h-screen bg-zinc-50" dir="rtl">
           <Routes>
             {/* Public Authentication Gateways */}
