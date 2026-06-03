@@ -234,7 +234,7 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
                             
                             if (item.feedType === 'session_group') {
                                 const isEditingDate = editingSessionDateId === item.id;
-                                const isSessionCollapsed = collapsedSessions[item.id];
+                                const isSessionCollapsed = !collapsedSessions[item.id];
                                 
                                 return (
                                     <div key={item.id} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col md:flex-row">
