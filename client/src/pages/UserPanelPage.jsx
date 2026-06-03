@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useUsers } from '../contexts/UserContext';
@@ -35,6 +35,12 @@ const UserPanelPage = () => {
   const [editingUserId, setEditingUserId] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Search, filter and sort UI state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterGroupId, setFilterGroupId] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
   const fileInputRef = useRef(null);
 
   // Synchronize system user registry matrices based on role privileges
@@ -65,6 +71,88 @@ const UserPanelPage = () => {
       setPreviewUrl(URL.createObjectURL(file));
     }
   };
+
+  // Handler to update search input state
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
+  // Toggles sort state for a given column key
+  const handleSort = (key) => {
+    setSortConfig((s) => {
+      if (s.key === key) {
+        // toggle direction
+        return { key, direction: s.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  // Clear all filters and sort
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFilterRole('');
+    setFilterGroupId('');
+    setSortConfig({ key: null, direction: 'asc' });
+  };
+
+  // Utility: safe getter for nested values and normalization for comparison
+  const getComparable = (item, key) => {
+    const val = item?.[key];
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val.toLowerCase();
+    if (typeof val === 'number') return val;
+    if (val instanceof Date) return val.getTime();
+    return String(val).toLowerCase();
+  };
+
+  // Memoize the processed (filtered + sorted) users list so it recalculates
+  // when either the raw `users` array or any of the filter/sort inputs change.
+  const processedUsers = useMemo(() => {
+    // Combine filters (AND logic): search + role + group
+    const q = searchQuery.trim().toLowerCase();
+
+    let list = Array.isArray(users) ? users.slice() : [];
+
+    if (q) {
+      list = list.filter((u) => {
+        const haystack = [u.username, u.first_name, u.second_name, u.email, u.phone, u.group_name]
+          .filter(Boolean)
+          .join(' ') // join searchable fields
+          .toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+
+    if (filterRole) {
+      list = list.filter((u) => (u.role || '').toString() === filterRole.toString());
+    }
+
+    if (filterGroupId) {
+      list = list.filter((u) => (u.group_id || '').toString() === filterGroupId.toString());
+    }
+
+    // Sorting: if no key specified, return filtered list as-is
+    if (!sortConfig.key) return list;
+
+    const { key, direction } = sortConfig;
+
+    list.sort((a, b) => {
+      const va = getComparable(a, key);
+      const vb = getComparable(b, key);
+
+      // Numeric comparison when both are numbers
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return direction === 'asc' ? va - vb : vb - va;
+      }
+
+      // Fallback to localeCompare for strings
+      const res = String(va).localeCompare(String(vb), undefined, { numeric: true, sensitivity: 'base' });
+      return direction === 'asc' ? res : -res;
+    });
+
+    return list;
+  }, [users, searchQuery, filterRole, filterGroupId, sortConfig]);
 
   /**
    * Pre-fills the form parameters context boundary to transition into Edit Mode.
@@ -163,8 +251,8 @@ const UserPanelPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-slate-100 to-zinc-200 p-6 md:p-12 font-sans" dir="rtl">
-      <div className="max-w-[1400px] mx-auto space-y-12">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,var(--tw-gradient-stops))] from-blue-50 via-slate-100 to-zinc-200 p-6 md:p-12 font-sans" dir="rtl">
+      <div className="max-w-350 mx-auto space-y-12">
         
         {/* Header Block */}
         <header className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
@@ -275,7 +363,7 @@ const UserPanelPage = () => {
 
             {/* Submit Control Row */}
             <div className="pt-4 border-t border-zinc-900/5 flex justify-end gap-3">
-              <button type="submit" disabled={isUploading} className={`px-12 py-5 rounded-[2rem] font-black text-sm uppercase tracking-widest transition-all shadow-xl flex items-center gap-3 active:scale-95 ${editingUserId ? 'bg-blue-600 text-white shadow-blue-200 hover:bg-blue-700' : 'bg-zinc-900 text-white shadow-zinc-200 hover:bg-zinc-800'}`}>
+              <button type="submit" disabled={isUploading} className={`px-12 py-5 rounded-4xl font-black text-sm uppercase tracking-widest transition-all shadow-xl flex items-center gap-3 active:scale-95 ${editingUserId ? 'bg-blue-600 text-white shadow-blue-200 hover:bg-blue-700' : 'bg-zinc-900 text-white shadow-zinc-200 hover:bg-zinc-800'}`}>
                 {isUploading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -293,9 +381,40 @@ const UserPanelPage = () => {
 
         {/* Directory surveillance list view */}
         <section className="bg-white/80 backdrop-blur-xl rounded-[3rem] shadow-2xl border border-white overflow-hidden">
-          <div className="p-8 border-b border-zinc-100 flex justify-between items-center bg-white/30">
-            <h3 className="text-2xl font-black tracking-tight">רשימת חברי ארגון וספורטאים</h3>
-            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-100 px-4 py-1.5 rounded-full">{users.length} Users Total</span>
+          <div className="p-8 border-b border-zinc-100 bg-white/30">
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-black tracking-tight">רשימת חברי ארגון וספורטאים</h3>
+              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-100 px-4 py-1.5 rounded-full">{processedUsers.length} / {users.length} משתמשים</span>
+            </div>
+
+            {/* Filters Row: search, role, group, clear */}
+            <div className="mt-4 flex flex-col md:flex-row gap-3 items-center">
+              <input
+                type="search"
+                placeholder="חפש משתמשים לפי שם, משתמש, אימייל או טלפון"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="w-full md:w-1/3 bg-white/70 border border-zinc-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-200"
+              />
+
+              <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full md:w-1/6 bg-white/70 border border-zinc-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none">
+                <option value="">כל התפקידים</option>
+                <option value="trainee">ספורטאי</option>
+                <option value="trainer">מאמן</option>
+                <option value="admin">מנהל</option>
+              </select>
+
+              <select value={filterGroupId} onChange={(e) => setFilterGroupId(e.target.value)} className="w-full md:w-1/4 bg-white/70 border border-zinc-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none">
+                <option value="">כל הקבוצות</option>
+                {groups.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+
+              <div className="ml-auto">
+                <button type="button" onClick={clearFilters} className="px-4 py-2 bg-white border border-zinc-200 rounded-2xl text-sm font-bold">נקה מסננים</button>
+              </div>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -304,17 +423,21 @@ const UserPanelPage = () => {
             ) : (
               <table className="w-full text-right border-collapse">
                 <thead>
-                  <tr className="bg-zinc-50/50 text-zinc-400 uppercase text-[11px] font-black tracking-widest border-b border-zinc-100">
-                    <th className="px-8 py-6">משתמש</th>
-                    <th className="px-8 py-6">שם מלא</th>
-                    <th className="px-8 py-6">אימייל / טלפון</th>
-                    <th className="px-8 py-6">תפקיד</th>
-                    <th className="px-8 py-6">קבוצה</th>
-                    <th className="px-8 py-6 text-left">פעולות</th>
-                  </tr>
+                      <tr className="bg-zinc-50/50 text-zinc-400 uppercase text-[11px] font-black tracking-widest border-b border-zinc-100">
+                        <th onClick={() => handleSort('username')} className="px-8 py-6 cursor-pointer select-none">משתמש {sortConfig.key==='username' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                        <th onClick={() => handleSort('first_name')} className="px-8 py-6 cursor-pointer select-none">שם מלא {sortConfig.key==='first_name' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                        <th onClick={() => handleSort('email')} className="px-8 py-6 cursor-pointer select-none">אימייל / טלפון {sortConfig.key==='email' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                        <th onClick={() => handleSort('role')} className="px-8 py-6 cursor-pointer select-none">תפקיד {sortConfig.key==='role' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                        <th onClick={() => handleSort('group_name')} className="px-8 py-6 cursor-pointer select-none">קבוצה {sortConfig.key==='group_name' && (sortConfig.direction==='asc' ? '▲' : '▼')}</th>
+                        <th className="px-8 py-6 text-left">פעולות</th>
+                      </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {users.map(u => (
+                  {processedUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-16 text-center text-zinc-400 italic font-bold">אין משתמשים התואמים את המסננים הנוכחיים.</td>
+                    </tr>
+                  ) : processedUsers.map(u => (
                     <tr key={u.id} className={`transition-all group hover:bg-white/50 ${editingUserId === u.id ? 'bg-blue-50/50' : ''}`}>
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
