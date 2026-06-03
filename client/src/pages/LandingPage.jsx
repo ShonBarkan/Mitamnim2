@@ -158,30 +158,19 @@ const LandingPage = () => {
             </div>
           </aside>
 
-          {/* Personal Info - Mobile Only (Below Leaderboard) */}
-          <div className="lg:hidden animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-400">
+          {/* Personal info section - Mobile only view */}
+          <div className="lg:hidden animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-400 space-y-4">
             <PersonalInfo user={user} />
-          </div>
 
-          {/* Mobile Chat Section */}
-          <div className="lg:hidden animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
-            <div className="bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] shadow-2xl overflow-hidden">
-              <div className="p-6 border-b border-white/60">
-                <h3 className="text-xl font-black tracking-tighter uppercase text-zinc-900">צ'אט קבוצתי</h3>
-              </div>
-              <div className="h-[400px]">
-                <MessageFeed 
-                  title="" 
-                  targetId={user?.group_id} 
-                  type="general" 
-                  currentUserId={user?.id} 
-                  userRole={user?.role} 
-                  disableAutoScrollFocus={true} 
-                />
-              </div>
-            </div>
-          </div>
-
+            <MessageFeed
+              title=""
+              targetId={user?.group_id}
+              type="general"
+              currentUserId={user?.id}
+              userRole={user?.role}
+              disableAutoScrollFocus={true}
+            />
+          </div>    
         </div>
       </main>
 

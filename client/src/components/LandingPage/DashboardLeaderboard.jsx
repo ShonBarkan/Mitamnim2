@@ -89,34 +89,47 @@ const DashboardLeaderboard = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
 
-        <div className="flex items-center gap-2 md:gap-4 bg-zinc-100 p-2 rounded-2xl border border-zinc-200 flex-wrap md:flex-nowrap">
+        <div className="flex items-center justify-between w-full md:w-auto bg-zinc-100 p-1.5 md:p-2 rounded-2xl border border-zinc-200 shadow-sm">
 
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="bg-transparent border-none text-xs md:text-sm font-bold text-zinc-700 outline-none cursor-pointer pr-2 md:pr-4"
-          >
-            <option value="today">היום</option>
-            <option value="week">השבוע</option>
-            <option value="month">החודש</option>
-          </select>
+          <div className="flex items-center bg-zinc-200/50 p-1 rounded-xl">
+            {[
+              { id: 'today', label: 'היום' },
+              { id: 'week', label: 'השבוע' },
+              { id: 'month', label: 'החודש' },
+            ].map(p => (
+              <button
+                key={p.id}
+                onClick={() => setPeriod(p.id)}
+                className={`
+                  px-3 py-1.5 md:px-5 md:py-2 rounded-lg text-xs md:text-sm font-bold transition-all duration-300
+                  ${period === p.id 
+                    ? 'bg-white text-blue-600 shadow-md transform scale-105' 
+                    : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/80'}
+                `}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
 
-          <div className="w-px h-6 bg-zinc-300"></div>
+          <div className="w-px h-8 bg-zinc-300 mx-2 md:mx-4"></div>
 
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 rounded-xl hover:bg-zinc-200 transition-colors text-zinc-600 hidden md:flex items-center gap-1"
+            className="p-2 md:px-4 md:py-2 rounded-xl hover:bg-zinc-200 transition-colors text-zinc-600 flex items-center gap-1.5 font-bold"
             title={isExpanded ? 'צמצם תצוגה' : 'הרחב תצוגה'}
           >
             {isExpanded ? (
               <>
                 <ArrowsPointingInIcon className="w-4 md:w-5 h-4 md:h-5" />
-                <span className="text-xs md:text-sm">הסתר</span>
+                <span className="text-xs md:text-sm hidden sm:inline">הסתר את כולם</span>
+                <span className="text-xs sm:hidden">הסתר את כולם</span>
               </>
             ) : (
               <>
                 <ArrowsPointingOutIcon className="w-4 md:w-5 h-4 md:h-5" />
-                <span className="text-xs md:text-sm">הצג</span>
+                <span className="text-xs md:text-sm hidden sm:inline">הצג את כולם</span>
+                <span className="text-xs sm:hidden">הצג את כולם</span>
               </>
             )}
           </button>
@@ -313,7 +326,7 @@ const DashboardLeaderboard = () => {
               </div>
 
               {/* Expandable List */}
-              {(isExpanded || window.innerWidth < 768) && (
+              {isExpanded && (
                 <div className="flex-1 space-y-2 mt-2 pt-4 border-t border-zinc-100">
 
                   {rankedRestUsers.length === 0 && nonParticipatingUsers.length === 0 ? (
