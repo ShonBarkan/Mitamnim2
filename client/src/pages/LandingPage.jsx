@@ -41,21 +41,43 @@ const LandingPage = () => {
       {/* --- HERO HEADER --- */}
       <header className="max-w-[1700px] mx-auto pt-20 pb-16 space-y-10">
         
-        {/* User Greeting & Large Avatar */}
-        <div className="flex items-center gap-8 animate-in fade-in slide-in-from-top-10 duration-1000 select-none">
+        {/* User Greeting & Large Avatar - Mobile Only */}
+        <div className="flex md:hidden items-center gap-8 animate-in fade-in slide-in-from-top-10 duration-1000 select-none">
            {user?.profile_picture ? (
-             <img src={user.profile_picture} alt={user.first_name} className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl object-cover" />
+             <img src={user.profile_picture} alt={user.first_name} className="w-24 h-24 rounded-full border-4 border-white shadow-2xl object-cover" />
            ) : (
-             <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-zinc-900 text-white flex items-center justify-center text-5xl font-black shadow-2xl">
+             <div className="w-24 h-24 rounded-full bg-zinc-900 text-white flex items-center justify-center text-3xl font-black shadow-2xl">
+               {user?.first_name?.[0]}
+             </div>
+           )}
+           <div className="space-y-1">
+             <p className="text-[10px] font-black uppercase tracking-[0.5em] text-blue-600 ml-1 font-mono">Athlete</p>
+             <h1 className="text-2xl font-black tracking-tighter text-zinc-900 leading-none">
+               שלום, {user?.first_name || user?.username} 👋
+             </h1>
+           </div>
+        </div>
+
+        {/* Desktop User Greeting */}
+        <div className="hidden md:flex items-center gap-8 animate-in fade-in slide-in-from-top-10 duration-1000 select-none">
+           {user?.profile_picture ? (
+             <img src={user.profile_picture} alt={user.first_name} className="w-40 h-40 rounded-full border-4 border-white shadow-2xl object-cover" />
+           ) : (
+             <div className="w-40 h-40 rounded-full bg-zinc-900 text-white flex items-center justify-center text-5xl font-black shadow-2xl">
                {user?.first_name?.[0]}
              </div>
            )}
            <div className="space-y-1">
              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-blue-600 ml-1 font-mono">Athlete Command Center</p>
-             <h1 className="text-4xl md:text-8xl font-black tracking-tighter text-zinc-900 leading-none">
+             <h1 className="text-8xl font-black tracking-tighter text-zinc-900 leading-none">
                שלום, {user?.first_name || user?.username} 👋
              </h1>
            </div>
+        </div>
+
+        {/* Main Banners - Moved before Navigation */}
+        <div className="animate-in zoom-in duration-700">
+          <MainBanners mainMessages={mainMessages} />
         </div>
 
         {/* Global Navigation Row */}
@@ -88,14 +110,14 @@ const LandingPage = () => {
 
       {/* --- DASHBOARD CORE WORKSPACE --- */}
       <main className="max-w-[1700px] mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
           
           {/* Competitive Arena */}
-          <div className="lg:col-span-9 space-y-6 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
+          <div className="lg:col-span-9 space-y-6 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300">
             {/* Header + Toggle Button */}
             <div className="flex justify-between items-center px-4">
               <div>
-                <h2 className="text-3xl font-black tracking-tighter uppercase text-zinc-900 m-0">
+                <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase text-zinc-900 m-0">
                   לוח ביצועים קבוצתי
                 </h2>
 
@@ -112,24 +134,19 @@ const LandingPage = () => {
             </div>
             
             {/* Collapsible Area */}
-            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isLeaderboardOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isLeaderboardOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
               <DashboardLeaderboard />
             </div>
           </div>
 
-          {/* Intel Sidebar */}
-          <aside className="lg:col-span-3 space-y-6 animate-in fade-in slide-in-from-left-10 duration-1000 delay-600">
+          {/* Intel Sidebar - Hidden on Mobile */}
+          <aside className="hidden lg:flex lg:col-span-3 flex-col space-y-6 animate-in fade-in slide-in-from-left-10 duration-1000 delay-600">
             
-            {/* Moved Banners here */}
-            <div className="animate-in zoom-in duration-700">
-              <MainBanners mainMessages={mainMessages} />
-            </div>
-
-            {/* Personal Info */}
+            {/* Personal Info - Desktop */}
             <PersonalInfo user={user} />
 
             {/* Social Intelligence Room */}
-            <div className="bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3.5rem] shadow-2xl overflow-hidden sticky top-32">
+            <div className="bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[3.5rem] shadow-2xl overflow-hidden sticky top-32 flex-1 min-h-[500px]">
                 <MessageFeed 
                   title="" 
                   targetId={user?.group_id} 
@@ -140,6 +157,30 @@ const LandingPage = () => {
                 />
             </div>
           </aside>
+
+          {/* Personal Info - Mobile Only (Below Leaderboard) */}
+          <div className="lg:hidden animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-400">
+            <PersonalInfo user={user} />
+          </div>
+
+          {/* Mobile Chat Section */}
+          <div className="lg:hidden animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
+            <div className="bg-white/40 backdrop-blur-3xl border border-white/60 rounded-[2.5rem] shadow-2xl overflow-hidden">
+              <div className="p-6 border-b border-white/60">
+                <h3 className="text-xl font-black tracking-tighter uppercase text-zinc-900">צ'אט קבוצתי</h3>
+              </div>
+              <div className="h-[400px]">
+                <MessageFeed 
+                  title="" 
+                  targetId={user?.group_id} 
+                  type="general" 
+                  currentUserId={user?.id} 
+                  userRole={user?.role} 
+                  disableAutoScrollFocus={true} 
+                />
+              </div>
+            </div>
+          </div>
 
         </div>
       </main>
