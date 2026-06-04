@@ -11,11 +11,12 @@ import FrontendLogger from '../utils/logger';
  */
 const NAV_CONFIG = {
   mainLinks: [
-    { path: '/chats', label: "צ'אטים", allowedRoles: ['trainer', 'trainee'] },
-    { path: '/exercises', label: 'תרגילים', allowedRoles: ['trainer', 'trainee'] },
+    { path: '/log-diary?tab=history', matchPath: '/log-diary', label: 'יומן תיעודים', allowedRoles: ['trainer', 'trainee'] },
     { path: '/templates', label: 'אימונים', allowedRoles: ['trainer', 'trainee'] },
     { path: '/statistics', label: 'סטטיסטיקה', allowedRoles: ['trainer', 'trainee'] },
-    { path: '/log-diary?tab=history', matchPath: '/log-diary', label: 'יומן תיעודים', allowedRoles: ['trainer', 'trainee'] }
+    { path: '/chats', label: "צ'אטים", allowedRoles: ['trainer', 'trainee'] },
+    { path: '/exercises', label: 'תרגילים', allowedRoles: ['trainer', 'trainee'] },
+
   ],
   managementLinks: [
     { path: '/users', label: 'מתאמנים', allowedRoles: ['trainer', 'admin'] },
@@ -127,7 +128,7 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation Links (Hidden on Mobile) */}
-          <div className="hidden lg:flex items-center gap-2 overflow-x-auto scrollbar-hide px-2">
+          <div className="hidden lg:flex items-center gap-2 overflow-x-auto scrollbar-hide px-2 py-2">
             {hasActiveDraft && (
               <Link 
                 to="/ActiveWorkoutPage" 
