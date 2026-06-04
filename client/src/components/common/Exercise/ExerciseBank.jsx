@@ -17,7 +17,7 @@ const ExerciseBank = ({ exercises, onSelect, className = "" }) => {
     <div className={`space-y-4 ${className}`}>
       <input 
         type="text" 
-        placeholder="חיפוש תרגיל..." 
+        placeholder="חיפוש תרגיל או תג..." 
         className="w-full p-3 bg-zinc-50 border border-zinc-200 rounded-xl outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-all font-bold text-sm" 
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)} 
