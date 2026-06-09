@@ -1,141 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DndContext, closestCenter } from '@dnd-kit/core';
-import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSession } from '../contexts/SessionContext';
 import { useTemplate } from '../contexts/TemplateContext';
 import { useExercise } from '../contexts/ExerciseContext';
 import { useParameter } from '../contexts/ParameterContext';
 import { useToast } from '../contexts/ToastContext';
-import ExerciseBank from '../components/common/Exercise/ExerciseBank';
+
+// Components
+import IntervalTimer from '../components/common/IntervalTimer/IntervalTimer';
+import SortableExerciseRow from '../components/ActiveWorkoutPage/SortableExerciseRow';
+import WorkoutHeader from '../components/ActiveWorkoutPage/WorkoutHeader';
+import ExerciseModal from '../components/ActiveWorkoutPage/ExerciseModal';
+import MobileTimerModal from '../components/ActiveWorkoutPage/MobileTimerModal';
+import StickyFooter from '../components/ActiveWorkoutPage/StickyFooter';
 
 /**
  * Generates a localized unique identifier for duplicated row mapping (Sets)
  */
 const generateUniqueId = () => Math.random().toString(36).substring(2, 11);
 
-// --- COMPACT ROW COMPONENT ---
-const SortableExerciseRow = ({ log, updateLog, removeLog, calculateVirtualValue }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: log.log_id });
-  const style = { transform: CSS.Transform.toString(transform), transition };
-
-  // Re-evaluate virtual parameters when inputs change
-  const handleParamChange = (pIdx, newValue) => {
-    let newParams = [...log.params];
-    newParams[pIdx].value = newValue;
-
-    const performanceData = newParams.reduce((acc, p) => {
-      acc[p.parameter_id || p.id] = p.value;
-      return acc;
-    }, {});
-
-    newParams = newParams.map(p => {
-      if (p.is_virtual) {
-        const calcVal = calculateVirtualValue(p, performanceData);
-        return { ...p, value: calcVal !== null ? calcVal : 0 };
-      }
-      return p;
-    });
-
-    updateLog(log.log_id, { params: newParams });
-  };
-
-  return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      className={`p-3 md:p-4 border rounded-2xl flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 transition-all duration-300 shadow-sm ${
-        log.completed 
-          ? 'bg-emerald-50/70 border-emerald-300' 
-          : 'bg-white border-zinc-200 hover:border-zinc-300'
-      }`}
-    >
-      <div className="flex w-full md:w-auto items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div {...attributes} {...listeners} className="cursor-grab text-zinc-300 hover:text-zinc-500 active:cursor-grabbing px-1">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="8" y1="6" x2="21" y2="6"></line>
-              <line x1="8" y1="12" x2="21" y2="12"></line>
-              <line x1="8" y1="18" x2="21" y2="18"></line>
-              <line x1="3" y1="6" x2="3.01" y2="6"></line>
-              <line x1="3" y1="12" x2="3.01" y2="12"></line>
-              <line x1="3" y1="18" x2="3.01" y2="18"></line>
-            </svg>
-          </div>
-          <div className="flex flex-col">
-            <h4 className={`font-black text-sm ${log.completed ? 'text-emerald-900' : 'text-zinc-900'}`}>
-              {log.exercise_name}
-            </h4>
-            <span className={`text-[10px] font-black uppercase tracking-widest ${log.completed ? 'text-emerald-600' : 'text-blue-500'}`}>
-              סט {log.set_number}
-            </span>
-          </div>
-        </div>
-
-        {/* Mobile-only Action Buttons */}
-        <div className="flex md:hidden items-center gap-2">
-           <button onClick={() => removeLog(log.log_id)} className="w-8 h-8 flex items-center justify-center bg-rose-50 text-rose-500 rounded-xl">
-             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-           </button>
-           <button 
-             onClick={() => updateLog(log.log_id, { completed: !log.completed })}
-             className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${log.completed ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' : 'bg-zinc-100 text-zinc-400 border border-zinc-200'}`}
-           >
-             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-           </button>
-        </div>
-      </div>
-      
-      {/* Parameter Inputs Matrix */}
-      <div className="flex-1 flex gap-2 overflow-x-auto pb-1 md:pb-0 w-full snap-x">
-        {log.params.map((p, pIdx) => (
-          <div key={pIdx} className={`flex flex-col min-w-[65px] flex-1 p-1.5 rounded-xl border shadow-sm snap-center ${p.is_virtual ? 'bg-zinc-50 border-zinc-100' : 'bg-white border-zinc-200'}`}>
-            <label className="text-[9px] font-black text-zinc-400 uppercase tracking-wider mb-1 truncate text-center">
-              {p.parameter_name}
-            </label>
-            <input
-              type="number"
-              dir="ltr"
-              readOnly={p.is_virtual}
-              className={`w-full bg-transparent text-center text-sm font-black outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${p.is_virtual ? 'text-zinc-400 cursor-not-allowed' : 'text-zinc-900 focus:text-blue-600'}`}
-              value={p.value === 0 ? '' : p.value}
-              placeholder="0"
-              onChange={(e) => {
-                const val = e.target.value;
-                handleParamChange(pIdx, val === '' ? 0 : parseFloat(val));
-              }}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Desktop Action Buttons */}
-      <div className="hidden md:flex items-center gap-2 shrink-0">
-        <button 
-          onClick={() => removeLog(log.log_id)} 
-          className="p-2.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
-          title="מחק סט"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-        </button>
-        <button 
-          onClick={() => updateLog(log.log_id, { completed: !log.completed })}
-          className={`px-4 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-2 ${log.completed ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 border border-zinc-200'}`}
-        >
-          {log.completed ? (
-             <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> בוצע</>
-          ) : (
-             'לא בוצע'
-          )}
-        </button>
-      </div>
-    </div>
-  );
-};
-
-
-// --- MAIN PAGE COMPONENT ---
 const ActiveWorkoutPage = () => {
   const [searchParams] = useSearchParams();
   const templateId = searchParams.get('template_id');
@@ -156,6 +41,7 @@ const ActiveWorkoutPage = () => {
   });
   
   const [isExerciseModalOpen, setIsExerciseModalOpen] = useState(false);
+  const [isTimerOpen, setIsTimerOpen] = useState(false);
   const isInitialized = useRef(false);
 
   // Initialize data correctly based on Template JSON OR Local Draft
@@ -312,148 +198,76 @@ const ActiveWorkoutPage = () => {
   const completedCount = activeWorkout.logs.filter(l => l.completed).length;
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 pb-48 animate-in fade-in duration-500 relative min-h-screen">
+    <div className="relative min-h-screen pb-48 bg-zinc-50/50">
       
-      {/* Header Panel */}
-      <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <input 
-            className="text-2xl md:text-3xl font-black w-full bg-transparent outline-none text-zinc-900 placeholder:text-zinc-300"
-            value={activeWorkout.name}
-            placeholder="שם האימון..."
-            onChange={e => setActiveWorkout(prev => ({...prev, name: e.target.value}))}
+      {/* Main Layout Wrapper */}
+      <div className={`p-4 md:p-8 mx-auto flex flex-col lg:flex-row gap-6 items-start transition-all duration-300 ${isTimerOpen ? 'max-w-7xl' : 'max-w-4xl'}`}>
+        
+        {/* Left Column: Exercises & Info */}
+        <div className="flex-1 space-y-6 w-full animate-in fade-in duration-500">
+          
+          <WorkoutHeader 
+            activeWorkout={activeWorkout} 
+            setActiveWorkout={setActiveWorkout} 
           />
-          
-          {/* Duration Input */}
-          <div className="flex items-center gap-2 bg-zinc-50 px-4 py-2 rounded-xl border border-zinc-200 shrink-0">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            <input 
-              type="number"
-              min="1"
-              dir="ltr"
-              className="w-12 bg-transparent text-center font-black text-zinc-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              value={activeWorkout.duration_minutes || ''}
-              onChange={e => setActiveWorkout(prev => ({...prev, duration_minutes: parseInt(e.target.value) || 0}))}
-            />
-            <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">דקות</span>
-          </div>
+
+          {/* Draggable Exercises List */}
+          <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={activeWorkout.logs.map(l => l.log_id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {activeWorkout.logs.map((log) => (
+                  <SortableExerciseRow 
+                    key={log.log_id} 
+                    log={log} 
+                    updateLog={updateLog} 
+                    removeLog={removeLog} 
+                    calculateVirtualValue={calculateVirtualValue}
+                  />
+                ))}
+                
+                {activeWorkout.logs.length === 0 && (
+                  <div className="p-10 border-2 border-dashed border-zinc-200 rounded-3xl text-center flex flex-col items-center justify-center bg-white/50">
+                    <span className="text-4xl mb-4">🏋️‍♂️</span>
+                    <h3 className="font-black text-zinc-400 text-lg">האימון שלך ריק</h3>
+                    <p className="text-zinc-400 text-sm font-medium mt-1">הוסף תרגילים למטה כדי להתחיל</p>
+                  </div>
+                )}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
 
-        <textarea
-          className="w-full p-4 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-medium outline-none focus:border-zinc-900 resize-none"
-          placeholder="הערות לאימון (איך הרגשת, דגשים לפעם הבאה...)"
-          rows="2"
-          value={activeWorkout.note || ''}
-          onChange={e => setActiveWorkout(prev => ({...prev, note: e.target.value}))}
-        />
+        {/* Right Column (Desktop Only): Sticky Timer */}
+        {isTimerOpen && (
+          <div className="hidden lg:block w-[450px] shrink-0 sticky top-24 z-10 animate-in slide-in-from-right-8 fade-in duration-300">
+            <IntervalTimer />
+          </div>
+        )}
+
       </div>
 
-      {/* Draggable Exercises List */}
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={activeWorkout.logs.map(l => l.log_id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-3">
-            {activeWorkout.logs.map((log) => (
-              <SortableExerciseRow 
-                key={log.log_id} 
-                log={log} 
-                updateLog={updateLog} 
-                removeLog={removeLog} 
-                calculateVirtualValue={calculateVirtualValue}
-              />
-            ))}
-            
-            {activeWorkout.logs.length === 0 && (
-              <div className="p-10 border-2 border-dashed border-zinc-200 rounded-3xl text-center flex flex-col items-center justify-center bg-white/50">
-                <span className="text-4xl mb-4">🏋️‍♂️</span>
-                <h3 className="font-black text-zinc-400 text-lg">האימון שלך ריק</h3>
-                <p className="text-zinc-400 text-sm font-medium mt-1">הוסף תרגילים למטה כדי להתחיל</p>
-              </div>
-            )}
-          </div>
-        </SortableContext>
-      </DndContext>
+      <ExerciseModal 
+        isOpen={isExerciseModalOpen} 
+        onClose={() => setIsExerciseModalOpen(false)} 
+        exercises={exercises} 
+        onSelect={handleAddExercise} 
+      />
 
-      {/* Exercise Bank Modal */}
-      {isExerciseModalOpen && (
-        <div className="fixed inset-0 z-[150] bg-zinc-900/60 backdrop-blur-sm flex justify-center items-center p-4 md:p-6" onClick={() => setIsExerciseModalOpen(false)}>
-          <div 
-            className="bg-white rounded-3xl w-full max-w-2xl h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
-            onClick={e => e.stopPropagation()} 
-          >
-            <div className="p-6 border-b border-zinc-100 flex justify-between items-center bg-zinc-50 shrink-0">
-              <div>
-                <h3 className="text-xl font-black text-zinc-900">מאגר תרגילים</h3>
-                <p className="text-xs font-bold text-zinc-500 mt-1">בחר תרגילים להוספה לאימון</p>
-              </div>
-              <button 
-                onClick={() => setIsExerciseModalOpen(false)} 
-                className="w-10 h-10 flex items-center justify-center bg-zinc-200 hover:bg-zinc-300 text-zinc-600 rounded-full transition-colors font-bold"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6">
-              <ExerciseBank exercises={exercises} onSelect={handleAddExercise} />
-            </div>
+      <MobileTimerModal 
+        isOpen={isTimerOpen} 
+        onClose={() => setIsTimerOpen(false)} 
+      />
 
-            <div className="p-4 border-t border-zinc-100 bg-zinc-50 shrink-0">
-              <button 
-                onClick={() => setIsExerciseModalOpen(false)} 
-                className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-2xl font-black shadow-lg transition-colors active:scale-95"
-              >
-                סיימתי להוסיף
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sticky Footer: Actions Interface */}
-      <div className="sticky bottom-0 p-4 bg-white/90 backdrop-blur-xl border-t border-zinc-200/60 z-30 flex flex-col gap-3 rounded-3xl shadow-lg">
-        <div className="max-w-4xl mx-auto w-full">
-          
-          {/* Top Actions Row: Cancel & Toggle All */}
-          <div className="flex justify-between items-center px-2 mb-3">
-            <button 
-              onClick={handleCancelWorkout}
-              className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors bg-rose-50/50 hover:bg-rose-100 px-3 py-1.5 rounded-lg"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-              ביטול אימון
-            </button>
-            
-            {activeWorkout.logs.length > 0 && (
-              <button 
-                onClick={toggleAllStatus}
-                className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 px-3 py-1.5 rounded-lg"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
-                סמן / בטל הכל
-              </button>
-            )}
-          </div>
-
-          {/* Bottom Actions Row: Add & Finish */}
-          <div className="flex gap-3">
-            <button 
-              onClick={() => setIsExerciseModalOpen(true)}
-              className="flex-1 py-4 md:py-5 bg-zinc-100 text-zinc-900 font-black text-sm md:text-base rounded-2xl shadow-sm hover:bg-zinc-200 transition-all active:scale-95 border border-zinc-200 flex items-center justify-center gap-2"
-            >
-              הוסף תרגיל <span>+</span>
-            </button>
-            
-            <button 
-              onClick={handleFinishWorkout}
-              className="flex-[2] py-4 md:py-5 bg-zinc-900 text-white font-black text-sm md:text-base rounded-2xl shadow-xl hover:bg-zinc-800 transition-all active:scale-95 flex justify-between px-6 md:px-8"
-            >
-              <span>סיום ושמירה</span>
-              <span className="text-zinc-400">({completedCount} סטים בוצעו)</span>
-            </button>
-          </div>
-
-        </div>
-      </div>
+      <StickyFooter 
+        isTimerOpen={isTimerOpen}
+        setIsTimerOpen={setIsTimerOpen}
+        handleCancelWorkout={handleCancelWorkout}
+        toggleAllStatus={toggleAllStatus}
+        hasLogs={activeWorkout.logs.length > 0}
+        setIsExerciseModalOpen={setIsExerciseModalOpen}
+        handleFinishWorkout={handleFinishWorkout}
+        completedCount={completedCount}
+      />
     </div>
   );
 };
