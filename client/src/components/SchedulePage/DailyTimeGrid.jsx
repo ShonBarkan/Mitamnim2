@@ -86,7 +86,17 @@ const DailyTimeGrid = ({ onSlotClick, onEventClick }) => {
       other: 'bg-gray-50 border-gray-400 text-gray-900'
     };
 
+    const typeLabels = {
+      template: 'אימון',
+      test: 'מבדק',
+      personal: 'אישי',
+      study: 'לימודים',
+      other: 'אחר'
+    };
+
     const isTemplate = event.event_type === 'template';
+    const typeLabel = typeLabels[event.event_type] || typeLabels.other;
+    const isGeneralEvent = event.assignment_target === 'group' || event.user_id === 'group';
 
     return (
       <div 
@@ -105,10 +115,12 @@ const DailyTimeGrid = ({ onSlotClick, onEventClick }) => {
       >
         <div className="flex justify-between items-start">
             <div className="font-black truncate w-full">
-               {!isTemplate && event.title}
-               {event.user_name && <div className="text-[9px] font-medium opacity-70 truncate">{event.user_name}</div>}
+               {`${typeLabel} - ${event.title}`}
+               {!isGeneralEvent && event.user_name && (
+                 <div className="text-[9px] font-medium opacity-70 truncate mt-0.5">{event.user_name}</div>
+               )}
             </div>
-            {event.user_picture && (
+            {!isGeneralEvent && event.user_picture && (
                 <img src={event.user_picture} alt="user" className="w-6 h-6 rounded-full border border-white shadow-sm shrink-0 ml-1" />
             )}
         </div>

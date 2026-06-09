@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSchedule } from '../../contexts/ScheduleContext';
 import { useTemplate } from '../../contexts/TemplateContext';
 import { useToast } from '../../contexts/ToastContext';
-import { Search, Calendar, Clock, Save, Trash2, AlertCircle } from 'lucide-react';
+import { Search, Calendar, Clock, Save, Trash2, AlertCircle, User as UserIcon } from 'lucide-react';
 
 const EventTypeOptions = [
   { value: 'template', label: 'אימון (תבנית)' },
@@ -45,6 +45,8 @@ const EventForm = ({ onClose, initialSlot, existingEvent }) => {
     assigned_user_ids: []
   });
 
+  const isReadOnly = existingEvent && existingEvent.user_id && existingEvent.user_id !== user?.id;
+
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
@@ -70,6 +72,9 @@ const EventForm = ({ onClose, initialSlot, existingEvent }) => {
       setActiveTab(existingEvent.event_type === 'template' ? 'workout' : 'other');
     } else if (initialSlot) {
       const start = new Date(initialSlot);
+      start.setMinutes(Math.round(start.getMinutes() / 15) * 15);
+      start.setSeconds(0);
+      
       const end = new Date(start.getTime() + 3600000);
       setFormData(prev => ({
         ...prev,
@@ -140,6 +145,72 @@ const EventForm = ({ onClose, initialSlot, existingEvent }) => {
     }
     onClose();
   };
+
+  if (isReadOnly) {
+    const typeLabel = EventTypeOptions.find(o => o.value === existingEvent.event_type)?.label || 'אחר';
+    
+    return (
+      <div className="flex flex-col h-full bg-white relative">
+        <div className="p-6 space-y-6 overflow-y-auto h-full">
+          <div className="flex items-center gap-4 border-b border-gray-100 pb-6">
+            {existingEvent.user_picture ? (
+              <img 
+                src={existingEvent.user_picture} 
+                alt="user" 
+                className="w-16 h-16 rounded-full border-2 border-white shadow-md object-cover shrink-0" 
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shadow-md shrink-0">
+                <UserIcon size={24} />
+              </div>
+            )}
+            <div>
+              <h2 className="text-xl font-black text-gray-800">{existingEvent.user_name || 'משתמש'}</h2>
+              <span className="inline-block mt-1 px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-lg">
+                {typeLabel}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+                <AlertCircle size={20} />
+              </div>
+              <div className="pt-1">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-0.5">כותרת</p>
+                <p className="font-bold text-gray-800 text-sm">{existingEvent.title || 'ללא כותרת'}</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4">
+              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+                <Calendar size={20} />
+              </div>
+              <div className="pt-1">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-0.5">תאריך</p>
+                <p className="font-bold text-gray-800 text-sm">
+                  {new Date(existingEvent.start_time).toLocaleDateString('he-IL')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4">
+              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+                <Clock size={20} />
+              </div>
+              <div className="pt-1">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-0.5">שעות</p>
+                <p className="font-bold text-gray-800 text-sm">
+                  {new Date(existingEvent.start_time).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})} - {new Date(existingEvent.end_time).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-white relative">
@@ -239,29 +310,43 @@ const EventForm = ({ onClose, initialSlot, existingEvent }) => {
         <div className="grid grid-cols-2 gap-3">
            <div>
               <label className="block text-xs font-black uppercase text-gray-400 mb-1 flex items-center gap-1"><Clock size={12} /> התחלה</label>
-              <input type="time" required value={formData.startTime} onChange={(e) => setFormData({...formData, startTime: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm font-bold" />
+              <input type="time" step="900" required value={formData.startTime} onChange={(e) => setFormData({...formData, startTime: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm font-bold" />
            </div>
            <div>
               <label className="block text-xs font-black uppercase text-gray-400 mb-1 flex items-center gap-1"><Clock size={12} /> סיום</label>
-              <input type="time" required value={formData.endTime} onChange={(e) => setFormData({...formData, endTime: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm font-bold" />
+              <input type="time" step="900" required value={formData.endTime} onChange={(e) => setFormData({...formData, endTime: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm font-bold" />
            </div>
         </div>
 
         {user?.role === 'trainer' && (
            <div className="pt-2">
              <label className="block text-xs font-black uppercase text-gray-400 mb-2">שיוך אירוע</label>
-             <select value={formData.assignment_target} onChange={(e) => setFormData({...formData, assignment_target: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-xl mb-2 text-sm font-bold">
+             <select value={formData.assignment_target} onChange={(e) => setFormData({...formData, assignment_target: e.target.value})} className="w-full p-2.5 border border-gray-200 rounded-xl mb-3 text-sm font-bold">
                <option value="self">רק לעצמי</option>
                <option value="group">לכל הקבוצה</option>
                <option value="specific">מתאמנים ספציפיים</option>
              </select>
              
              {formData.assignment_target === 'specific' && (
-               <div className="max-h-32 overflow-y-auto bg-gray-50 p-2 rounded-xl border">
+               <div className="max-h-40 overflow-y-auto bg-gray-50 p-2 rounded-xl border flex flex-col gap-1">
                  {mockTrainees.map(u => (
-                   <div key={u.id} className="flex items-center gap-2 p-1 text-sm font-bold cursor-pointer" onClick={() => toggleUserSelection(u.id)}>
-                     <input type="checkbox" checked={formData.assigned_user_ids.includes(u.id)} readOnly className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                     {u.name}
+                   <div 
+                     key={u.id} 
+                     className="flex items-center gap-3 p-2 text-sm font-bold cursor-pointer hover:bg-gray-100 rounded-lg transition-colors" 
+                     onClick={() => toggleUserSelection(u.id)}
+                   >
+                     <input 
+                       type="checkbox" 
+                       checked={formData.assigned_user_ids.includes(u.id)} 
+                       readOnly 
+                       className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                     />
+                     <img 
+                       src={u.picture || u.user_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random`} 
+                       alt={u.name} 
+                       className="w-7 h-7 rounded-full border border-gray-200 object-cover" 
+                     />
+                     <span>{u.name}</span>
                    </div>
                  ))}
                </div>
