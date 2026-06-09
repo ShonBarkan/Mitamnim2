@@ -32,6 +32,9 @@ import CreateTemplatePage from './pages/CreateTemplatePage';
 import ActiveWorkoutPage from './pages/ActiveWorkoutPage';
 import AthleteStatsPage from './pages/AthleteStatsPage';
 
+// Schedule System
+import SchedulePage from './pages/SchedulePage';
+
 function HomeRedirect() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
@@ -62,6 +65,7 @@ function App() {
                 <Route path="/ActiveWorkoutPage" element={<ActiveWorkoutPage />} />
                 <Route path="/statistics" element={<AthleteStatsPage />} />
                 <Route path="/log-diary" element={<LogDiaryPage />} />
+                <Route path="/schedule" element={<SchedulePage />} />
               </Route>
 
               {/* Trainer and admin user management route */}

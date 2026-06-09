@@ -15,6 +15,7 @@ import { SessionProvider } from '../contexts/SessionContext';
 import { ExerciseLogProvider } from '../contexts/ExerciseLogContext';
 import { DashboardConfigProvider } from '../contexts/DashboardConfigContext';
 import { StatisticsProvider } from '../contexts/StatisticsContext';
+import { ScheduleProvider } from '../contexts/ScheduleContext';
 
 /**
  * AppProviders Component
@@ -42,7 +43,9 @@ const AppProviders = ({ children }) => {
                           <ExerciseLogProvider>
                             <DashboardConfigProvider>
                               <StatisticsProvider>
-                                {children}
+                                <ScheduleProvider>
+                                  {children}  
+                                </ScheduleProvider>
                               </StatisticsProvider>
                             </DashboardConfigProvider>
                           </ExerciseLogProvider>

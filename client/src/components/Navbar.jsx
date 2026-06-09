@@ -16,7 +16,7 @@ const NAV_CONFIG = {
     { path: '/statistics', label: 'סטטיסטיקה', allowedRoles: ['trainer', 'trainee'] },
     { path: '/chats', label: "צ'אטים", allowedRoles: ['trainer', 'trainee'] },
     { path: '/exercises', label: 'תרגילים', allowedRoles: ['trainer', 'trainee'] },
-
+    { path: '/schedule', label: 'לוח זמנים', allowedRoles: ['trainer', 'trainee'] }
   ],
   managementLinks: [
     { path: '/users', label: 'מתאמנים', allowedRoles: ['trainer', 'admin'] },

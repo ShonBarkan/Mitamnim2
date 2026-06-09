@@ -29,6 +29,7 @@ from domains.ExerciseLog.router import router as logs_router
 from domains.WorkoutSession.router import router as sessions_router
 from domains.dashboard_configs.router import router as dashboard_router
 from domains.statistics.router import router as statistics_router
+from domains.schedule.router import router as schedule_router
 
 
 # Synchronize SQLAlchemy models with the database schema
@@ -149,6 +150,9 @@ app.include_router(sessions_router)
 # Dashboard and Analytics
 app.include_router(dashboard_router)
 app.include_router(statistics_router)
+
+# Schedule and Calendar Management
+app.include_router(schedule_router)
 
 
 @app.get("/")
