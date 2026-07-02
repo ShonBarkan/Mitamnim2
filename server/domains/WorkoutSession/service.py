@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import SQLAlchemyError
 from core.logger import logger
@@ -16,15 +16,14 @@ class SessionService:
         """Create a new workout session along with all nested logs and parameters."""
         logger.info(f"Creating new fat workout session for user: {user_id}")
         try:
-            # Step 1: Create the main session record
-            session_started_at = data.get("started_at", datetime.now())
+            # Step 1: Create the main session record with timezone awareness
+            session_started_at = data.get("started_at") or datetime.now(timezone.utc)
 
             new_session = WorkoutSession(
                 user_id=user_id,
                 template_id=data.get("template_id"),
                 name=data.get("name"),
                 started_at=session_started_at,
-                finished_at=data.get("finished_at"),
                 note=data.get("note")
             )
             self.db.add(new_session)
