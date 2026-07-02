@@ -21,6 +21,7 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
   
   const { sessions, fetchSessions, updateSession, removeSession, loading: sessionsLoading } = useSession();
   const { logs, fetchUserLogs, updateLog, removeLog, loading: logsLoading } = useExerciseLog() || {};
+  console.log(sessions);
 
   const effectiveUserId = forcedUserId || activeUser?.id;
 
@@ -143,9 +144,16 @@ const ExerciseLogPage = ({ embedded = false, forcedUserId = null }) => {
   const handleSaveSessionDate = async (sessionId, newDateString) => {
     if (!newDateString) return;
     try {
-      const d = new Date(newDateString);
-      const formattedDate = new Date(d.getTime() + d.getTimezoneOffset() * 60000).toISOString();
-      await updateSession(sessionId, { started_at: formattedDate });
+      const newStart = new Date(newDateString);
+      const payload = { started_at: newStart.toISOString() };
+
+      await updateSession(sessionId, payload);
+      
+      // Fetch fresh data so the UI reflects the cascaded logs timestamps from the backend
+      fetchSessions(effectiveUserId);
+      if (typeof fetchUserLogs === 'function') {
+        fetchUserLogs(effectiveUserId);
+      }
     } catch (e) {
       console.error("Error updating session date", e);
     }

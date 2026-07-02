@@ -1,19 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { Edit2, Trash2, Save, X } from 'lucide-react';
-
-// Helper to get absolute time string for the datetime-local input without timezone shifts
-const getLocalIsoString = (dateString) => {
-  if (!dateString) return '';
-  return dateString.slice(0, 16);
-};
+import CustomDateTimePicker from '../common/CustomDateTimePicker'; // Adjust path if needed
 
 const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, onDelete, canModify }) => {
   const [editParams, setEditParams] = useState(() => 
     log.params.reduce((acc, p) => ({ ...acc, [p.parameter_name]: p.value }), {})
   );
   
-  // Use the helper to ensure the input shows the correct local time
-  const [editDate, setEditDate] = useState(() => getLocalIsoString(log.created_at));
+  // Store the full date string or default to current time
+  const [editDate, setEditDate] = useState(() => log.created_at || new Date().toISOString());
 
   const { manualParams, virtualParams } = useMemo(() => {
     if (!exercise || !Array.isArray(exercise.parameters)) {
@@ -74,8 +69,8 @@ const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, 
     const payload = { params: updatedParams };
 
     // Only send created_at if the user explicitly modified the time
-    if (editDate !== getLocalIsoString(log.created_at)) {
-      payload.created_at = editDate + ":00"; // Append seconds to match naive ISO format
+    if (editDate !== log.created_at) {
+      payload.created_at = editDate;
     }
     
     onSave(payload);
@@ -87,11 +82,11 @@ const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, 
         <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4 pb-4 border-b border-blue-200/50">
             <span className="font-bold text-lg text-blue-900 whitespace-normal break-words">{log.exercise_name}</span>
             <div className="flex-1" />
-            <input 
-                type="datetime-local" 
-                value={editDate} 
-                onChange={(e) => setEditDate(e.target.value)}
-                className="p-2 bg-white border border-blue-200 rounded-xl text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-bold text-gray-700"
+            
+            {/* Custom DateTime Picker Component */}
+            <CustomDateTimePicker 
+              initialDate={editDate}
+              onChange={(formattedDateTime) => setEditDate(formattedDateTime)}
             />
         </div>
         
@@ -112,7 +107,7 @@ const LogEntryRow = ({ log, exercise, isEditing, onStartEdit, onSave, onCancel, 
           {virtualParams.map(vp => (
              <div key={vp.id} className="space-y-1.5">
                <label className="text-[10px] font-black uppercase text-indigo-600/70 tracking-wider">
-                 {vp.name} (מחושב)
+                 {vp.name} (Calculated)
                </label>
                <div className="w-full p-2 border border-indigo-100 rounded-xl bg-indigo-50/50 text-indigo-900 font-mono text-sm font-bold flex items-center h-[38px]">
                   {calculatedVirtuals[vp.name] || '0'}

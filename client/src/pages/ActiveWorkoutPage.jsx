@@ -36,7 +36,8 @@ const ActiveWorkoutPage = () => {
     template_id: null, 
     name: 'אימון חדש', 
     note: '', 
-    duration_minutes: 60, 
+    duration_minutes: 60,
+    started_at: new Date().toISOString(), // Initialize with current time
     logs: [] 
   });
   
@@ -84,6 +85,7 @@ const ActiveWorkoutPage = () => {
             name: template.name || 'אימון ללא שם',
             note: '',
             duration_minutes: template.estimated_duration || 60,
+            started_at: new Date().toISOString(),
             logs: expandedLogs
           });
         }
@@ -179,10 +181,10 @@ const ActiveWorkoutPage = () => {
       return;
     }
 
-    // Determine absolute timestamps based on user duration input
+    // Determine timestamps: use the user-defined started_at to calculate finished_at
     const durationMs = (activeWorkout.duration_minutes || 60) * 60000;
-    const finishedAt = new Date();
-    const startedAt = new Date(finishedAt.getTime() - durationMs);
+    const startedAt = activeWorkout.started_at ? new Date(activeWorkout.started_at) : new Date();
+    const finishedAt = new Date(startedAt.getTime() + durationMs);
 
     await submitSession({ 
       ...activeWorkout, 

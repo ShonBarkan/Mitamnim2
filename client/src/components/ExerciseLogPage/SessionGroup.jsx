@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Trash2, Clock, Save, X, Edit2, ChevronDown, ChevronUp } from 'lucide-react';
 import LogEntryRow from './LogEntryRow';
+import CustomDateTimePicker from '../common/CustomDateTimePicker'; 
 
 // Format helper specific to this component
 const formatTimeOnly = (isoString) => {
@@ -28,9 +29,8 @@ const SessionGroup = ({
   const startEditingDate = () => {
     if (!canModifyLogs) return;
     setIsEditingDate(true);
-    const tzOffset = (new Date()).getTimezoneOffset() * 60000;
-    const localISOTime = new Date(new Date(item.started_at) - tzOffset).toISOString().slice(0, -1);
-    setNewSessionDate(localISOTime.substring(0, 16));
+    // Initialize with the current session start time
+    setNewSessionDate(item.started_at);
   };
 
   const saveDate = () => {
@@ -56,8 +56,8 @@ const SessionGroup = ({
           {isSessionCollapsed ? <ChevronDown size={18}/> : <ChevronUp size={18}/>}
         </button>
 
-        {/* Session Name - Full text without truncation */}
-        <div className="pr-1 pl-10"> {/* pl-10 prevents overlap with the collapse button in RTL */}
+        {/* Session Name */}
+        <div className="pr-1 pl-10">
           <div className="text-sm font-bold text-blue-800 bg-blue-100/50 px-3 py-2 rounded-lg border border-blue-200/50 break-words leading-snug">
             {item.name}
           </div>
@@ -65,13 +65,13 @@ const SessionGroup = ({
         
         {/* Time display or Edit input */}
         {isEditingDate ? (
-          <div className="flex flex-col gap-2 bg-white p-3 rounded-lg border border-gray-200 shadow-sm mt-1">
-            <input 
-              type="datetime-local" 
-              className="text-xs p-1.5 border border-gray-300 rounded w-full outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-              value={newSessionDate}
-              onChange={(e) => setNewSessionDate(e.target.value)}
+          <div className="flex flex-col gap-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm mt-1">
+            
+            <CustomDateTimePicker 
+              initialDate={newSessionDate}
+              onChange={(formattedDateTime) => setNewSessionDate(formattedDateTime)}
             />
+
             <div className="flex gap-2 w-full mt-1">
               <button onClick={saveDate} className="flex-1 flex justify-center items-center gap-1 text-xs text-white bg-green-500 hover:bg-green-600 py-1.5 rounded font-bold transition-colors">
                 <Save size={12}/> שמור
@@ -84,7 +84,7 @@ const SessionGroup = ({
         ) : (
           <div className="flex items-center gap-1.5 text-sm font-bold text-gray-500 px-1">
             <Clock size={14} className="text-gray-400" /> 
-            <span>{formatTimeOnly(item.started_at)} {item.finished_at ? `- ${formatTimeOnly(item.finished_at)}` : ''}</span>
+            <span>{formatTimeOnly(item.started_at)}</span>
           </div>
         )}
         
@@ -99,7 +99,7 @@ const SessionGroup = ({
           </div>
         )}
 
-        {/* Subtle actions bar (Edit & Delete) */}
+        {/* Actions bar */}
         {canModifyLogs && !isEditingDate && (
           <div className="mt-auto pt-4 flex items-center justify-start gap-3 opacity-80 hover:opacity-100 transition-opacity">
             <button 
