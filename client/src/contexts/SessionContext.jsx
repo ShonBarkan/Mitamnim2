@@ -130,7 +130,7 @@ export const SessionProvider = ({ children }) => {
     activeSession,
     setActiveSession,
     loading,
-    fetchSessions, // Changed from fetchMySessions
+    fetchSessions,
     submitSession,
     updateSession,
     removeSession,
